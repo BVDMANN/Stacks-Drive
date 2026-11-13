@@ -63,6 +63,13 @@ alter table public.rides rename column price to estimated_price;
 alter table public.rides rename column note to message;
 alter table public.rides rename column vehicle_type to vehicle_preference;
 
+-- 3d-bis. La politique RLS v1 « Passengers book published rides » sur bookings
+-- dépend de la colonne seats_available (WITH CHECK : bookings.seats <= r.seats_available).
+-- On la supprime AVANT de supprimer la colonne — la table bookings disparaît
+-- de toute façon en section 4. (Correctif 13/11 : sans cette ligne, la migration
+-- échoue avec ERROR 2BP01 « cannot drop column seats_available ... depends on it ».)
+drop policy if exists "Passengers book published rides" on public.bookings;
+
 -- 3d. Colonnes de l'ancien modèle supprimées.
 alter table public.rides
   drop column if exists seats_total,
