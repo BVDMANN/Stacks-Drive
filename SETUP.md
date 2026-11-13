@@ -213,6 +213,11 @@ réévaluer quand le trafic grandira.
 - `supabase/migration-v2.sql` — modèle Uber (demandes + propositions, vérification).
 - `supabase/migration-v2.2.sql` — code PIN, gains chauffeur, gamification,
   avis & plaintes, journal d'audit (à exécuter UNE fois, voir ci-dessous).
+- `supabase/migration-v2.3.sql` — points chauffeur (table `driver_points`,
+  colonne `profiles.free_rides_remaining`, colonne
+  `driver_earnings.is_free_ride`, fonction `redeem_points_for_free_rides`,
+  `finalize_ride_earnings` remplacée) — à exécuter UNE fois après le
+  déploiement de la v2.3. Ne JAMAIS réexécuter les migrations précédentes.
 - `.env.example` — la liste des variables à remplir (sans aucune valeur).
 - `lib/commission.ts` — le taux de commission (5 % puis 8 %, plafond 10 %).
 - `lib/gamification.ts` — TOUS les chiffres de la gamification (quêtes,
@@ -291,5 +296,182 @@ vérifier en chargement frais : 6 marqueurs, prix, pages légales, auth.
 | « Le code PIN n'est pas encore activé » au démarrage | La migration v2.2 n'a pas été exécutée (étape 2). |
 | Gains à 0 dans le tableau de bord | La migration v2.2 n'a pas été exécutée, ou les courses ont été terminées avant elle — le tableau de bord les finalise tout seul à l'affichage (réparation paresseuse). |
 | « Plafond de dette atteint » pour un chauffeur | Ses commissions non réglées atteignent ~5 000 FCFA : enregistrer un règlement dans /admin (section Dépôts & règlements). |
-| Prix refusé à la proposition | Le prix est hors bornes (500–50 000 FCFA) ou trop éloigné du tarif de référence (×2) : voir le journal d'audit dans /admin. |
+| Prix refusé à la proposition | Le prix est hors bornes (400–50 000 FCFA) ou trop éloigné du tarif de référence (×2) : voir le journal d'audit dans /admin. |
 | Course verrouillée (PIN) | 5 codes faux : la débloquer dans /admin (section Dépôts & règlements → Courses verrouillées). |
+
+---
+
+# Stacks Drive v2.3 — Mise en ligne
+
+Prix baissés de 24 % (matrice `lib/pricing.ts` : nouveaux overrides +
+formule ×0,76 ; plancher Groupe 400 FCFA, Solo 550 FCFA), points
+chauffeur à la place de l'argent direct, vraie page d'accueil
+chauffeur. Commission inchangée : 5 % au lancement, 8 % ensuite,
+plafond 10 % (`lib/commission.ts` — ne jamais toucher).
+
+## Étape 1 — Déployer le code (Vercel, automatique au push)
+
+Comme pour la v2.2 : push sur `main` → déploiement Vercel → vérifier
+« Ready » en Production, puis vérifier en vrai navigateur en
+chargement frais.
+
+## Étape 2 — Exécuter migration-v2.3.sql dans Supabase (UNE fois)
+
+Dashboard Supabase → projet « stacks-drive » → SQL Editor → copier le
+contenu complet de `supabase/migration-v2.3.sql` → Run. **Une seule
+fois** — ne JAMAIS réexécuter `schema.sql`, `migration-v2.sql` ni
+`migration-v2.2.sql`.
+
+Contenu : table `driver_points` (registre des points, RLS : le
+chauffeur voit ses lignes, l'admin voit tout), colonne
+`profiles.free_rides_remaining`, colonne `driver_earnings.is_free_ride`,
+fonction `redeem_points_for_free_rides()` (échange atomique 10 000
+points = 5 courses sans commission), `finalize_ride_earnings()`
+remplacée (Course Double = points doublés, quêtes en points, borne
+d'anomalie 400 FCFA).
+
+Vérifications rapides (SQL Editor) :
+
+```sql
+select count(*) from public.driver_points;          -- 0
+select column_name from information_schema.columns
+  where table_name = 'profiles'
+  and column_name = 'free_rides_remaining';        -- 1 ligne
+select column_name from information_schema.columns
+  where table_name = 'driver_earnings'
+  and column_name = 'is_free_ride';                -- 1 ligne
+select proname from pg_proc where proname in
+  ('finalize_ride_earnings', 'redeem_points_for_free_rides');
+```
+
+## Étape 3 — Vérifier la v2.3 (checklist manuelle)
+
+1. **Prix -24 %** : Nzeng-Ayong → Centre-ville affiche Groupe 700 FCFA /
+   Solo 1 150 FCFA ; Centre-ville → Aéroport Léon-Mba, Solo 3 800 FCFA ;
+   pastille « Aéroport · 3 800 FCFA » sur l'accueil passager.
+2. **Accueil chauffeur** : connecté en chauffeur, l'accueil n'affiche
+   PLUS le formulaire de commande — interrupteur En ligne / Hors ligne,
+   gains du jour, montant dû, points, demandes entrantes, lien vers le
+   tableau de bord. La carte ne montre plus les autres chauffeurs.
+   Bascule Passager / Chauffeur (en haut) : chaque rôle a son accueil.
+3. **Points** : après une course terminée, le tableau de bord affiche
+   +100 points (200 sur Course Double, multiplicateur de niveau :
+   Argent ×1,05, Or ×1,10, Diamant ×1,25) ; la quête du jour donne
+   +1 000 points, le défi hebdo +5 000 points ; la popup de célébration
+   affiche les points gagnés.
+4. **Échange** : avec 10 000 points, le bouton d'échange du tableau de
+   bord est actif — après échange, 5 courses sans commission restantes ;
+   la course suivante clôturée a une commission de 0 FCFA et le compteur
+   passe à 4. Sans les 10 000 points, le bouton est désactivé.
+5. **Course sans commission** : visible dans l'historique du tableau de
+   bord (badge « SANS COMMISSION ») et dans /admin (coût des récompenses).
+
+## Dépannage v2.3
+
+| Problème | Cause probable / solution |
+|---|---|
+| Points à 0 après une course terminée | La migration v2.3 n'a pas été exécutée (étape 2). |
+| Échange impossible (« migration v2.3 ») | La fonction `redeem_points_for_free_rides` n'existe pas : exécuter `migration-v2.3.sql` (étape 2). |
+| L'accueil chauffeur affiche le formulaire passager | Le profil n'est pas passé à l'accueil (régression `app/page.tsx`) ou le rôle du compte n'est pas « chauffeur ». |
+| Prix refusé à la proposition | Le prix est hors bornes (400–50 000 FCFA) ou trop éloigné du tarif de référence (×2) : voir le journal d'audit dans /admin. |
+
+# Stacks Drive v2.4 — Mise en ligne
+
+Vérification chauffeur AUTOMATISÉE (décision de Randy, 14/11/2026 :
+« Automatise le max de trucs »). Le chauffeur n'est plus approuvé à la
+main : ses photos sont contrôlées dès l'envoi (visage, lecture de la
+pièce par OCR, doublons) et le serveur tranche — vérifié, refusé avec
+motif, ou ticket pour l'admin. Seuls les dossiers ambigus (et les
+doublons) arrivent dans /admin, triés par urgence, avec un e-mail si
+Resend est configuré. Commission inchangée : 5 % au lancement, 8 %
+ensuite, plafond 10 % (`lib/commission.ts` — ne jamais toucher). Prix
+inchangés (`lib/pricing.ts`, `lib/fare-guard.ts` — ne jamais toucher).
+
+## Étape 1 — Déployer le code (Vercel, automatique au push)
+
+Comme pour la v2.3 : push sur `main` → déploiement Vercel → vérifier
+« Ready » en Production, puis vérifier en vrai navigateur en
+chargement frais.
+
+## Étape 2 — Exécuter migration-v2.4.sql dans Supabase (UNE fois)
+
+Dashboard Supabase → projet « stacks-drive » → SQL Editor → copier le
+contenu complet de `supabase/migration-v2.4.sql` → Run. **Une seule
+fois** — ne JAMAIS réexécuter `schema.sql`, `migration-v2.sql`,
+`migration-v2.2.sql` ni `migration-v2.3.sql`.
+
+Contenu : colonnes `profiles.verification_checks` (JSONB),
+`verification_doc_hash`, `verification_image_hash`,
+`verification_auto_decision` ; index unique sur le hash du numéro de
+pièce ; table `verification_tickets` (RLS : admin partout, chauffeur
+en lecture de ses propres tickets) ; fonction
+`verification_auto_payload_consistent()` + remplacement du trigger
+anti-escalade `prevent_privilege_escalation()` (autorise la décision
+automatique du serveur, avec charge utile complète et cohérente).
+
+Vérifications rapides (SQL Editor) :
+
+```sql
+select count(*) from public.verification_tickets;   -- 0
+select column_name from information_schema.columns
+  where table_name = 'profiles'
+  and column_name like 'verification_%';            -- 7 lignes (4 anciennes + 3 nouvelles + auto_decision)
+select proname from pg_proc where proname =
+  'verification_auto_payload_consistent';           -- 1 ligne
+```
+
+## Étape 3 — Configurer les e-mails admin (Resend, plan gratuit)
+
+Sans cette étape, tout fonctionne, mais aucun e-mail n'est envoyé :
+les tickets restent visibles dans /admin (bandeau « E-mails non
+configurés »). **C'est Randy qui crée le compte** (Ruby ne crée pas
+de compte à son nom).
+
+1. Aller sur https://resend.com → « Start Building » → créer le
+   compte avec l'e-mail **boulinguirandy76@gmail.com**.
+2. Dashboard Resend → « API Keys » → « Create API Key » → nom
+   « stacks-drive », permission « Sending access » → copier la clé
+   (elle commence par `re_`, elle ne s'affiche qu'une fois).
+3. Vercel → projet stacks-drive → Settings → Environment Variables →
+   ajouter `RESEND_API_KEY` = la clé copiée (Production + Preview),
+   puis **redéployer** (Deployments → ⋯ → Redeploy).
+4. Optionnel : `ADMIN_EMAIL` (défaut : boulinguirandy76@gmail.com) et
+   `EMAIL_FROM` (défaut : `Stacks Drive <onboarding@resend.dev>` —
+   l'adresse du plan gratuit, qui ne peut envoyer qu'à l'e-mail du
+   propriétaire du compte Resend, c'est-à-dire l'admin lui-même).
+   Pour envoyer depuis un domaine à vous, vérifiez le domaine dans
+   Resend (Domaines → Add Domain) puis définissez EMAIL_FROM en
+   conséquence.
+5. En local : copier `.env.example` en `.env.local` et remplir
+   `RESEND_API_KEY` (jamais commité).
+
+## Étape 4 — Vérifier la v2.4 (checklist manuelle)
+
+1. **Auto-vérifié** : avec un compte chauffeur de test, envoyer un
+   selfie net + une CNI lisible (nom = nom du compte, majeure, en cours
+   de validité) → l'écran affiche « Compte vérifié ! » et le chauffeur
+   peut se mettre en ligne immédiatement, sans action admin.
+2. **Auto-refusé** : envoyer une pièce expirée (ou un selfie sans
+   visage + une pièce illisible) → l'écran affiche le motif précis et
+   le chauffeur peut renvoyer.
+3. **Ticket** : envoyer une pièce floue / partiellement lisible → le
+   dossier reste « en cours », un ticket apparaît dans /admin (section
+   « Tickets de vérification », trié par urgence) et, si Resend est
+   configuré, un e-mail arrive sur boulinguirandy76@gmail.com avec
+   l'explication, le compte rendu des contrôles et le niveau d'urgence.
+4. **Résolution** : dans /admin, ouvrir le ticket → approuver, refuser
+   ou demander de refaire → le statut du chauffeur et le ticket sont
+   mis à jour, et l'événement apparaît dans le journal d'audit.
+5. **Rappel de règlement** : sur le tableau de bord d'un chauffeur qui
+   doit des commissions depuis plus de 7 jours, un bandeau de rappel
+   s'affiche dans « Ce que tu dois ».
+
+## Dépannage v2.4
+
+| Problème | Cause probable / solution |
+|---|---|
+| Tous les dossiers restent « en cours » | La migration v2.4 n'a pas été exécutée (étape 2) : la route retombe sur l'ancien flux (revue manuelle). |
+| Aucun e-mail de ticket reçu | `RESEND_API_KEY` absente ou redéploiement Vercel oublié (étape 3) ; vérifier le bandeau dans /admin. Sur le plan gratuit, l'expéditeur `onboarding@resend.dev` ne peut écrire qu'à l'e-mail du compte Resend. |
+| « Vérification déjà en cours » au renvoi | Le dossier est en attente (ticket ouvert) : l'admin doit d'abord trancher, ou le chauffeur attend la décision. |
+| OCR très lent sur téléphone | Tesseract.js télécharge ses données au premier usage (~10 Mo) ; la lecture prend ensuite quelques secondes. Si le réseau est faible, le dossier part quand même et le serveur tranche. |
+| FaceDetector indisponible (iPhone/Safari) | Normal : la détection de visage native n'existe que sur Chrome/Android. Le contrôle est marqué « indisponible » et ne bloque pas — l'OCR fait foi. |

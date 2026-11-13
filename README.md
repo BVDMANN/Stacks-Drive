@@ -51,6 +51,7 @@ npm run build   # doit passer avant tout push
 
 - **v2.1.2** — en ligne et vérifiée en vrai navigateur le 13/11/2026 (6 marqueurs chauffeurs, noms de rues au zoom, thème « Libreville la nuit », CGU modèle dépôt + plafond).
 - **v2.2** — tableau de bord chauffeur, code PIN, vue course chauffeur, recommandations & plaintes, fiabilité des prix et des paiements, page d'erreur de marque.
+- **v2.3** — prix baissés de 24 % (`lib/pricing.ts`, plancher Groupe 400 FCFA) ; points chauffeur à la place de l'argent direct (100 points/course, 10 000 points = 5 courses sans commission, Course Double = points doublés, niveaux = multiplicateurs de points) ; vraie page d'accueil chauffeur (en ligne / hors ligne, gains du jour, points, demandes entrantes) — migration `supabase/migration-v2.3.sql` à exécuter une fois.
 
 ## Règles à respecter avant de modifier le code
 

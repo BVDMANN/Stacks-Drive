@@ -23,14 +23,16 @@ export interface FareEstimate {
 
 /** Tarifs fixes connus pour les trajets les plus courants — cohérents avec
  *  les anciennes courses démo. Clé symétrique « A|B » (aller = retour).
- *  Le prix Groupe est PAR PASSAGER (plus bas que le Solo). */
+ *  Le prix Groupe est PAR PASSAGER (plus bas que le Solo).
+ *  Baisse de 24 % décidée par Randy le 13/11/2026 (v2.3) : les anciens
+ *  tarifs sont dans l'historique Git, pas ici. */
 const FARE_OVERRIDES: Record<string, { solo: number; groupe: number }> = {
-  'Aéroport Léon-Mba|Centre-ville': { solo: 5000, groupe: 2500 },
-  'Glass|Nzeng-Ayong': { solo: 1800, groupe: 1200 },
-  'Charbonnages|Owendo': { solo: 2200, groupe: 1500 },
-  'Centre-ville|Nzeng-Ayong': { solo: 1500, groupe: 900 },
-  'Akanda|Aéroport Léon-Mba': { solo: 2500, groupe: 1500 },
-  'Nzeng-Ayong|Owendo': { solo: 1200, groupe: 700 },
+  'Aéroport Léon-Mba|Centre-ville': { solo: 3800, groupe: 1900 },
+  'Glass|Nzeng-Ayong': { solo: 1350, groupe: 900 },
+  'Charbonnages|Owendo': { solo: 1650, groupe: 1150 },
+  'Centre-ville|Nzeng-Ayong': { solo: 1150, groupe: 700 },
+  'Akanda|Aéroport Léon-Mba': { solo: 1900, groupe: 1150 },
+  'Nzeng-Ayong|Owendo': { solo: 900, groupe: 550 },
 };
 
 const AIRPORT = 'Aéroport Léon-Mba';
@@ -57,7 +59,9 @@ export function distanceBetween(a: Neighborhood, b: Neighborhood): number {
 
 /** Estimation de prix fixe pour un trajet. Le prix est calculé côté
  *  serveur à la création de la demande (jamais depuis le client) et
- *  figé à l'acceptation de la proposition. */
+ *  figé à l'acceptation de la proposition. Formule hors overrides :
+ *  base × 0,76 (baisse de 24 % décidée par Randy, v2.3), planchers
+ *  550 FCFA en Solo et 400 FCFA en Groupe. */
 export function estimateFare(
   pickup: Neighborhood,
   destination: Neighborhood,
@@ -81,12 +85,12 @@ export function estimateFare(
     price = rideType === 'solo' ? override.solo : override.groupe;
     if (pref === 'moto' && rideType === 'solo') price = round50(price * 0.6);
   } else if (rideType === 'solo') {
-    price = round50(600 + 280 * distanceKm + (isAirport ? 800 : 0));
+    price = round50((600 + 280 * distanceKm + (isAirport ? 800 : 0)) * 0.76);
     if (pref === 'moto') price = round50(price * 0.6);
-    price = Math.max(price, 700);
+    price = Math.max(price, 550);
   } else {
-    price = round50(350 + 160 * distanceKm + (isAirport ? 400 : 0));
-    price = Math.max(price, 500);
+    price = round50((350 + 160 * distanceKm + (isAirport ? 400 : 0)) * 0.76);
+    price = Math.max(price, 400);
   }
 
   const breakdown = `Tarif fixe · ~${Math.max(1, Math.round(distanceKm))} km · ~${durationMin} min${

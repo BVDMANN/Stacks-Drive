@@ -82,6 +82,21 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       );
     }
+    // v2.4 — une décision manuelle résout aussi les tickets ouverts du
+    // chauffeur (sinon le ticket resterait ouvert après la décision).
+    try {
+      await supabase
+        .from('verification_tickets')
+        .update({
+          status: 'resolu',
+          resolved_at: new Date().toISOString(),
+          resolved_by: user.id,
+        })
+        .eq('driver_id', v.driverId)
+        .eq('status', 'ouvert');
+    } catch {
+      // Table v2.4 absente : rien à résoudre.
+    }
     return NextResponse.json({ ok: true });
   }
 

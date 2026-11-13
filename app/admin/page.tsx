@@ -3,10 +3,13 @@ import { redirect } from 'next/navigation';
 import { PageShell } from '@/components/shared/PageShell';
 import { RideStatusBadge, VerificationStatusBadge } from '@/components/shared/StatusBadge';
 import { VerificationReview, type PendingDriver } from '@/components/admin/VerificationReview';
+import { VerificationTickets, type TicketWithUrls } from '@/components/admin/VerificationTickets';
 import { FeedbackReview } from '@/components/admin/FeedbackReview';
 import { AdminDriverPayments, type LockedRide } from '@/components/admin/AdminDriverPayments';
 import { getSessionUser, createClient } from '@/lib/supabase/server';
 import { getAdminStats, getPendingVerifications } from '@/lib/rides';
+import { getVerificationTickets } from '@/lib/tickets-server';
+import { isEmailConfigured } from '@/lib/email';
 import { getAdminDriverMoney } from '@/lib/earnings';
 import { AUDIT_LABELS, getRecentAuditEvents } from '@/lib/audit';
 import { COMMISSION_RATE, formatFcfa } from '@/lib/commission';
@@ -35,7 +38,13 @@ export default async function AdminPage() {
     );
   }
 
-  const [stats, pending] = await Promise.all([getAdminStats(), getPendingVerifications()]);
+  const [stats, pending, tickets] = await Promise.all([
+    getAdminStats(),
+    getPendingVerifications(),
+    getVerificationTickets(),
+  ]);
+  const emailConfigured = isEmailConfigured();
+  const openTickets = tickets.filter((t) => t.status === 'ouvert').length;
 
   const supabase = await createClient();
   const [driverMoney, auditEvents] = await Promise.all([
@@ -94,6 +103,26 @@ export default async function AdminPage() {
     })
   );
 
+  // Liens signés (1 h) vers le selfie et la pièce des tickets ouverts —
+  // le bucket est privé.
+  const ticketsWithUrls: TicketWithUrls[] = await Promise.all(
+    tickets.map(async (t) => {
+      const [selfie, doc] = await Promise.all([
+        t.selfiePath
+          ? supabase.storage.from('driver-documents').createSignedUrl(t.selfiePath, 3600)
+          : null,
+        t.documentPath
+          ? supabase.storage.from('driver-documents').createSignedUrl(t.documentPath, 3600)
+          : null,
+      ]);
+      return {
+        ...t,
+        selfieUrl: selfie?.data?.signedUrl ?? null,
+        documentUrl: doc?.data?.signedUrl ?? null,
+      };
+    })
+  );
+
   return (
     <PageShell
       title="Administration"
@@ -107,10 +136,11 @@ export default async function AdminPage() {
           { value: stats.proposalsCount, label: 'Propositions chauffeurs' },
           { value: stats.driversCount, label: 'Chauffeurs inscrits' },
           { value: stats.pendingVerifications, label: 'Vérifications en attente' },
+          { value: openTickets, label: 'Tickets de vérification ouverts' },
           { value: formatFcfa(stats.totalVolume), label: 'Volume des courses (confirmées)' },
           { value: formatFcfa(stats.totalCommission), label: `Commission Stacks Drive (${Math.round(COMMISSION_RATE * 100)} %)` },
           { value: formatFcfa(totalOwed), label: 'Commissions dues (à encaisser)' },
-          { value: formatFcfa(totalPlatformCost), label: 'Coût des récompenses (Double + quêtes + fidélité)' },
+          { value: formatFcfa(totalPlatformCost), label: 'Coût des récompenses (courses sans commission + fidélité)' },
           { value: lockedRides.length, label: 'Courses verrouillées (PIN)' },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
@@ -179,6 +209,21 @@ export default async function AdminPage() {
         )}
       </section>
 
+      {/* Tickets de vérification (v2.4) — dossiers ambigus uniquement */}
+      <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+        <h2 className="font-black text-lg text-slate-900">
+          Tickets de vérification ({openTickets} ouverts)
+        </h2>
+        <p className="text-sm text-slate-500">
+          Les contrôles automatiques tranchent la plupart des dossiers
+          (vérifié ou refusé avec motif). Seuls les cas ambigus — et les
+          doublons détectés — arrivent ici, triés par urgence. Chaque ticket
+          est aussi envoyé par e-mail à l’administrateur quand Resend est
+          configuré.
+        </p>
+        <VerificationTickets tickets={ticketsWithUrls} emailConfigured={emailConfigured} />
+      </section>
+
       {/* Vérifications en attente */}
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-black text-lg text-slate-900">
@@ -187,6 +232,9 @@ export default async function AdminPage() {
         <p className="text-sm text-slate-500">
           Selfie + pièce d’identité (ou permis) à contrôler avant d’activer le
           badge « Vérifié ». Un chauffeur non vérifié ne peut pas se mettre en ligne.
+          Depuis la v2.4, la plupart des dossiers sont tranchés
+          automatiquement : ne restent ici que les dossiers en attente sans
+          ticket (envoyés avant la v2.4, ou contrôles indisponibles).
         </p>
         <VerificationReview drivers={pendingWithUrls} />
       </section>

@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, PartyPopper, Sparkles, Trophy, X } from 'lucide-react';
 
-/** Données renvoyées par l'API à la clôture d'une course. */
+/** Données renvoyées par l'API à la clôture d'une course. Les bonus
+ *  sont en POINTS depuis la v2.3 (plus d'argent direct). */
 export interface CelebrationData {
   fare: number;
   fareLabel: string;
@@ -19,6 +20,7 @@ export interface CelebrationData {
   questDone: number;
   questTarget: number;
   questBonusAmount: number;
+  pointsEarned: number;
   streakDays: number;
   tier: string;
   completedRides: number;
@@ -26,8 +28,9 @@ export interface CelebrationData {
 
 const CONFETTI_COLORS = ['#FFC700', '#22D3EE', '#FFD60A', '#FFFFFF', '#3A75C4', '#FCD116'];
 
-/** Popup de célébration après chaque course terminée (v2.2) : confettis,
- *  flash doré, montant gardé en gros, % gardé, progression de la quête.
+/** Popup de célébration après chaque course terminée (v2.2, points
+ *  en v2.3) : confettis, flash doré, montant gardé en gros, % gardé,
+ *  points gagnés, progression de la quête.
  *  Les chiffres sont VRAIS (montants de la base) — on met en scène des
  *  gains réels, on n'invente rien. */
 export function CelebrationPopup({
@@ -131,7 +134,7 @@ export function CelebrationPopup({
         </h2>
         <p className="text-sm text-slate-400 mt-1">
           {celebration.isDoubleRide
-            ? 'Commission offerte sur cette course — tu gardes 100 % du tarif.'
+            ? 'Points doublés sur cette course — 200 points au lieu de 100.'
             : `Tu gardes ${celebration.keptPct} % de cette course.`}
         </p>
 
@@ -150,9 +153,15 @@ export function CelebrationPopup({
             : ' · 0 FCFA de commission'}
         </p>
 
+        {celebration.pointsEarned > 0 && (
+          <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-gold bg-gold/10 border border-gold/30 rounded-full px-4 py-2">
+            <Sparkles size={15} /> +{celebration.pointsEarned} points gagnés !
+          </p>
+        )}
+
         {celebration.questBonus > 0 && (
           <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-gold bg-gold/10 border border-gold/30 rounded-full px-4 py-2">
-            <Sparkles size={15} /> Bonus de quête : +{celebration.questBonus} FCFA !
+            <Sparkles size={15} /> Bonus de quête : +{celebration.questBonus} points !
           </p>
         )}
 
@@ -163,7 +172,7 @@ export function CelebrationPopup({
               Quête du jour : {celebration.questDone} / {celebration.questTarget} courses
             </p>
             <span className="text-xs font-black text-gold">
-              +{celebration.questBonusAmount} FCFA
+              +{celebration.questBonusAmount} points
             </span>
           </div>
           <div className="h-3 rounded-full bg-white/10 overflow-hidden">
@@ -176,8 +185,8 @@ export function CelebrationPopup({
           </div>
           <p className="text-xs text-slate-400">
             {questDone
-              ? 'Quête validée — bonus versé !'
-              : `Plus que ${celebration.questTarget - celebration.questDone} course${celebration.questTarget - celebration.questDone > 1 ? 's' : ''} pour ton bonus.`}
+              ? 'Quête validée — 1 000 points versés !'
+              : `Plus que ${celebration.questTarget - celebration.questDone} course${celebration.questTarget - celebration.questDone > 1 ? 's' : ''} pour ton bonus de ${celebration.questBonusAmount} points.`}
           </p>
         </div>
 

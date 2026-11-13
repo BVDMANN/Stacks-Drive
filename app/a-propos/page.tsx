@@ -87,11 +87,11 @@ export default function AProposPage() {
           <p className="text-slate-300 leading-relaxed">
             Le tarif est annoncé avant la course et ne bouge pas — ni aux heures
             de pointe, ni la nuit. Exemple : Centre-ville → Aéroport Léon-Mba,
-            5 000 FCFA en Solo, tarif fixe connu d’avance.
+            3 800 FCFA en Solo, tarif fixe connu d’avance.
           </p>
           <p className="text-slate-300 leading-relaxed">
             Le mode Groupe, comme le taxi partagé, divise le prix par passager :
-            Nzeng-Ayong → Centre-ville, 900 FCFA par passager.
+            Nzeng-Ayong → Centre-ville, 700 FCFA par passager.
           </p>
           <p className="text-slate-300 leading-relaxed">
             Paiement en espèces, Airtel Money ou Moov Money, directement avec

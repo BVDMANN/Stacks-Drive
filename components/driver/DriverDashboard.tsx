@@ -360,7 +360,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             {formatFcfa(activeRide.proposedPrice ?? activeRide.estimatedPrice)}
             {activeRide.loyaltyFree ? ' · course offerte (fidélité — tu touches tout le tarif)' : ` · dont ${formatFcfa(activeRide.driverShare)} pour toi`}
             {activeRide.firstStop ? ` · 1er arrêt : ${activeRide.firstStop}` : ''}
-            {activeRide.isDoubleRide ? ' · COURSE DOUBLE — tu gardes 100 %' : ''}
+            {activeRide.isDoubleRide ? ' · COURSE DOUBLE — points doublés' : ''}
           </p>
           {activeRide.status === 'acceptee' && (
             <PinEntry rideId={activeRide.id} onStarted={() => fetchMine()} />
@@ -526,7 +526,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             </p>
             <p className="text-sm text-slate-300">
               Encore {offlineConfirm.remaining} course{offlineConfirm.remaining > 1 ? 's' : ''} et tu
-              gagnes {formatFcfa(offlineConfirm.bonus)} de bonus aujourd’hui. Tu restes en ligne ?
+              gagnes {offlineConfirm.bonus.toLocaleString('fr-FR')} points de bonus aujourd’hui. Tu restes en ligne ?
             </p>
             <div className="flex gap-2">
               <button

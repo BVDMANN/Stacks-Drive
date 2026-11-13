@@ -34,6 +34,11 @@ export interface ProfileRow {
   id_document_url: string | null;
   id_document_type: IdDocumentType | null;
   verification_note: string | null;
+  /** v2.4 — contrôles automatiques (JSONB), empreintes, décision auto. */
+  verification_checks: Record<string, unknown> | null;
+  verification_doc_hash: string | null;
+  verification_image_hash: string | null;
+  verification_auto_decision: 'verifie' | 'refuse' | 'ambigu' | null;
   current_area: Neighborhood | null;
   last_lat: number | null;
   last_lng: number | null;

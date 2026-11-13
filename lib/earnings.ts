@@ -18,8 +18,11 @@ import {
   WEEKLY_QUEST,
   DEBT_CAP_FCFA,
   DEPOSIT_FCFA,
+  POINTS_REDEEM_TARGET,
+  POINTS_REDEEM_FREE_RIDES,
   getNextTier,
   getTierForStats,
+  pointsForRide,
   NUDGE_REMAINING_RIDES,
   type DriverTierName,
 } from '@/lib/gamification';
@@ -39,6 +42,8 @@ export interface EarningRow {
   commission: number;
   kept: number;
   isDoubleRide: boolean;
+  /** Course sans commission (échange de points, v2.3). */
+  isFreeRide: boolean;
   questBonus: number;
   platformCost: number;
   day: string;
@@ -51,6 +56,10 @@ export interface DriverEarningsSummary {
   month: PeriodStats;
   /** Commission due (non réglée) = Σ commissions − Σ règlements. */
   owed: number;
+  /** Dernier règlement (ISO) et rappel automatique (v2.4) : dû > 0 et
+   *  dernier règlement vieux de plus de 7 jours (ou aucun règlement). */
+  lastSettlementAt: string | null;
+  settlementReminder: { show: boolean; daysSince: number | null; owed: number };
   /** Dépôt de garantie. */
   deposit: { paid: boolean; amount: number; paidAt: string | null };
   /** Dette vs plafond. */
@@ -64,10 +73,21 @@ export interface DriverEarningsSummary {
     ratingNeeded: number | null;
     perk: string;
   };
-  /** Quête du jour + défi hebdo. */
+  /** Quête du jour + défi hebdo (bonus en POINTS depuis la v2.3). */
   quest: {
     day: { target: number; done: number; bonus: number; claimed: boolean };
     week: { target: number; done: number; bonus: number; claimed: boolean };
+  };
+  /** Points (v2.3) : solde, progression vers l'échange, courses
+   *  sans commission restantes, points gagnés par course au niveau
+   *  actuel. Le champ `bonus` des quêtes est aussi en points. */
+  points: {
+    balance: number;
+    perRide: number;
+    target: number;
+    freeRides: number;
+    progress: number;
+    multiplier: number;
   };
   /** Série : jours d'affilée avec au moins une course. */
   streakDays: number;
@@ -96,6 +116,8 @@ function emptySummary(): DriverEarningsSummary {
     week: { ...EMPTY_PERIOD },
     month: { ...EMPTY_PERIOD },
     owed: 0,
+    lastSettlementAt: null,
+    settlementReminder: { show: false, daysSince: null, owed: 0 },
     deposit: { paid: false, amount: DEPOSIT_FCFA, paidAt: null },
     debt: { amount: 0, cap: DEBT_CAP_FCFA, blocked: false, progress: 0 },
     tier: {
@@ -107,8 +129,16 @@ function emptySummary(): DriverEarningsSummary {
       perk: '',
     },
     quest: {
-      day: { target: DAILY_QUEST.targetRides, done: 0, bonus: DAILY_QUEST.bonusFcfa, claimed: false },
-      week: { target: WEEKLY_QUEST.targetRides, done: 0, bonus: WEEKLY_QUEST.bonusFcfa, claimed: false },
+      day: { target: DAILY_QUEST.targetRides, done: 0, bonus: DAILY_QUEST.bonusPoints, claimed: false },
+      week: { target: WEEKLY_QUEST.targetRides, done: 0, bonus: WEEKLY_QUEST.bonusPoints, claimed: false },
+    },
+    points: {
+      balance: 0,
+      perRide: 100,
+      target: POINTS_REDEEM_TARGET,
+      freeRides: 0,
+      progress: 0,
+      multiplier: 1,
     },
     streakDays: 0,
     nudge: null,
@@ -146,6 +176,7 @@ interface EarningDbRow {
   commission_amount: number;
   driver_kept_amount: number;
   is_double_ride: boolean;
+  is_free_ride: boolean | null;
   quest_bonus: number;
   platform_cost: number;
   period_day: string;
@@ -216,7 +247,7 @@ export async function getDriverEarningsSummary(
   const { data: earnings, error: earningsError } = await supabase
     .from('driver_earnings')
     .select(
-      'ride_id, fare_amount, commission_amount, driver_kept_amount, is_double_ride, quest_bonus, platform_cost, period_day, period_week, period_month'
+      'ride_id, fare_amount, commission_amount, driver_kept_amount, is_double_ride, is_free_ride, quest_bonus, platform_cost, period_day, period_week, period_month'
     )
     .eq('driver_id', driverId)
     .order('created_at', { ascending: false })
@@ -250,17 +281,18 @@ export async function getDriverEarningsSummary(
     commission: r.commission_amount,
     kept: r.driver_kept_amount,
     isDoubleRide: r.is_double_ride,
+    isFreeRide: r.is_free_ride ?? false,
     questBonus: r.quest_bonus,
     platformCost: r.platform_cost,
     day: r.period_day,
   }));
   summary.streakDays = computeStreak(new Set(rows.map((r) => r.period_day)), day);
 
-  // 2. Règlements → montant dû.
+  // 2. Règlements → montant dû + rappel hebdomadaire (v2.4).
   const totalCommission = rows.reduce((s, r) => s + r.commission_amount, 0);
   const { data: settlements } = await supabase
     .from('driver_settlements')
-    .select('amount')
+    .select('amount, created_at')
     .eq('driver_id', driverId);
   const totalSettled = (settlements ?? []).reduce(
     (s: number, r: { amount: number }) => s + (r.amount ?? 0),
@@ -268,6 +300,23 @@ export async function getDriverEarningsSummary(
   );
   const owed = Math.max(0, totalCommission - totalSettled);
   summary.owed = owed;
+  // Dernier règlement : rappel affiché quand il y a un dû et que le
+  // dernier règlement date de plus de 7 jours (ou qu'il n'y en a aucun).
+  const lastSettlementAt = (settlements ?? [])
+    .map((r: { created_at: string | null }) => r.created_at)
+    .filter((d): d is string => typeof d === 'string' && d.length > 0)
+    .sort()
+    .pop() ?? null;
+  summary.lastSettlementAt = lastSettlementAt;
+  const daysSince =
+    lastSettlementAt !== null
+      ? Math.floor((Date.now() - new Date(lastSettlementAt).getTime()) / (24 * 60 * 60 * 1000))
+      : null;
+  summary.settlementReminder = {
+    show: owed > 0 && (daysSince === null || daysSince > 7),
+    daysSince,
+    owed,
+  };
   summary.debt = {
     amount: owed,
     cap: DEBT_CAP_FCFA,
@@ -275,10 +324,11 @@ export async function getDriverEarningsSummary(
     progress: Math.min(1, owed / DEBT_CAP_FCFA),
   };
 
-  // 3. Dépôt + note moyenne (depuis les courses terminées).
+  // 3. Dépôt + note moyenne (depuis les courses terminées) + courses
+  // sans commission restantes (v2.3).
   const { data: profile } = await supabase
     .from('profiles')
-    .select('deposit_paid, deposit_amount, deposit_paid_at')
+    .select('deposit_paid, deposit_amount, deposit_paid_at, free_rides_remaining')
     .eq('id', driverId)
     .single();
   if (profile) {
@@ -287,6 +337,7 @@ export async function getDriverEarningsSummary(
       amount: profile.deposit_amount ?? DEPOSIT_FCFA,
       paidAt: profile.deposit_paid_at ?? null,
     };
+    summary.points.freeRides = profile.free_rides_remaining ?? 0;
   }
   const { data: rated } = await supabase
     .from('rides')
@@ -332,30 +383,51 @@ export async function getDriverEarningsSummary(
     day: {
       target: DAILY_QUEST.targetRides,
       done: summary.today.rides,
-      bonus: DAILY_QUEST.bonusFcfa,
+      bonus: DAILY_QUEST.bonusPoints,
       claimed: claimedDay,
     },
     week: {
       target: WEEKLY_QUEST.targetRides,
       done: summary.week.rides,
-      bonus: WEEKLY_QUEST.bonusFcfa,
+      bonus: WEEKLY_QUEST.bonusPoints,
       claimed: claimedWeek,
     },
   };
   const remaining = DAILY_QUEST.targetRides - summary.today.rides;
   summary.nudge =
     remaining > 0 && remaining <= NUDGE_REMAINING_RIDES
-      ? { show: true, remaining, bonus: DAILY_QUEST.bonusFcfa }
+      ? { show: true, remaining, bonus: DAILY_QUEST.bonusPoints }
       : null;
 
-  // 6. Badges.
+  // 6. Points (v2.3) : solde du registre driver_points + progression
+  // vers l'échange. Si la table n'existe pas encore (migration v2.3
+  // non appliquée) : solde 0, jamais de crash.
+  const { data: pointRows } = await supabase
+    .from('driver_points')
+    .select('points')
+    .eq('driver_id', driverId);
+  const balance = (pointRows ?? []).reduce(
+    (s: number, r: { points: number }) => s + (r.points ?? 0),
+    0
+  );
+  const perRide = pointsForRide(tier.name, false);
+  summary.points = {
+    balance: Math.max(0, balance),
+    perRide,
+    target: POINTS_REDEEM_TARGET,
+    freeRides: summary.points.freeRides,
+    progress: Math.min(1, Math.max(0, balance) / POINTS_REDEEM_TARGET),
+    multiplier: perRide / 100,
+  };
+
+  // 7. Badges.
   const { data: badges } = await supabase
     .from('driver_badges')
     .select('badge')
     .eq('driver_id', driverId);
   summary.badges = (badges ?? []).map((b: { badge: string }) => b.badge);
 
-  // 7. Chauffeur de la semaine.
+  // 8. Chauffeur de la semaine.
   const { data: dow } = await supabase.rpc('get_driver_of_week');
   if (dow && typeof dow === 'object' && (dow as { driver_id?: string }).driver_id) {
     const d = dow as { driver_id: string; name: string | null; rides: number; rating: number | null };

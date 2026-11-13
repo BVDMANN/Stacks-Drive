@@ -117,9 +117,9 @@ export default function DevenirChauffeurPage() {
           </h2>
           <p className="text-slate-400 leading-relaxed max-w-2xl">
             Une quête chaque jour, un défi chaque semaine, des niveaux Bronze,
-            Argent, Or, Diamant — et de temps en temps, une Course Double sans
-            commission. Rien d’obligatoire, juste de quoi rendre la journée un
-            peu plus fun quand tu roules.
+            Argent, Or, Diamant — et de temps en temps, une Course Double qui
+            double tes points. Rien d’obligatoire, juste de quoi rendre la
+            journée un peu plus fun quand tu roules.
           </p>
           <p className="text-sm text-slate-500">
             Ton tableau de bord te montre tes gains par course, sur 24 h, sur la

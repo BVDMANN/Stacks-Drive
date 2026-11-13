@@ -7,9 +7,16 @@
  *  70-85 % chez Yango / Gozem) : on met en scène des gains réels,
  *  on n'invente pas de chiffres.
  *
+ *  Points (v2.3, décision Randy 13/11/2026) : plus d'argent direct.
+ *  Le chauffeur gagne des POINTS par course terminée (100, 200 sur une
+ *  Course Double, bonus de quête en points) et les échange contre des
+ *  courses sans commission (10 000 points = 5 courses où il garde 100 %).
+ *  Les niveaux ne réduisent PLUS la commission : ils multiplient les
+ *  points gagnés (Argent +5 %, Or +10 %, Diamant +25 %).
+ *
  *  ⚠️ NE PAS toucher aux constantes de lib/commission.ts (5 % lancement,
- *  8 % permanent, plafond 10 %) : les niveaux ci-dessous ne font que
- *  RÉDUIRE le taux pour les meilleurs chauffeurs, jamais l'augmenter.
+ *  8 % permanent, plafond 10 %) : le taux de commission ne dépend plus
+ *  du niveau, il est le même pour tous les chauffeurs.
  */
 
 import { COMMISSION_CAP, COMMISSION_RATE } from './commission';
@@ -17,23 +24,35 @@ import { COMMISSION_CAP, COMMISSION_RATE } from './commission';
 /** Nom d'un niveau chauffeur. */
 export type DriverTierName = 'Bronze' | 'Argent' | 'Or' | 'Diamant';
 
-/** Quête du jour (défaut proposé : 8 courses → bonus 1 000 FCFA). */
+/** Points gagnés par course terminée (v2.3). */
+export const POINTS_PER_RIDE = 100;
+/** Points gagnés sur une Course Double (points doublés, v2.3). */
+export const POINTS_PER_DOUBLE_RIDE = 200;
+/** Points à accumuler pour échanger contre des courses sans commission. */
+export const POINTS_REDEEM_TARGET = 10000;
+/** Courses sans commission offertes à chaque échange de 10 000 points. */
+export const POINTS_REDEEM_FREE_RIDES = 5;
+
+/** Quête du jour (défaut proposé : 8 courses → 1 000 points, v2.3).
+ *  Plus de bonus en argent : la quête paie en points. */
 export const DAILY_QUEST = {
   /** Courses terminées dans la journée pour valider la quête. */
   targetRides: 8,
-  /** Bonus versé par la plateforme quand la quête est validée (FCFA).
-   *  Enregistré comme coût plateforme dans driver_earnings. */
-  bonusFcfa: 1000,
+  /** Points versés par la plateforme quand la quête est validée.
+   *  Enregistrés dans driver_points (table v2.3), jamais en argent. */
+  bonusPoints: 1000,
 } as const;
 
-/** Défi hebdomadaire (lundi → dimanche). */
+/** Défi hebdomadaire (lundi → dimanche) : 40 courses → 5 000 points. */
 export const WEEKLY_QUEST = {
   targetRides: 40,
-  bonusFcfa: 5000,
+  bonusPoints: 5000,
 } as const;
 
 /** Probabilité qu'une course acceptée soit une « Course Double »
- *  (~1 course sur 10, tirée au sort côté serveur à l'acceptation). */
+ *  (~1 course sur 10, tirée au sort côté serveur à l'acceptation).
+ *  Depuis la v2.3, la Course Double ne donne PLUS la commission
+ *  offerte : elle double les points de la course (200 au lieu de 100). */
 export const DOUBLE_RIDE_CHANCE = 0.1;
 
 /** Dépôt de garantie remboursable demandé à l'inscription (FCFA). */
@@ -44,16 +63,18 @@ export const DEPOSIT_FCFA = 5000;
 export const DEBT_CAP_FCFA = 5000;
 
 /** Niveaux chauffeur : paliers (courses terminées + note moyenne) et
- *  réduction de commission. Les niveaux Or / Diamant sont à valider par
- *  Randy (coût : 1 à 2 points de commission offerts aux meilleurs). */
+ *  multiplicateur de points (v2.3). Les niveaux ne réduisent PLUS la
+ *  commission — le taux est le même pour tous (5 % puis 8 %) ; ils
+ *  font gagner plus de points par course. */
 export interface TierDefinition {
   name: DriverTierName;
   /** Courses terminées pour atteindre le niveau. */
   minRides: number;
   /** Note moyenne minimale (0 = pas d'exigence). */
   minRating: number;
-  /** Points de commission offerts (0.01 = 1 point). */
-  commissionDiscount: number;
+  /** Multiplicateur de points gagnés (1 = 100 points/course,
+   *  1.10 = 110 points/course). */
+  pointsMultiplier: number;
   /** Avantage affiché dans l'appli. */
   perk: string;
 }
@@ -63,29 +84,29 @@ export const TIERS: TierDefinition[] = [
     name: 'Bronze',
     minRides: 0,
     minRating: 0,
-    commissionDiscount: 0,
+    pointsMultiplier: 1,
     perk: 'Bienvenue sur Stacks Drive — ta commission de lancement est de 5 %.',
   },
   {
     name: 'Argent',
     minRides: 20,
     minRating: 0,
-    commissionDiscount: 0,
-    perk: '20 courses terminées — badge Argent et priorité dans les demandes.',
+    pointsMultiplier: 1.05,
+    perk: '20 courses terminées — badge Argent, priorité dans les demandes et +5 % de points.',
   },
   {
     name: 'Or',
     minRides: 50,
     minRating: 4.5,
-    commissionDiscount: 0.01,
-    perk: 'Commission réduite : 1 point offert (ex : 5 % → 4 % au lancement).',
+    pointsMultiplier: 1.1,
+    perk: '+10 % de points sur chaque course — 110 points au lieu de 100.',
   },
   {
     name: 'Diamant',
     minRides: 100,
     minRating: 4.5,
-    commissionDiscount: 0.02,
-    perk: 'Commission réduite : 2 points offerts — le meilleur taux de Libreville.',
+    pointsMultiplier: 1.25,
+    perk: '+25 % de points sur chaque course — 125 points au lieu de 100, le meilleur bonus de Libreville.',
   },
 ];
 
@@ -117,17 +138,30 @@ export function getNextTier(completedRides: number, avgRating: number | null): {
   return { tier: next, ridesLeft, ratingNeeded };
 }
 
-/** Taux de commission effectif pour un chauffeur selon son niveau.
- *  Ne touche JAMAIS aux constantes de lib/commission.ts : le taux de
- *  base vient de là, on ne fait que soustraire la réduction du niveau,
- *  bornée entre 0 et le plafond de 10 %. */
+/** Taux de commission effectif pour un chauffeur (v2.3) : le niveau
+ *  ne change PLUS le taux — il est le même pour tous (5 % au lancement,
+ *  puis 8 %, plafond 10 % dans lib/commission.ts). La fonction est
+ *  gardée pour les appelants existants : elle renvoie le taux de base,
+ *  borné au plafond. */
 export function getDriverCommissionRate(
-  tierName: DriverTierName,
+  _tierName: DriverTierName,
   baseRate: number = COMMISSION_RATE
 ): number {
+  return Math.min(COMMISSION_CAP, Math.max(0, baseRate));
+}
+
+/** Multiplicateur de points du niveau (v2.3) : 1 / 1,05 / 1,10 / 1,25. */
+export function getPointsMultiplier(tierName: DriverTierName): number {
   const tier = TIERS.find((t) => t.name === tierName) ?? TIERS[0];
-  const rate = baseRate - tier.commissionDiscount;
-  return Math.min(COMMISSION_CAP, Math.max(0, rate));
+  return tier.pointsMultiplier;
+}
+
+/** Points gagnés sur une course terminée (v2.3) : 100 par course,
+ *  200 sur une Course Double, multipliés par le niveau. Entier exact
+ *  (100/200 × 1,05/1,10/1,25 tombent toujours juste). */
+export function pointsForRide(tierName: DriverTierName, isDoubleRide: boolean): number {
+  const base = isDoubleRide ? POINTS_PER_DOUBLE_RIDE : POINTS_PER_RIDE;
+  return Math.round(base * getPointsMultiplier(tierName));
 }
 
 /** Tirage de la Course Double (côté serveur uniquement). */
@@ -182,7 +216,7 @@ export const BADGES: BadgeDefinition[] = [
   {
     id: 'course-double',
     title: 'Course Double',
-    description: 'Tu as décroché une Course Double — commission offerte.',
+    description: 'Tu as décroché une Course Double — points doublés sur la course.',
   },
 ];
 

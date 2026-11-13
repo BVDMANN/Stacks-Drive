@@ -21,8 +21,10 @@ import {
 } from 'lucide-react';
 import type { HeaderUser } from '@/components/shared/Header';
 import type { DriverProfile, Ride, RideProposal } from '@/types';
+import type { SessionProfile } from '@/lib/supabase/server';
 import { ProposalCard } from './ProposalCard';
 import { DriverCard } from './DriverCard';
+import { DriverHome } from '@/components/driver/DriverHome';
 import {
   LIBREVILLE_CENTER,
   NEIGHBORHOODS,
@@ -59,11 +61,11 @@ type Phase = 'idle' | 'searching' | 'proposals' | 'confirmed' | 'done';
 
 const DRAFT_KEY = 'stacks-drive-draft-v2';
 
-/** Tarifs fixes mis en avant (trajets les plus demandés). */
+/** Tarifs fixes mis en avant (trajets les plus demandés) — v2.3, baisse de 24 %. */
 const FIXED_FARES: { pickup: Neighborhood; destination: Neighborhood; label: string }[] = [
-  { pickup: 'Centre-ville', destination: 'Aéroport Léon-Mba', label: 'Aéroport · 5 000 FCFA' },
-  { pickup: 'Nzeng-Ayong', destination: 'Centre-ville', label: 'Nzeng-Ayong → Centre-ville · 900 FCFA' },
-  { pickup: 'Glass', destination: 'Nzeng-Ayong', label: 'Glass → Nzeng-Ayong · 1 200 FCFA' },
+  { pickup: 'Centre-ville', destination: 'Aéroport Léon-Mba', label: 'Aéroport · 3 800 FCFA' },
+  { pickup: 'Nzeng-Ayong', destination: 'Centre-ville', label: 'Nzeng-Ayong → Centre-ville · 700 FCFA' },
+  { pickup: 'Glass', destination: 'Nzeng-Ayong', label: 'Glass → Nzeng-Ayong · 900 FCFA' },
 ];
 
 const SELECTABLE = NEIGHBORHOODS.filter((n) => n !== 'Autre');
@@ -144,10 +146,15 @@ function AnimatedPrice({
  *  destination, type de course, prix fixe, commander). */
 export function HomeScreen({
   user,
+  profile,
   realDrivers,
   demoDrivers,
 }: {
   user: HeaderUser | null;
+  /** Profil complet du compte connecté (v2.3) : l'accueil chauffeur
+   *  a besoin de is_online / is_verified / current_area / véhicule.
+   *  Null quand déconnecté ou profil manquant. */
+  profile?: SessionProfile | null;
   realDrivers: DriverProfile[];
   demoDrivers: DriverProfile[];
 }) {
@@ -599,7 +606,7 @@ export function HomeScreen({
     <div className="relative flex-1 min-h-0">
       <LibrevilleMap
         className="absolute inset-0 h-full w-full"
-        drivers={mapDrivers}
+        drivers={isChauffeurMode ? [] : mapDrivers}
         pickup={pickupCoords && pickup ? { ...pickupCoords, label: pickup } : null}
         destination={destCoords && destination ? { ...destCoords, label: destination } : null}
         radarActive={phase === 'searching' || phase === 'proposals'}
@@ -611,8 +618,9 @@ export function HomeScreen({
         onDriverClick={(id) => setSelectedDriverId(id)}
       />
 
-      {/* Compteur de chauffeurs autour — s'efface quand la feuille se déplie */}
-      {phase === 'idle' && (
+      {/* Compteur de chauffeurs autour — passagers seulement, s'efface
+          quand la feuille se déplie */}
+      {phase === 'idle' && !isChauffeurMode && (
         <div
           className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none transition-all duration-500 ${
             sheetExpanded ? 'opacity-0 -translate-y-2' : 'opacity-100'
@@ -670,7 +678,9 @@ export function HomeScreen({
               className="w-full px-4 pb-3 flex items-center justify-between"
               aria-label="Agrandir la feuille"
             >
-              <span className="text-base font-black text-white">Où allez-vous ?</span>
+              <span className="text-base font-black text-white">
+                {isChauffeurMode ? 'Mode Chauffeur' : 'Où allez-vous ?'}
+              </span>
               <ChevronUp size={20} className="text-cyan" />
             </button>
           )}
@@ -684,21 +694,14 @@ export function HomeScreen({
             </div>
           )}
 
-          {phase === 'idle' && !isMini && (
-            <div className="p-4 sm:p-5 pt-1 space-y-4">
-              {isChauffeurMode && (
-                <div className="bg-gold/10 border border-gold/30 rounded-2xl p-3 text-sm">
-                  <p className="font-black text-gold">Tu es en mode Chauffeur.</p>
-                  <p className="text-slate-300 mt-0.5">
-                    Mets-toi en ligne depuis ton{' '}
-                    <Link href="/tableau-de-bord" className="font-black underline text-white">
-                      tableau de bord
-                    </Link>{' '}
-                    pour recevoir des demandes — ou bascule en mode Passager (en haut) pour commander.
-                  </p>
-                </div>
-              )}
+          {/* Accueil chauffeur (v2.3) : écran distinct — pas de formulaire
+              de commande, pas de pastilles de tarifs. */}
+          {phase === 'idle' && !isMini && isChauffeurMode && profile && (
+            <DriverHome profile={profile} />
+          )}
 
+          {phase === 'idle' && !isMini && (!isChauffeurMode || !profile) && (
+            <div className="p-4 sm:p-5 pt-1 space-y-4">
               <h1 className="text-xl font-black text-white leading-tight">
                 Où allez-vous ?
               </h1>

@@ -28,7 +28,12 @@ export default async function Page() {
   return (
     <div className="h-dvh flex flex-col bg-night-950 text-slate-100 overflow-hidden">
       <Header user={user} />
-      <HomeScreen user={user} realDrivers={realDrivers} demoDrivers={DEMO_DRIVERS} />
+      <HomeScreen
+        user={user}
+        profile={sessionUser?.profile ?? null}
+        realDrivers={realDrivers}
+        demoDrivers={DEMO_DRIVERS}
+      />
     </div>
   );
 }

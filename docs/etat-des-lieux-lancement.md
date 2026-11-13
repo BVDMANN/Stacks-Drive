@@ -35,7 +35,7 @@
 | Ce que le chauffeur garde | **92–95 % de chaque course** | 70–85 % après la période de lancement | 70–85 % | Inconnu | Inconnu | 100 % (mais il trouve ses clients seul) |
 | Surge (prix qui montent aux heures de pointe) | **Jamais — prix garantis** | Oui (surge pricing, faiblesse connue) | Tarifs fixes par zone (pas de surge affiché) | Inconnu | Inconnu | Négociation au cas par cas |
 | Course partagée (prix divisé) | **Oui — Groupe par défaut** | Inconnu | Inconnu | Inconnu | Inconnu | Oui (100–500 FCFA/personne en partagé) |
-| Prix minimum affiché | Groupe dès 700 FCFA/passager (matrice fixe) | Éco dès 600 FCFA | Tarifs fixes par zone | Éco dès 1 000 FCFA | Inconnu | 100–500 FCFA/personne en partagé ; course dès 2 000 FCFA ; aéroport 5 000 FCFA jour / 10 000 FCFA nuit |
+| Prix minimum affiché | Groupe dès 400 FCFA/passager (matrice fixe) | Éco dès 600 FCFA | Tarifs fixes par zone | Éco dès 1 000 FCFA | Inconnu | 100–500 FCFA/personne en partagé ; course dès 2 000 FCFA ; aéroport 5 000 FCFA jour / 10 000 FCFA nuit |
 | Vérification chauffeur (selfie + pièce d'identité) | **Oui, obligatoire dès le jour 1** | Inconnu | Inconnu | Inconnu | Inconnu | Non |
 | SOS + partage de course en direct | **Oui (112 + lien de suivi public)** | Inconnu | Inconnu | Inconnu | Inconnu | Non |
 | Transparence des gains chauffeur | **Oui — tableau de bord : par course, 24 h, dû en temps réel, récaps hebdo / mensuel (v2.2)** | Inconnu | Inconnu | Inconnu | Inconnu | Le chauffeur sait ce qu'il gagne, pas de tableau de bord |
@@ -48,7 +48,7 @@
 ### 2.2 Les 3 vraies forces — celles qui font la différence
 
 **1. Le chauffeur garde 92–95 % de chaque course, contre 70–85 % chez les concurrents.**
-C'est l'argument n° 1 pour recruter. Yango est à 0 % de commission au lancement, mais c'est temporaire — après, il retombe dans la fourchette 15–30 % du marché. Nous, le plafond de 10 % est garanti, écrit dans les CGU. Un chauffeur qui fait 10 courses par jour à 1 500 FCFA en moyenne garde environ 31 200 FCFA de plus par mois chez nous que chez un concurrent à 30 % (hypothèse : 1 500 FCFA × 10 courses × 26 jours ; à vérifier avec les vrais chiffres une fois lancé).
+C'est l'argument n° 1 pour recruter. Yango est à 0 % de commission au lancement, mais c'est temporaire — après, il retombe dans la fourchette 15–30 % du marché. Nous, le plafond de 10 % est garanti, écrit dans les CGU. Un chauffeur qui fait 10 courses par jour à 1 140 FCFA en moyenne garde environ 65 200 FCFA de plus par mois chez nous que chez un concurrent à 30 % (hypothèse : 1 140 FCFA × 10 courses × 26 jours ; à vérifier avec les vrais chiffres une fois lancé).
 
 **2. Le prix est fixe et garanti, jamais de surge.**
 Le passager sait ce qu'il paie avant de commander, même un samedi soir, même sous la pluie. C'est la plainte n° 1 contre Yango et les applis à surge. Le Groupe par défaut (prix divisé, badge « LE MOINS CHER ») attaque en plus le réflexe du taxi partagé, qui est la norme à Libreville.
@@ -143,11 +143,11 @@ Exigence posée le 13/11 au soir : prix calculés côté serveur uniquement, bor
 | Courses Groupe vs Solo | Est-ce que le partagé prend ? | Le Groupe reste majoritaire |
 
 ### Hypothèses de revenu (à vérifier avec les vrais chiffres — ne pas les présenter comme des promesses)
-Base de calcul validée par Randy le 13/11 : course moyenne 1 500 FCFA, 10 courses par jour et par chauffeur, 26 jours par mois.
-- À 8 % : **31 200 FCFA par mois et par chauffeur**.
-- 20 chauffeurs ≈ **624 000 FCFA / mois** (environ 951 €).
-- 50 chauffeurs ≈ **1 560 000 FCFA / mois** (environ 2 378 €).
-Ces chiffres supposent des chauffeurs actifs tous les jours et un règlement hebdo à 100 %. Ils ne tiennent pas compte des courses offertes (10e course), des Courses Doubles (commission offerte) ni des baisses de commission des niveaux Or (7 %) et Diamant (6 %).
+Base de calcul validée par Randy le 13/11, mise à jour v2.3 (baisse des prix de 24 %) : course moyenne 1 140 FCFA, 10 courses par jour et par chauffeur, 26 jours par mois.
+- À 8 % : **23 712 FCFA par mois et par chauffeur**.
+- 20 chauffeurs ≈ **474 240 FCFA / mois** (environ 723 €).
+- 50 chauffeurs ≈ **1 185 600 FCFA / mois** (environ 1 808 €).
+Ces chiffres supposent des chauffeurs actifs tous les jours et un règlement hebdo à 100 %. Ils ne tiennent pas compte des courses offertes (10e course) ni des courses sans commission échangées contre des points.
 
 ---
 

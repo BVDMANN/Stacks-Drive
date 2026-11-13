@@ -20,7 +20,9 @@ export type AuditEvent =
   | 'price_rejected' // prix proposé hors bornes / incohérent → refusé
   | 'commission_recorded' // commission figée à la clôture d'une course
   | 'double_ride_awarded' // Course Double tirée au sort
-  | 'quest_bonus_awarded' // bonus de quête versé (coût plateforme)
+  | 'quest_bonus_awarded' // bonus de quête versé (coût plateforme, avant v2.3)
+  | 'points_awarded' // points de quête versés (v2.3, pas d'argent)
+  | 'points_redeemed' // échange de points contre des courses sans commission (v2.3)
   | 'deposit_recorded' // dépôt de garantie enregistré par l'admin
   | 'settlement_recorded' // règlement hebdomadaire enregistré par l'admin
   | 'pin_failed' // code PIN faux (tentative comptée)
@@ -28,7 +30,11 @@ export type AuditEvent =
   | 'pin_unlocked' // course déverrouillée par l'admin
   | 'anomaly_detected' // montant incohérent détecté et bloqué
   | 'feedback_filed' // note / plainte / recommandation déposée
-  | 'tier_changed'; // niveau chauffeur (Bronze → Argent…)
+  | 'tier_changed' // niveau chauffeur (Bronze → Argent…)
+  | 'verification_auto_verified' // vérification auto : dossier vérifié sans admin (v2.4)
+  | 'verification_auto_refused' // vérification auto : dossier refusé sans admin (v2.4)
+  | 'verification_ticket_created' // dossier ambigu → ticket pour l'admin (v2.4)
+  | 'verification_ticket_resolved'; // ticket résolu par l'admin (v2.4)
 
 /** Consigne un événement d'audit. Ne lève jamais d'exception. */
 export async function logAudit(
@@ -67,6 +73,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   commission_recorded: 'Commission enregistrée',
   double_ride_awarded: 'Course Double attribuée',
   quest_bonus_awarded: 'Bonus de quête versé',
+  points_awarded: 'Points attribués (quête)',
+  points_redeemed: 'Points échangés (courses sans commission)',
   deposit_recorded: 'Dépôt enregistré',
   settlement_recorded: 'Règlement enregistré',
   pin_failed: 'Code PIN faux',
@@ -75,6 +83,10 @@ export const AUDIT_LABELS: Record<string, string> = {
   anomaly_detected: 'Anomalie détectée',
   feedback_filed: 'Avis déposé',
   tier_changed: 'Niveau changé',
+  verification_auto_verified: 'Vérification auto : vérifié',
+  verification_auto_refused: 'Vérification auto : refusé',
+  verification_ticket_created: 'Ticket de vérification créé',
+  verification_ticket_resolved: 'Ticket de vérification résolu',
 };
 
 /** Derniers événements d'audit (admin). [] si la table n'existe pas. */

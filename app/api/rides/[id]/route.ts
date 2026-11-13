@@ -55,8 +55,9 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 }
 
 /** Données de la popup de célébration après une course terminée
- *  (v2.2) : montant gardé en gros, % gardé, Course Double, progression
- *  de la quête du jour, série, niveau. Les chiffres viennent de la base
+ *  (v2.2, points en v2.3) : montant gardé en gros, % gardé, Course
+ *  Double (points doublés), progression de la quête du jour, points
+ *  gagnés, série, niveau. Les chiffres viennent de la base
  *  (driver_earnings + résumé), jamais du client. */
 async function buildCelebration(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -74,7 +75,8 @@ async function buildCelebration(
   const commission = ride?.platform_fee ?? 0;
   const ratePct = fare > 0 ? Math.round(((fare - kept) / fare) * 100) : 0;
   const fin = (finalized ?? {}) as {
-    quest_bonus?: number;
+    quest_points?: number;
+    points_earned?: number;
     tier?: string;
     streak?: number;
     completed_count?: number;
@@ -95,10 +97,11 @@ async function buildCelebration(
     keptPct: 100 - ratePct,
     isDoubleRide: ride?.is_double_ride ?? false,
     loyaltyFree: ride?.loyalty_free ?? false,
-    questBonus: fin.quest_bonus ?? 0,
+    questBonus: fin.quest_points ?? 0,
     questDone: summary?.quest.day.done ?? 0,
     questTarget: summary?.quest.day.target ?? 8,
     questBonusAmount: summary?.quest.day.bonus ?? 1000,
+    pointsEarned: fin.points_earned ?? 0,
     streakDays: summary?.streakDays ?? fin.streak ?? 0,
     tier: summary?.tier.current ?? fin.tier ?? 'Bronze',
     completedRides: summary?.completedRides ?? fin.completed_count ?? 0,

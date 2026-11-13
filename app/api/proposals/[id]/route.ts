@@ -122,19 +122,20 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: fareCheck.message }, { status: 400 });
   }
 
-  // Taux de commission effectif du chauffeur selon son niveau (Or −1 pt,
-  // Diamant −2 pts — jamais au-dessus du plafond de 10 %). Le niveau est
-  // recalculé depuis ses vraies stats, jamais depuis profiles.tier.
+  // Taux de commission du chauffeur (v2.3) : le niveau ne change plus
+  // le taux — 5 % au lancement puis 8 %, plafond 10 % pour tous.
+  // Le niveau est recalculé depuis ses vraies stats, jamais depuis
+  // profiles.tier.
   const { tier, rate } = await getDriverTier(proposal.driver_id);
 
-  // Course Double (v2.2) : ~1 course sur 10, tirée au sort côté serveur.
+  // Course Double (v2.3) : ~1 course sur 10, tirée au sort côté serveur.
   // Pas de tirage sur une course fidélité (déjà offerte à 100 %).
+  // La Course Double ne donne PLUS la commission offerte : elle double
+  // les points de la course à la clôture (200 au lieu de 100).
   const isDoubleRide = !loyaltyFree && rollDoubleRide();
   const split = loyaltyFree
     ? { platformFee: price, driverShare: price }
-    : isDoubleRide
-      ? { platformFee: 0, driverShare: price }
-      : splitFare(price, rate);
+    : splitFare(price, rate);
   // Fidélité : la plateforme absorbe le tarif (le passager paie 0,
   // le chauffeur touche 100 %) : platform_fee = driver_share = prix.
   // La découpe ne s'additionne donc pas au tarif dans ce cas.
@@ -142,7 +143,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     ? split.platformFee === price && split.driverShare === price
       ? { ok: true as const }
       : { ok: false as const, message: 'Découpe fidélité incohérente — acceptation bloquée.' }
-    : validateSplit(price, isDoubleRide ? 0 : rate, split.platformFee, split.driverShare);
+    : validateSplit(price, rate, split.platformFee, split.driverShare);
   if (!splitCheck.ok) {
     await logAudit(supabase, 'anomaly_detected', {
       actorId: user.id,
@@ -193,9 +194,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       pin_locked: false,
       distance_km: estimate.distanceKm,
       duration_min: estimate.durationMin,
-      commission_rate: loyaltyFree || isDoubleRide ? 0 : rate,
+      commission_rate: loyaltyFree ? 0 : rate,
       is_double_ride: isDoubleRide,
-      platform_cost: isDoubleRide ? Math.round(price * rate) : 0,
+      platform_cost: 0,
     })
     .eq('id', ride.id)
     .in('status', ['recherche', 'propositions']);
@@ -219,7 +220,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     actorId: user.id,
     rideId: ride.id,
     fare: price,
-    rate: loyaltyFree || isDoubleRide ? 0 : rate,
+    rate: loyaltyFree ? 0 : rate,
     tier,
     isDoubleRide,
     loyaltyFree,
@@ -229,7 +230,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       actorId: user.id,
       rideId: ride.id,
       fare: price,
-      waivedCommission: Math.round(price * rate),
+      points: 200,
     });
   }
 

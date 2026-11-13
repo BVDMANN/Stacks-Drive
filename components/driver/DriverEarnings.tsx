@@ -6,6 +6,8 @@ import {
   CalendarDays,
   Crown,
   Flame,
+  Gift,
+  Loader2,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -13,7 +15,12 @@ import {
   Wallet,
 } from 'lucide-react';
 import type { DriverEarningsSummary } from '@/lib/earnings';
-import { BADGES, DEPOSIT_FCFA } from '@/lib/gamification';
+import {
+  BADGES,
+  DEPOSIT_FCFA,
+  POINTS_REDEEM_FREE_RIDES,
+  POINTS_REDEEM_TARGET,
+} from '@/lib/gamification';
 import { formatFcfa } from '@/lib/commission';
 import { cn } from '@/lib/utils';
 
@@ -57,14 +64,18 @@ function PeriodCard({
   );
 }
 
-/** Tableau de bord des gains chauffeur (v2.2) : par course, total 24 h,
- *  montant dû en temps réel, récap hebdo + mensuel, dépôt, dette vs
- *  plafond, quête, niveau, badges, chauffeur de la semaine.
+/** Tableau de bord des gains chauffeur (v2.2, points en v2.3) : par
+ *  course, total 24 h, montant dû en temps réel, récap hebdo + mensuel,
+ *  dépôt, dette vs plafond, points (solde, progression, échange),
+ *  quête, niveau, badges, chauffeur de la semaine.
  *  Les chiffres viennent de /api/driver/earnings (calculés côté serveur). */
 export function DriverEarnings() {
   const [summary, setSummary] = useState<DriverEarningsSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemMessage, setRedeemMessage] = useState<string | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -87,6 +98,37 @@ export function DriverEarnings() {
   useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
+
+  /** Échanger 10 000 points contre 5 courses sans commission (v2.3).
+   *  Le solde est vérifié et débité en une seule transaction côté base
+   *  (fonction redeem_points_for_free_rides) — jamais deux fois les
+   *  mêmes points. */
+  async function redeemPoints() {
+    if (!summary || redeeming || summary.points.balance < POINTS_REDEEM_TARGET) return;
+    setRedeeming(true);
+    setRedeemMessage(null);
+    setRedeemError(null);
+    try {
+      const res = await fetch('/api/driver/points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'redeem' }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setRedeemError(data?.error ?? 'Échange impossible pour le moment.');
+        return;
+      }
+      setRedeemMessage(
+        `${POINTS_REDEEM_FREE_RIDES} courses sans commission ajoutées — tu gardes 100 % du tarif sur chacune.`
+      );
+      await fetchSummary();
+    } catch {
+      setRedeemError('Échange impossible pour le moment — vérifie ta connexion.');
+    } finally {
+      setRedeeming(false);
+    }
+  }
 
   if (loading && !summary) {
     return (
@@ -157,9 +199,68 @@ export function DriverEarnings() {
             commission={summary.month.commission}
           />
         </div>
-        {summary.week.questBonus > 0 && (
-          <p className="text-sm font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl p-3">
-            Bonus de quête cette semaine : +{formatFcfa(summary.week.questBonus)} — offerts par Stacks Drive.
+      </section>
+
+      {/* Points (v2.3) : solde, progression vers 10 000, échange */}
+      <section className="bg-night-900 border border-white/10 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 text-slate-100">
+        <h2 className="font-black text-lg flex items-center gap-2">
+          <Gift size={20} className="text-gold" /> Tes points
+        </h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-3xl font-black text-gold">
+              {summary.points.balance.toLocaleString('fr-FR')} points
+            </p>
+            <p className="text-sm text-slate-300 mt-1">
+              {summary.points.perRide} points par course terminée
+              {summary.points.multiplier > 1
+                ? ` — niveau ${summary.tier.current} : +${Math.round((summary.points.multiplier - 1) * 100)} %`
+                : ''}
+              {summary.points.freeRides > 0
+                ? ` · ${summary.points.freeRides} course${summary.points.freeRides > 1 ? 's' : ''} sans commission restante${summary.points.freeRides > 1 ? 's' : ''}`
+                : ''}
+              .
+            </p>
+          </div>
+          <span className="text-xs font-black px-3 py-1.5 rounded-full border bg-white/5 text-slate-200 border-white/10">
+            {summary.points.balance.toLocaleString('fr-FR')} / {POINTS_REDEEM_TARGET.toLocaleString('fr-FR')} points
+          </span>
+        </div>
+        <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-or via-gold to-cyan transition-all"
+            style={{ width: `${Math.round(summary.points.progress * 100)}%` }}
+          />
+        </div>
+        <p className="text-sm text-slate-300">
+          {summary.points.balance >= POINTS_REDEEM_TARGET
+            ? 'Tu as assez de points — échange-les contre 5 courses sans commission.'
+            : `Plus que ${(POINTS_REDEEM_TARGET - summary.points.balance).toLocaleString('fr-FR')} points pour 5 courses sans commission.`}
+        </p>
+        <button
+          type="button"
+          onClick={redeemPoints}
+          disabled={redeeming || summary.points.balance < POINTS_REDEEM_TARGET}
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-black bg-or text-night-900 hover:bg-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {redeeming ? (
+            <>
+              <Loader2 size={16} className="animate-spin" /> Échange en cours…
+            </>
+          ) : (
+            <>
+              <Gift size={16} /> Échanger {POINTS_REDEEM_TARGET.toLocaleString('fr-FR')} points contre {POINTS_REDEEM_FREE_RIDES} courses sans commission
+            </>
+          )}
+        </button>
+        {redeemMessage && (
+          <p role="status" className="text-sm font-bold text-green-300 bg-green-500/10 border border-green-500/30 rounded-xl p-3">
+            {redeemMessage}
+          </p>
+        )}
+        {redeemError && (
+          <p role="alert" className="text-sm font-bold text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+            {redeemError}
           </p>
         )}
       </section>
@@ -226,6 +327,19 @@ export function DriverEarnings() {
               quittes la plateforme proprement, après avoir soldé ce que tu dois.
             </p>
           )}
+          {/* Rappel de règlement (v2.4) : dû > 0 et dernier règlement
+              vieux de plus de 7 jours (ou aucun règlement). */}
+          {summary.settlementReminder.show && !summary.debt.blocked && (
+            <p className="text-sm font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              Rappel : tu dois {formatFcfa(summary.settlementReminder.owed)}
+              {summary.settlementReminder.daysSince !== null
+                ? ` et ton dernier règlement date d’il y a ${summary.settlementReminder.daysSince} jours`
+                : ' et tu n’as pas encore réglé'}
+              . Règle en un seul transfert Mobile Money (Airtel Money /
+              Moov Money) vers le numéro de Stacks Drive, puis préviens
+              l’équipe pour que ton compte soit mis à jour.
+            </p>
+          )}
         </div>
       </section>
 
@@ -239,7 +353,7 @@ export function DriverEarnings() {
             {summary.quest.day.done} / {summary.quest.day.target} courses
           </p>
           <span className="text-sm font-black text-gold">
-            Bonus : {formatFcfa(summary.quest.day.bonus)}
+            Bonus : +{summary.quest.day.bonus.toLocaleString('fr-FR')} points
           </span>
         </div>
         <div className="h-3 rounded-full bg-white/10 overflow-hidden">
@@ -250,10 +364,10 @@ export function DriverEarnings() {
         </div>
         <p className="text-sm text-slate-300">
           {summary.quest.day.claimed
-            ? 'Quête validée — bonus versé !'
+            ? 'Quête validée — 1 000 points versés !'
             : summary.quest.day.done >= summary.quest.day.target
-              ? 'Quête terminée — le bonus arrive avec ta prochaine course.'
-              : `Plus que ${summary.quest.day.target - summary.quest.day.done} course${summary.quest.day.target - summary.quest.day.done > 1 ? 's' : ''} pour ton bonus de ${formatFcfa(summary.quest.day.bonus)} !`}
+              ? 'Quête terminée — les points arrivent avec ta prochaine course.'
+              : `Plus que ${summary.quest.day.target - summary.quest.day.done} course${summary.quest.day.target - summary.quest.day.done > 1 ? 's' : ''} pour ton bonus de ${summary.quest.day.bonus.toLocaleString('fr-FR')} points !`}
         </p>
         <div className="flex flex-wrap items-center gap-4 text-sm">
           {summary.streakDays > 0 && (
@@ -263,7 +377,7 @@ export function DriverEarnings() {
           )}
           <span className="inline-flex items-center gap-1 font-bold">
             <CalendarDays size={16} className="text-cyan" />
-            Défi semaine : {summary.quest.week.done} / {summary.quest.week.target} → {formatFcfa(summary.quest.week.bonus)}
+            Défi semaine : {summary.quest.week.done} / {summary.quest.week.target} → +{summary.quest.week.bonus.toLocaleString('fr-FR')} points
           </span>
         </div>
       </section>
@@ -340,10 +454,16 @@ export function DriverEarnings() {
                         COURSE DOUBLE
                       </span>
                     )}
+                    {r.isFreeRide && (
+                      <span className="ml-2 text-xs font-black px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-300">
+                        SANS COMMISSION
+                      </span>
+                    )}
                   </p>
                   <p className="text-slate-500">
                     {r.day} · commission {formatFcfa(r.commission)}
-                    {r.questBonus > 0 ? ` · bonus de quête +${formatFcfa(r.questBonus)}` : ''}
+                    {r.isDoubleRide ? ' · points doublés' : ''}
+                    {r.isFreeRide ? ' · course sans commission (échange de points)' : ''}
                   </p>
                 </div>
                 <span className="text-sm font-black text-stacks-green">+{formatFcfa(r.kept)}</span>

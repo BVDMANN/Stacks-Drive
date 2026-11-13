@@ -43,6 +43,7 @@ export default async function ComptePage() {
                 | 'refuse'
             }
             verificationNote={profile.verification_note}
+            accountName={profile.full_name}
           />
         </div>
       )}

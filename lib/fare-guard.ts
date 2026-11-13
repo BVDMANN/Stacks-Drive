@@ -7,9 +7,9 @@
  *  et l'utilisateur voit un message clair — jamais de course créée en
  *  silence avec un mauvais prix.
  *
- *  Bornes de sécurité : un tarif hors [500 ; 50 000] FCFA est impossible
- *  à Libreville (course la plus courte ≈ 500 FCFA en Groupe, course
- *  aéroport Solo ≈ 5 000 FCFA). Un montant négatif, nul avec une
+ *  Bornes de sécurité : un tarif hors [400 ; 50 000] FCFA est impossible
+ *  à Libreville (course la plus courte ≈ 400 FCFA en Groupe, course
+ *  aéroport Solo ≈ 3 800 FCFA). Un montant négatif, nul avec une
  *  distance > 0, ou une commission au-dessus du plafond de 10 % est une
  *  anomalie : on bloque l'action, on signale à l'admin, on l'affiche.
  */
@@ -22,8 +22,9 @@ import {
 } from './pricing';
 import type { Neighborhood } from './neighborhoods';
 
-/** Tarif minimum possible à Libreville (FCFA). */
-export const FARE_MIN_FCFA = 500;
+/** Tarif minimum possible à Libreville (FCFA) — plancher Groupe de la
+ *  formule (v2.3, baisse de 24 %). */
+export const FARE_MIN_FCFA = 400;
 /** Tarif maximum possible à Libreville (FCFA). */
 export const FARE_MAX_FCFA = 50000;
 /** Écart toléré entre le prix proposé par le chauffeur et le tarif de
