@@ -3,6 +3,12 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { splitFare } from '@/lib/commission';
+import { estimateFare } from '@/lib/pricing';
+import { validateAcceptedPrice, validateSplit } from '@/lib/fare-guard';
+import { getDriverTier } from '@/lib/earnings';
+import { rollDoubleRide } from '@/lib/gamification';
+import { logAudit } from '@/lib/audit';
+import type { Neighborhood } from '@/lib/neighborhoods';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -45,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
   const { data: ride } = await supabase
     .from('rides')
-    .select('id, passenger_id, status')
+    .select('id, passenger_id, status, pickup, destination, ride_type, vehicle_preference')
     .eq('id', proposal.ride_id)
     .single();
   if (!ride || ride.passenger_id !== user.id) {
@@ -96,9 +102,71 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     .eq('status', 'terminee');
   const loyaltyFree = ((completedCount ?? 0) % 10) === 9;
   const price = proposal.proposed_price;
+
+  // Garde-fou tarifaire (v2.2) : on recalcule le tarif depuis la matrice
+  // et on refuse toute acceptation dont le prix ne correspond pas.
+  const fareCheck = validateAcceptedPrice(
+    ride.pickup as Neighborhood,
+    ride.destination as Neighborhood,
+    ride.ride_type as 'solo' | 'groupe',
+    ride.vehicle_preference as 'voiture' | 'moto' | 'tous',
+    price
+  );
+  if (!fareCheck.ok) {
+    await logAudit(supabase, 'price_rejected', {
+      actorId: user.id,
+      rideId: ride.id,
+      proposedPrice: price,
+      referencePrice: fareCheck.referencePrice ?? null,
+    });
+    return NextResponse.json({ error: fareCheck.message }, { status: 400 });
+  }
+
+  // Taux de commission effectif du chauffeur selon son niveau (Or −1 pt,
+  // Diamant −2 pts — jamais au-dessus du plafond de 10 %). Le niveau est
+  // recalculé depuis ses vraies stats, jamais depuis profiles.tier.
+  const { tier, rate } = await getDriverTier(proposal.driver_id);
+
+  // Course Double (v2.2) : ~1 course sur 10, tirée au sort côté serveur.
+  // Pas de tirage sur une course fidélité (déjà offerte à 100 %).
+  const isDoubleRide = !loyaltyFree && rollDoubleRide();
   const split = loyaltyFree
     ? { platformFee: price, driverShare: price }
-    : splitFare(price);
+    : isDoubleRide
+      ? { platformFee: 0, driverShare: price }
+      : splitFare(price, rate);
+  // Fidélité : la plateforme absorbe le tarif (le passager paie 0,
+  // le chauffeur touche 100 %) : platform_fee = driver_share = prix.
+  // La découpe ne s'additionne donc pas au tarif dans ce cas.
+  const splitCheck = loyaltyFree
+    ? split.platformFee === price && split.driverShare === price
+      ? { ok: true as const }
+      : { ok: false as const, message: 'Découpe fidélité incohérente — acceptation bloquée.' }
+    : validateSplit(price, isDoubleRide ? 0 : rate, split.platformFee, split.driverShare);
+  if (!splitCheck.ok) {
+    await logAudit(supabase, 'anomaly_detected', {
+      actorId: user.id,
+      rideId: ride.id,
+      fare: price,
+      rate,
+      platformFee: split.platformFee,
+      driverShare: split.driverShare,
+    });
+    return NextResponse.json(
+      { error: 'Découpe tarifaire incohérente — acceptation bloquée pour vérification.' },
+      { status: 400 }
+    );
+  }
+
+  // Code PIN à 4 chiffres (v2.2) : le passager le donne au chauffeur
+  // pour démarrer le trajet. Généré côté serveur, jamais par le client.
+  const pinCode = String(Math.floor(1000 + Math.random() * 9000));
+  const estimate = estimateFare(
+    ride.pickup as Neighborhood,
+    ride.destination as Neighborhood,
+    ride.ride_type as 'solo' | 'groupe',
+    ride.vehicle_preference as 'voiture' | 'moto' | 'tous'
+  );
 
   const { error: acceptError } = await supabase
     .from('ride_proposals')
@@ -120,6 +188,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       platform_fee: split.platformFee,
       driver_share: split.driverShare,
       loyalty_free: loyaltyFree,
+      pin_code: pinCode,
+      pin_attempts: 0,
+      pin_locked: false,
+      distance_km: estimate.distanceKm,
+      duration_min: estimate.durationMin,
+      commission_rate: loyaltyFree || isDoubleRide ? 0 : rate,
+      is_double_ride: isDoubleRide,
+      platform_cost: isDoubleRide ? Math.round(price * rate) : 0,
     })
     .eq('id', ride.id)
     .in('status', ['recherche', 'propositions']);
@@ -139,5 +215,23 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     .eq('status', 'pending')
     .neq('id', id);
 
-  return NextResponse.json({ ok: true, loyaltyFree });
+  await logAudit(supabase, 'fare_computed', {
+    actorId: user.id,
+    rideId: ride.id,
+    fare: price,
+    rate: loyaltyFree || isDoubleRide ? 0 : rate,
+    tier,
+    isDoubleRide,
+    loyaltyFree,
+  });
+  if (isDoubleRide) {
+    await logAudit(supabase, 'double_ride_awarded', {
+      actorId: user.id,
+      rideId: ride.id,
+      fare: price,
+      waivedCommission: Math.round(price * rate),
+    });
+  }
+
+  return NextResponse.json({ ok: true, loyaltyFree, pinCode, isDoubleRide });
 }

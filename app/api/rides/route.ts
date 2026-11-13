@@ -8,6 +8,10 @@ import {
   type Neighborhood,
 } from '@/lib/neighborhoods';
 import { estimateFare } from '@/lib/pricing';
+import { isFareInBounds } from '@/lib/fare-guard';
+import { getDriverOwed } from '@/lib/earnings';
+import { DEBT_CAP_FCFA } from '@/lib/gamification';
+import { logAudit } from '@/lib/audit';
 import { getIncomingRequests } from '@/lib/rides';
 import { mapRideRow, type ProfileRow } from '@/lib/db-types';
 
@@ -79,6 +83,22 @@ export async function POST(request: NextRequest) {
   const v = parsed.data;
   const estimate = estimateFare(v.pickup, v.destination, v.rideType, v.vehiclePreference);
 
+  // Garde-fou tarifaire (v2.2) : le tarif estimé doit être dans les
+  // bornes — un tarif hors bornes = anomalie, on bloque et on journalise.
+  if (!isFareInBounds(estimate.price)) {
+    await logAudit(supabase, 'anomaly_detected', {
+      actorId: user.id,
+      rideId: null,
+      pickup: v.pickup,
+      destination: v.destination,
+      estimatedPrice: estimate.price,
+    });
+    return NextResponse.json(
+      { error: 'Tarif impossible pour ce trajet. Réessaie ou contacte Stacks Drive.' },
+      { status: 400 }
+    );
+  }
+
   const { data: ride, error } = await supabase
     .from('rides')
     .insert({
@@ -103,6 +123,14 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  await logAudit(supabase, 'fare_computed', {
+    actorId: user.id,
+    rideId: ride.id,
+    pickup: v.pickup,
+    destination: v.destination,
+    rideType: v.rideType,
+    estimatedPrice: estimate.price,
+  });
   return NextResponse.json(
     { ok: true, rideId: ride.id, estimatedPrice: estimate.price },
     { status: 201 }
@@ -139,6 +167,18 @@ export async function GET(request: NextRequest) {
     }
     if (!profile.is_online) {
       return NextResponse.json({ ok: true, rides: [] });
+    }
+    // Plafond de dette (v2.2) : au-delà de ~5 000 FCFA de commissions
+    // non réglées, le chauffeur ne voit plus les nouvelles demandes.
+    const owed = await getDriverOwed(user.id);
+    if (owed >= DEBT_CAP_FCFA) {
+      return NextResponse.json({
+        ok: true,
+        rides: [],
+        debtBlocked: true,
+        debtAmount: owed,
+        debtCap: DEBT_CAP_FCFA,
+      });
     }
     const rides = await getIncomingRequests({
       id: user.id,

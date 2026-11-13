@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Car, Clock, MapPin, Phone, ShieldAlert, Users } from 'lucide-react';
+import { BadgeCheck, Car, Clock, Flame, MapPin, Phone, ShieldAlert, Users, Wallet } from 'lucide-react';
 import type { SessionProfile } from '@/lib/supabase/server';
 import type { Ride, RideProposal } from '@/types';
 import { RequestPopup } from './RequestPopup';
+import { PinEntry } from './PinEntry';
+import { CelebrationPopup, type CelebrationData } from './CelebrationPopup';
+import { DriverEarnings } from './DriverEarnings';
 import { VerificationStatusBadge } from '@/components/shared/StatusBadge';
 import { NEIGHBORHOODS, PAYMENT_LABELS, type Neighborhood } from '@/lib/neighborhoods';
 import { formatFcfa } from '@/lib/commission';
+import { estimateFare } from '@/lib/pricing';
 import { timeAgo } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +40,9 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [celebration, setCelebration] = useState<CelebrationData | null>(null);
+  const [offlineConfirm, setOfflineConfirm] = useState<{ remaining: number; bonus: number } | null>(null);
+  const [debtBlocked, setDebtBlocked] = useState<{ amount: number; cap: number } | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
   const proposedRef = useRef<Set<string>>(new Set());
 
@@ -47,6 +54,13 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       const res = await fetch('/api/rides?scope=incoming');
       const data = await res.json();
       if (!data?.ok) return;
+      // Plafond de dette atteint : plus de nouvelles demandes.
+      if (data.debtBlocked) {
+        setDebtBlocked({ amount: data.debtAmount ?? 0, cap: data.debtCap ?? 5000 });
+        setIncoming([]);
+        return;
+      }
+      setDebtBlocked(null);
       const list = (data.rides ?? []) as IncomingRide[];
       setIncoming(list);
       // Nouvelle demande jamais vue et sans proposition de ma part :
@@ -113,6 +127,27 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       setError('Choisis le quartier où tu te trouves pour apparaître sur la carte.');
       return;
     }
+    // Nudge (v2.2) : la quête du jour est presque finie — on prévient
+    // le chauffeur avant qu'il se déconnecte.
+    if (!next) {
+      try {
+        const res = await fetch('/api/driver/earnings');
+        const data = await res.json().catch(() => null);
+        const nudge = data?.summary?.nudge as { show: boolean; remaining: number; bonus: number } | null;
+        if (nudge?.show) {
+          setOfflineConfirm({ remaining: nudge.remaining, bonus: nudge.bonus });
+          return;
+        }
+      } catch {
+        // Pas de nudge si les gains ne chargent pas : on déconnecte.
+      }
+    }
+    setError(null);
+    await applyOnline(next);
+  }
+
+  async function applyOnline(next: boolean) {
+    setOfflineConfirm(null);
     setError(null);
     setSaving(true);
     const res = await fetch('/api/profile', {
@@ -140,7 +175,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
     }).catch(() => undefined);
   }
 
-  async function rideAction(rideId: string, action: 'start' | 'complete') {
+  async function rideAction(rideId: string, action: 'complete') {
     const res = await fetch(`/api/rides/${rideId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -151,6 +186,8 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       setError(data?.error ?? 'Action impossible.');
       return;
     }
+    // Célébration (v2.2) : confettis + montant gardé après chaque course.
+    if (data?.celebration) setCelebration(data.celebration as CelebrationData);
     fetchMine();
   }
 
@@ -165,6 +202,15 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       {error && (
         <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
           {error}
+        </p>
+      )}
+
+      {/* Plafond de dette atteint : plus de nouvelles demandes. */}
+      {debtBlocked && (
+        <p role="alert" className="text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl p-4">
+          Plafond de dette atteint ({formatFcfa(debtBlocked.amount)} dus, plafond{' '}
+          {formatFcfa(debtBlocked.cap)}) : règle tes commissions par transfert
+          Mobile Money pour recevoir de nouvelles demandes.
         </p>
       )}
 
@@ -274,7 +320,11 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
         Les concurrents prennent 15 à 30 %.
       </p>
 
-      {/* Course en cours */}
+      {/* Gains, dette, quête, niveau (v2.2) */}
+      <DriverEarnings />
+
+      {/* Course en cours — vue chauffeur (v2.2) : trajet, temps estimé,
+          distance, prix, mode de paiement, code PIN pour démarrer. */}
       {activeRide && (
         <section className="bg-white border-2 border-stacks-green rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
           <h2 className="font-black text-lg text-slate-900">
@@ -283,28 +333,45 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
           <p className="font-black text-slate-900 text-lg">
             {activeRide.pickup} → {activeRide.destination}
           </p>
+          {(() => {
+            const est =
+              activeRide.distanceKm !== null && activeRide.durationMin !== null
+                ? { distanceKm: activeRide.distanceKm, durationMin: activeRide.durationMin }
+                : estimateFare(
+                    activeRide.pickup as Neighborhood,
+                    activeRide.destination as Neighborhood,
+                    activeRide.rideType,
+                    activeRide.vehiclePreference
+                  );
+            return (
+              <p className="text-sm text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="inline-flex items-center gap-1">
+                  <Clock size={14} /> ~{est.durationMin} min
+                </span>
+                <span>· ~{Math.max(1, Math.round(est.distanceKm))} km</span>
+                <span className="inline-flex items-center gap-1">
+                  <Wallet size={14} /> {PAYMENT_LABELS[activeRide.paymentMethod]}
+                </span>
+              </p>
+            );
+          })()}
           <p className="text-sm text-slate-500">
             {activeRide.rideType === 'groupe' ? `Groupe · ${activeRide.seats} passager${activeRide.seats > 1 ? 's' : ''}` : 'Solo'} ·{' '}
             {formatFcfa(activeRide.proposedPrice ?? activeRide.estimatedPrice)}
             {activeRide.loyaltyFree ? ' · course offerte (fidélité — tu touches tout le tarif)' : ` · dont ${formatFcfa(activeRide.driverShare)} pour toi`}
             {activeRide.firstStop ? ` · 1er arrêt : ${activeRide.firstStop}` : ''}
+            {activeRide.isDoubleRide ? ' · COURSE DOUBLE — tu gardes 100 %' : ''}
           </p>
+          {activeRide.status === 'acceptee' && (
+            <PinEntry rideId={activeRide.id} onStarted={() => fetchMine()} />
+          )}
           <div className="flex flex-wrap gap-2">
             <Link
               href={`/courses/${activeRide.id}`}
               className="px-5 py-3 rounded-full text-sm font-black bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
             >
-              Voir le suivi
+              Voir la course complète
             </Link>
-            {activeRide.status === 'acceptee' && (
-              <button
-                type="button"
-                onClick={() => rideAction(activeRide.id, 'start')}
-                className="px-5 py-3 rounded-full text-sm font-black bg-stacks-green text-white shadow-md hover:bg-stacks-greenLight transition-colors"
-              >
-                Passager à bord — démarrer
-              </button>
-            )}
             {activeRide.status === 'en_cours' && (
               <button
                 type="button"
@@ -430,6 +497,55 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             fetchMine();
           }}
         />
+      )}
+
+      {/* Célébration après course terminée (v2.2) */}
+      {celebration && (
+        <CelebrationPopup
+          celebration={celebration}
+          onClose={() => setCelebration(null)}
+        />
+      )}
+
+      {/* Nudge : quête presque finie quand on veut se déconnecter (v2.2) */}
+      {offlineConfirm && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Quête presque terminée"
+          onClick={() => setOfflineConfirm(null)}
+        >
+          <div
+            className="bg-night-900 border border-white/10 rounded-3xl p-6 w-full max-w-md space-y-4 text-slate-100 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-black text-lg flex items-center gap-2">
+              <Flame size={20} className="text-ember" />
+              Plus que {offlineConfirm.remaining} course{offlineConfirm.remaining > 1 ? 's' : ''} pour ton bonus !
+            </p>
+            <p className="text-sm text-slate-300">
+              Encore {offlineConfirm.remaining} course{offlineConfirm.remaining > 1 ? 's' : ''} et tu
+              gagnes {formatFcfa(offlineConfirm.bonus)} de bonus aujourd’hui. Tu restes en ligne ?
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setOfflineConfirm(null)}
+                className="flex-1 py-3.5 rounded-full bg-volt text-night-950 text-sm font-black hover:bg-volt/90 transition-colors"
+              >
+                Rester en ligne
+              </button>
+              <button
+                type="button"
+                onClick={() => applyOnline(false)}
+                className="px-5 py-3.5 rounded-full text-sm font-black bg-white/10 text-slate-200 hover:bg-white/20 transition-colors"
+              >
+                Me déconnecter
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

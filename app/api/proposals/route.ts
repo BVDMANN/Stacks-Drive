@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { expireStaleProposals, getMyProposals, getProposalsForRide } from '@/lib/rides';
+import { validateProposedPrice } from '@/lib/fare-guard';
+import { getDriverOwed } from '@/lib/earnings';
+import { DEBT_CAP_FCFA } from '@/lib/gamification';
+import { logAudit } from '@/lib/audit';
+import type { Neighborhood } from '@/lib/neighborhoods';
 
 const ProposeSchema = z.object({
   rideId: z.string().uuid(),
@@ -61,7 +66,7 @@ export async function POST(request: NextRequest) {
 
   const { data: ride } = await supabase
     .from('rides')
-    .select('id, passenger_id, status, ride_type, seats, created_at')
+    .select('id, passenger_id, status, ride_type, seats, created_at, pickup, destination, vehicle_preference')
     .eq('id', v.rideId)
     .single();
   if (!ride || !['recherche', 'propositions'].includes(ride.status)) {
@@ -86,6 +91,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: `Le passager voyage à ${ride.seats} : il faut au moins ${ride.seats} place(s).` },
       { status: 400 }
+    );
+  }
+
+  // Garde-fou tarifaire (v2.2) : le prix proposé est revalidé côté
+  // serveur contre la matrice — un trop-perçu est refusé, journalisé,
+  // et expliqué au chauffeur. Jamais de course créée avec un prix fou.
+  const fareCheck = validateProposedPrice(
+    ride.pickup as Neighborhood,
+    ride.destination as Neighborhood,
+    ride.ride_type as 'solo' | 'groupe',
+    ride.vehicle_preference as 'voiture' | 'moto' | 'tous',
+    v.proposedPrice
+  );
+  if (!fareCheck.ok) {
+    await logAudit(supabase, 'price_rejected', {
+      actorId: user.id,
+      rideId: v.rideId,
+      proposedPrice: v.proposedPrice,
+      referencePrice: fareCheck.referencePrice ?? null,
+    });
+    return NextResponse.json({ error: fareCheck.message }, { status: 400 });
+  }
+
+  // Plafond de dette (v2.2) : au-delà de ~5 000 FCFA de commissions
+  // non réglées, plus de nouvelles propositions tant que ce n'est pas soldé.
+  const owed = await getDriverOwed(user.id);
+  if (owed >= DEBT_CAP_FCFA) {
+    return NextResponse.json(
+      {
+        error: `Tu as atteint le plafond de dette (${DEBT_CAP_FCFA} FCFA de commissions non réglées). Règle tes commissions par transfert Mobile Money pour recevoir de nouvelles demandes.`,
+      },
+      { status: 403 }
     );
   }
 

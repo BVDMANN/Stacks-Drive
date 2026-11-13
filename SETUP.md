@@ -210,9 +210,86 @@ réévaluer quand le trafic grandira.
 ## Fichiers importants du projet
 
 - `supabase/schema.sql` — tables, sécurité (RLS), triggers et 6 courses d'exemple.
+- `supabase/migration-v2.sql` — modèle Uber (demandes + propositions, vérification).
+- `supabase/migration-v2.2.sql` — code PIN, gains chauffeur, gamification,
+  avis & plaintes, journal d'audit (à exécuter UNE fois, voir ci-dessous).
 - `.env.example` — la liste des variables à remplir (sans aucune valeur).
 - `lib/commission.ts` — le taux de commission (5 % puis 8 %, plafond 10 %).
+- `lib/gamification.ts` — TOUS les chiffres de la gamification (quêtes,
+  Course Double, niveaux, dépôt, plafond de dette) — c'est ici qu'on règle.
 - `app/` — les pages (accueil, courses, connexion, inscription, tableau de
   bord, mes courses, compte, admin, pages légales).
 - `lib/` — connexion Supabase, accès aux courses, calcul des tarifs.
 - `components/` — les composants de l'interface.
+
+---
+
+# Stacks Drive v2.2 — Mise en ligne
+
+Tableau de bord chauffeur (gains par course, 24 h, semaine, mois, montant
+dû, dépôt, dette vs plafond), gamification (célébrations, quêtes, séries,
+niveaux, badges, Course Double, chauffeur de la semaine, nudges), code PIN
+de démarrage, vue course chauffeur, avis & plaintes (les deux côtés),
+plan d'urgence (prix côté serveur, bornes, idempotence, journal d'audit,
+page d'erreur de marque).
+
+## Étape 1 — Push GitHub (par Randy / Ruby, comme pour la v2)
+
+Pousser le contenu de `~/workspace/stacks-drive-v2/` sur
+`BVDMANN/Stacks-Drive`, branche `main`. Vercel redéploie automatiquement.
+
+## Étape 2 — Exécuter migration-v2.2.sql dans Supabase (UNE fois)
+
+Dashboard Supabase → projet « stacks-drive » → SQL Editor → coller le
+contenu complet de `supabase/migration-v2.2.sql` → Run.
+
+Le script est additif et protégé (`if not exists`, `on conflict`) :
+- colonnes PIN + gains sur `rides`, dépôt + niveau sur `profiles` ;
+- tables `driver_earnings` (1 ligne par course, unique `ride_id`),
+  `driver_settlements`, `ride_feedback`, `audit_log`, `driver_badges`,
+  `quest_bonus_claims` + RLS ;
+- fonctions `verify_ride_pin()`, `finalize_ride_earnings()` (idempotente),
+  `get_driver_of_week()`.
+
+Vérifications après exécution (requêtes en bas du script) :
+- `select count(*) from public.driver_earnings;` → **0**
+- `select count(*) from public.ride_feedback;` → **0**
+- `select proname from pg_proc where proname in ('verify_ride_pin',
+  'finalize_ride_earnings', 'get_driver_of_week');` → **3 lignes**
+- `select column_name from information_schema.columns where table_name =
+  'rides' and column_name in ('pin_code', 'pin_locked', 'is_double_ride',
+  'commission_rate');` → **4 lignes**
+
+## Étape 3 — Vérifier le déploiement Vercel
+
+Comme pour la v2 : le déploiement du push doit être « Ready », puis
+vérifier en chargement frais : 6 marqueurs, prix, pages légales, auth.
+
+## Étape 4 — Vérifier la v2.2 (checklist manuelle)
+
+1. **Inscription réelle** : créer 1 compte passager + 1 compte chauffeur,
+   vérifier la réception des e-mails.
+2. **Flux complet avec 2 comptes** : demande → proposition → acceptation →
+   le passager voit son code PIN en gros → le chauffeur le saisit → la
+   course démarre → clôture → la popup de célébration s'affiche (montant
+   gardé, % gardé, quête).
+3. **Code PIN faux** : 1 code faux = message + essais restants ; 5 codes
+   faux = course verrouillée, visible dans /admin (à déverrouiller).
+4. **Tableau de bord chauffeur** : gains du jour / semaine / mois, montant
+   dû, barre dette vs plafond, dépôt, quête, niveau, badges.
+5. **Avis & plaintes** : après une course terminée, noter + déposer une
+   plainte (catégorie) + une recommandation — visibles dans /admin.
+6. **Admin** : dépôts & règlements (enregistrer un dépôt / un règlement),
+   journal d'audit, coût des récompenses.
+7. **Erreur de marque** : couper le réseau ou forcer une erreur 500 →
+   la page « Service momentanément indisponible » s'affiche (pas d'écran vide).
+
+## Dépannage v2.2
+
+| Problème | Cause probable / solution |
+|---|---|
+| « Le code PIN n'est pas encore activé » au démarrage | La migration v2.2 n'a pas été exécutée (étape 2). |
+| Gains à 0 dans le tableau de bord | La migration v2.2 n'a pas été exécutée, ou les courses ont été terminées avant elle — le tableau de bord les finalise tout seul à l'affichage (réparation paresseuse). |
+| « Plafond de dette atteint » pour un chauffeur | Ses commissions non réglées atteignent ~5 000 FCFA : enregistrer un règlement dans /admin (section Dépôts & règlements). |
+| Prix refusé à la proposition | Le prix est hors bornes (500–50 000 FCFA) ou trop éloigné du tarif de référence (×2) : voir le journal d'audit dans /admin. |
+| Course verrouillée (PIN) | 5 codes faux : la débloquer dans /admin (section Dépôts & règlements → Courses verrouillées). |

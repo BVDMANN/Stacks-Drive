@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BadgeCheck, Car, MapPin, RefreshCw, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, Car, KeyRound, MapPin, RefreshCw, ShieldCheck } from 'lucide-react';
 import { getRideByShareToken } from '@/lib/rides';
 import { formatFcfa } from '@/lib/commission';
 import { formatDepartureTime, timeAgo } from '@/lib/dates';
@@ -89,6 +89,25 @@ export default async function SuiviPage({ params }: Ctx) {
             }
           />
         </div>
+
+        {/* Code PIN (v2.2) — le passager le donne au chauffeur pour démarrer. */}
+        {ride.pinCode && ['acceptee', 'en_cours'].includes(ride.status) && (
+          <div className="bg-night-900 border border-white/10 rounded-3xl p-6 shadow-sm text-slate-100 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-black text-lg flex items-center gap-2">
+                <KeyRound size={20} className="text-gold" />
+                Code de démarrage
+              </p>
+              <p className="text-sm text-slate-300 mt-1">
+                Donne ce code à ton chauffeur quand il arrive — c’est lui qui
+                démarre le trajet avec.
+              </p>
+            </div>
+            <p className="font-black text-5xl tracking-[0.3em] text-gold">
+              {ride.pinCode}
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">

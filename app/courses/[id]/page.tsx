@@ -1,15 +1,18 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, BadgeCheck, Car, MapPin, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Car, KeyRound, MapPin, ShieldCheck, Users, Wallet } from 'lucide-react';
 import { Header } from '@/components/shared/Header';
 import { Footer } from '@/components/shared/Footer';
 import { TrackingMap } from '@/components/rides/TrackingMap';
 import { DriverCard } from '@/components/home/DriverCard';
 import { RideActions } from '@/components/rides/RideActions';
+import { PinEntry } from '@/components/driver/PinEntry';
+import { FeedbackForm } from '@/components/rides/FeedbackForm';
 import { RideStatusBadge } from '@/components/shared/StatusBadge';
 import { getRideRequestById } from '@/lib/rides';
 import { getSessionUser, createClient } from '@/lib/supabase/server';
 import { formatFcfa } from '@/lib/commission';
+import { estimateFare } from '@/lib/pricing';
 import { PAYMENT_LABELS, NEIGHBORHOOD_COORDS, type Neighborhood } from '@/lib/neighborhoods';
 import { formatDepartureTime, timeAgo } from '@/lib/dates';
 
@@ -108,6 +111,18 @@ export default async function CoursePage({ params }: Ctx) {
       ? -1
       : STEPS.findIndex((s) => s.key === ride.status);
 
+  // Trajet estimé (distance / durée figées à l'acceptation, sinon recalcul).
+  const tripEstimate =
+    ride.distanceKm !== null && ride.durationMin !== null
+      ? { distanceKm: ride.distanceKm, durationMin: ride.durationMin }
+      : estimateFare(
+          ride.pickup as Neighborhood,
+          ride.destination as Neighborhood,
+          ride.rideType,
+          ride.vehiclePreference
+        );
+  const passenger = row.passenger ?? null;
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <Header user={user} />
@@ -145,6 +160,65 @@ export default async function CoursePage({ params }: Ctx) {
               </li>
             ))}
           </ol>
+        )}
+
+        {/* Code PIN (v2.2) — le passager le donne au chauffeur pour démarrer. */}
+        {isPassenger && ride.pinCode && ['acceptee', 'en_cours'].includes(ride.status) && (
+          <div className="bg-night-900 border border-white/10 rounded-3xl p-6 shadow-sm text-slate-100 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-black text-lg flex items-center gap-2">
+                <KeyRound size={20} className="text-gold" />
+                Ton code de démarrage
+              </p>
+              <p className="text-sm text-slate-300 mt-1">
+                Donne ce code à ton chauffeur quand il arrive — c’est lui qui
+                démarre le trajet avec. Ne le partage avec personne d’autre.
+              </p>
+            </div>
+            <p className="font-black text-5xl tracking-[0.3em] text-gold" aria-label={`Code : ${ride.pinCode.split('').join(' ')}`}>
+              {ride.pinCode}
+            </p>
+          </div>
+        )}
+        {isPassenger && ride.pinLocked && ride.status === 'acceptee' && (
+          <p role="alert" className="text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl p-4">
+            Course verrouillée après 5 codes faux. Contacte Stacks Drive pour
+            la débloquer, ou annule la course.
+          </p>
+        )}
+
+        {/* Vue chauffeur (v2.2) : passager, trajet, temps, distance, prix, paiement. */}
+        {isDriver && (
+          <div className="bg-white border-2 border-stacks-green rounded-3xl p-6 shadow-sm space-y-3">
+            <h2 className="font-black text-lg text-slate-900">Ta course</h2>
+            <p className="text-sm text-slate-600">
+              Passager : <strong className="text-slate-900">{passenger?.full_name ?? 'Passager'}</strong>
+              {passenger?.phone ? ` · ${passenger.phone}` : ''}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              <div className="bg-slate-50 rounded-2xl p-3">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Temps estimé</p>
+                <p className="font-black text-stacks-navy mt-1">~{tripEstimate.durationMin} min</p>
+              </div>
+              <div className="bg-slate-50 rounded-2xl p-3">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Distance</p>
+                <p className="font-black text-stacks-navy mt-1">~{Math.max(1, Math.round(tripEstimate.distanceKm))} km</p>
+              </div>
+              <div className="bg-slate-50 rounded-2xl p-3">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Prix</p>
+                <p className="font-black text-stacks-navy mt-1">
+                  {formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
+                </p>
+                <p className="text-xs text-slate-400">dont {formatFcfa(ride.driverShare)} pour toi</p>
+              </div>
+              <div className="bg-slate-50 rounded-2xl p-3">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Paiement</p>
+                <p className="font-black text-stacks-navy mt-1">{PAYMENT_LABELS[ride.paymentMethod]}</p>
+                <p className="text-xs text-slate-400">directement par le passager</p>
+              </div>
+            </div>
+            {ride.status === 'acceptee' && <PinEntry rideId={ride.id} refreshOnStart />}
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -270,20 +344,16 @@ export default async function CoursePage({ params }: Ctx) {
                   (isPassenger || isDriver) &&
                   ['recherche', 'propositions', 'acceptee'].includes(ride.status)
                 }
-                canRateDriver={isPassenger && ride.status === 'terminee' && row.rating_driver === null}
-                canRatePassenger={isDriver && ride.status === 'terminee' && row.rating_passenger === null}
               />
-              {ride.status === 'terminee' && row.rating_driver !== null && isPassenger && (
-                <p className="text-sm text-slate-500 mt-3">
-                  Tu as noté ton chauffeur : {row.rating_driver}/5 ★
-                </p>
-              )}
-              {ride.status === 'terminee' && row.rating_passenger !== null && isDriver && (
-                <p className="text-sm text-slate-500 mt-3">
-                  Tu as noté ton passager : {row.rating_passenger}/5 ★
-                </p>
-              )}
             </div>
+
+            {/* Avis après course (v2.2) : note, plainte ou recommandation. */}
+            {ride.status === 'terminee' && (
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                <h2 className="font-black text-slate-900">Ton avis sur cette course</h2>
+                <FeedbackForm rideId={ride.id} isPassenger={isPassenger} />
+              </div>
+            )}
 
             {ride.status === 'terminee' && (
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-2">

@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, MapPin, Users, X } from 'lucide-react';
+import { Clock, MapPin, Route, Users, X } from 'lucide-react';
 import type { Ride } from '@/types';
 import { formatFcfa } from '@/lib/commission';
+import { estimateFare } from '@/lib/pricing';
 import { timeAgo } from '@/lib/dates';
+import type { Neighborhood } from '@/lib/neighborhoods';
 
 /** Pop-up reçue par le chauffeur en ligne quand une demande match son
  *  périmètre : détails de la demande + proposition (prix, places,
@@ -25,6 +27,15 @@ export function RequestPopup({
   const [firstStop, setFirstStop] = useState(ride.pickup);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Trajet estimé (v2.2) : le chauffeur voit la distance et la durée
+  // avant de proposer son prix.
+  const tripEstimate = estimateFare(
+    ride.pickup as Neighborhood,
+    ride.destination as Neighborhood,
+    ride.rideType,
+    ride.vehiclePreference
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +106,11 @@ export function RequestPopup({
             )}
           </span>
         </div>
+
+        <p className="text-sm text-slate-600 flex items-center gap-1.5">
+          <Route size={15} className="text-stacks-green shrink-0" />
+          ~{Math.max(1, Math.round(tripEstimate.distanceKm))} km · ~{tripEstimate.durationMin} min de trajet
+        </p>
 
         <form onSubmit={submit} className="space-y-4">
           {error && (

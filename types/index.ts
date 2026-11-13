@@ -76,6 +76,28 @@ export interface Ride {
   loyaltyFree: boolean;
   /** Jeton public de suivi en direct (/suivi/[token]). */
   shareToken: string | null;
+  /** Code PIN à 4 chiffres (v2.2) : généré à l'acceptation, le passager
+   *  le donne au chauffeur pour démarrer le trajet. Null tant que la
+   *  course n'est pas acceptée. */
+  pinCode: string | null;
+  /** Tentatives PIN ratées (5 échecs = course verrouillée). */
+  pinAttempts: number;
+  /** Course verrouillée après 5 codes faux — seul l'admin déverrouille. */
+  pinLocked: boolean;
+  /** Début / fin réels du trajet. */
+  startedAt: string | null;
+  completedAt: string | null;
+  /** Distance et durée figées à l'acceptation (matrice tarifaire). */
+  distanceKm: number | null;
+  durationMin: number | null;
+  /** Taux de commission appliqué à cette course (figé, selon le niveau
+   *  du chauffeur — jamais au-dessus du plafond de 10 %). */
+  commissionRate: number | null;
+  /** Course Double (v2.2) : commission offerte, le chauffeur garde 100 %. */
+  isDoubleRide: boolean;
+  /** Coût absorbé par la plateforme sur cette course (commission offerte
+   *  Course Double, course fidélité, bonus de quête). */
+  platformCost: number;
   createdAt: string;
   updatedAt: string;
 }

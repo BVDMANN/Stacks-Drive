@@ -65,6 +65,17 @@ export interface RideRow {
   share_token: string | null;
   cancelled_by: string | null;
   cancel_reason: string | null;
+  /** v2.2 — code PIN, gains figés, Course Double. */
+  pin_code: string | null;
+  pin_attempts: number;
+  pin_locked: boolean;
+  started_at: string | null;
+  completed_at: string | null;
+  distance_km: number | null;
+  duration_min: number | null;
+  commission_rate: number | null;
+  is_double_ride: boolean;
+  platform_cost: number;
   created_at: string;
   updated_at: string;
   /** Jointures éventuelles. */
@@ -112,6 +123,16 @@ export function mapRideRow(row: RideRow): Ride {
     ratingPassenger: row.rating_passenger,
     loyaltyFree: row.loyalty_free ?? false,
     shareToken: row.share_token,
+    pinCode: row.pin_code ?? null,
+    pinAttempts: row.pin_attempts ?? 0,
+    pinLocked: row.pin_locked ?? false,
+    startedAt: row.started_at ?? null,
+    completedAt: row.completed_at ?? null,
+    distanceKm: row.distance_km ?? null,
+    durationMin: row.duration_min ?? null,
+    commissionRate: row.commission_rate ?? null,
+    isDoubleRide: row.is_double_ride ?? false,
+    platformCost: row.platform_cost ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

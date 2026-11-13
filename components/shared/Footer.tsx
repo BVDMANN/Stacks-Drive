@@ -84,6 +84,11 @@ export function Footer() {
                   Politique de confidentialité
                 </Link>
               </li>
+              <li>
+                <Link href="/cookies" className="text-slate-400 hover:text-volt transition-colors">
+                  Politique des cookies
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
