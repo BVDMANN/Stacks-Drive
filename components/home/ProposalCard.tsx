@@ -33,14 +33,14 @@ export function ProposalCard({
     <article className="rise-in bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="w-11 h-11 rounded-full bg-ember text-white font-black flex items-center justify-center shrink-0">
+          <span className="w-11 h-11 rounded-full bg-or text-night-900 font-black flex items-center justify-center shrink-0">
             {driver?.name?.trim().charAt(0) ?? 'C'}
           </span>
           <div className="min-w-0">
             <p className="font-black text-white flex flex-wrap items-center gap-1.5">
               <span className="truncate">{driver?.name ?? 'Chauffeur'}</span>
               {driver?.isVerified && (
-                <span className="inline-flex items-center gap-0.5 text-xs font-black text-volt shrink-0">
+                <span className="inline-flex items-center gap-0.5 text-xs font-black text-cyan shrink-0">
                   <BadgeCheck size={14} /> Vérifié
                 </span>
               )}
@@ -96,7 +96,7 @@ export function ProposalCard({
           type="button"
           disabled={busy}
           onClick={() => onAccept(proposal.id)}
-          className="flex-1 bg-ember text-white font-black py-3 rounded-full shadow-md shadow-ember/30 hover:bg-ember-light active:scale-[0.98] transition-all disabled:opacity-50"
+          className="flex-1 bg-or text-night-900 font-black py-3 rounded-full shadow-md shadow-or/30 hover:bg-or-light active:scale-[0.98] transition-all disabled:opacity-50"
         >
           Accepter
         </button>

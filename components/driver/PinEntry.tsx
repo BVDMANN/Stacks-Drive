@@ -98,7 +98,7 @@ export function PinEntry({
         <button
           type="submit"
           disabled={busy || pin.length !== 4}
-          className="px-5 py-3.5 rounded-xl bg-ember text-white text-sm font-black shadow-md hover:bg-ember-light transition-colors disabled:opacity-50"
+          className="px-5 py-3.5 rounded-xl bg-or text-night-900 text-sm font-black shadow-md hover:bg-or-light transition-colors disabled:opacity-50"
         >
           {busy ? 'Vérification…' : 'Démarrer'}
         </button>

@@ -55,14 +55,14 @@ export function DriverCard({
   return (
     <div className="rise-in bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
       <div className="flex items-center gap-3">
-        <span className="w-14 h-14 rounded-full bg-ember text-white text-xl font-black flex items-center justify-center shrink-0">
+        <span className="w-14 h-14 rounded-full bg-or text-night-900 text-xl font-black flex items-center justify-center shrink-0">
           {driver.name.trim().charAt(0)}
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-black text-white text-lg leading-tight flex flex-wrap items-center gap-1.5">
             <span className="truncate">{driver.name}</span>
             {driver.isVerified && (
-              <span className="inline-flex items-center gap-0.5 text-xs font-black text-volt shrink-0">
+              <span className="inline-flex items-center gap-0.5 text-xs font-black text-cyan shrink-0">
                 <BadgeCheck size={15} /> Vérifié
               </span>
             )}
@@ -82,7 +82,7 @@ export function DriverCard({
         {driver.phone && (
           <a
             href={`tel:${tel}`}
-            className="w-11 h-11 rounded-full bg-volt/15 text-volt flex items-center justify-center shrink-0 hover:bg-volt/25 transition-colors"
+            className="w-11 h-11 rounded-full bg-cyan/15 text-cyan flex items-center justify-center shrink-0 hover:bg-cyan/25 transition-colors"
             aria-label={`Appeler ${driver.name}`}
           >
             <Phone size={20} />
@@ -125,7 +125,7 @@ export function DriverCard({
         </button>
         <Link
           href={detailUrl}
-          className="inline-flex items-center justify-center gap-1.5 bg-ember text-white text-sm font-black py-3 rounded-full hover:bg-ember-light transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 bg-or text-night-900 text-sm font-black py-3 rounded-full hover:bg-or-light transition-colors"
         >
           <Link2 size={16} /> Suivi
         </Link>

@@ -156,11 +156,11 @@ export default function CguPage() {
           <h2 className="text-lg font-black text-white">9. Données personnelles et cookies</h2>
           <p>
             Le traitement des données personnelles est décrit dans notre{' '}
-            <Link href="/confidentialite" className="text-volt font-bold hover:underline">
+            <Link href="/confidentialite" className="text-cyan font-bold hover:underline">
               politique de confidentialité
             </Link>{' '}
             et notre{' '}
-            <Link href="/cookies" className="text-volt font-bold hover:underline">
+            <Link href="/cookies" className="text-cyan font-bold hover:underline">
               politique cookies
             </Link>
             .
@@ -196,7 +196,7 @@ export default function CguPage() {
           <h2 className="text-lg font-black text-white">12. Contact</h2>
           <p>
             Pour toute question :{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-volt font-bold hover:underline">
+            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
               boulinguirandy12@gmail.com
             </a>
             .
@@ -205,7 +205,7 @@ export default function CguPage() {
 
         <p className="text-sm text-slate-400">
           Dernière mise à jour : novembre 2026.{' '}
-          <Link href="/" className="text-volt font-bold hover:underline">
+          <Link href="/" className="text-cyan font-bold hover:underline">
             Retour à l’accueil
           </Link>
         </p>

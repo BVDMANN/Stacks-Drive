@@ -22,7 +22,7 @@ export default async function MentionsLegalesPage() {
           </p>
           <p>
             Contact :{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-volt font-bold hover:underline">
+            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
               boulinguirandy12@gmail.com
             </a>
           </p>
@@ -69,7 +69,7 @@ export default async function MentionsLegalesPage() {
 
         <p className="text-sm text-slate-400">
           Dernière mise à jour : novembre 2026.{' '}
-          <Link href="/" className="text-volt font-bold hover:underline">
+          <Link href="/" className="text-cyan font-bold hover:underline">
             Retour à l’accueil
           </Link>
         </p>

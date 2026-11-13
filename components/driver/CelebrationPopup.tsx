@@ -24,7 +24,7 @@ export interface CelebrationData {
   completedRides: number;
 }
 
-const CONFETTI_COLORS = ['#FF5C00', '#2EFF8B', '#FFD60A', '#FFFFFF', '#3A75C4', '#FCD116'];
+const CONFETTI_COLORS = ['#FFC700', '#22D3EE', '#FFD60A', '#FFFFFF', '#3A75C4', '#FCD116'];
 
 /** Popup de célébration après chaque course terminée (v2.2) : confettis,
  *  flash doré, montant gardé en gros, % gardé, progression de la quête.
@@ -74,7 +74,7 @@ export function CelebrationPopup({
         transition={{ duration: 1.2, ease: 'easeOut' }}
         style={{
           background:
-            'radial-gradient(circle at 50% 40%, rgba(255, 214, 10, 0.55) 0%, rgba(255, 92, 0, 0.25) 35%, transparent 70%)',
+            'radial-gradient(circle at 50% 40%, rgba(255, 214, 10, 0.55) 0%, rgba(255, 199, 0, 0.25) 35%, transparent 70%)',
         }}
       />
       {/* Confettis */}
@@ -136,7 +136,7 @@ export function CelebrationPopup({
         </p>
 
         <motion.p
-          className="font-black text-5xl text-volt mt-4 tracking-tight"
+          className="font-black text-5xl text-cyan mt-4 tracking-tight"
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.25, type: 'spring', stiffness: 200, damping: 14 }}
@@ -168,7 +168,7 @@ export function CelebrationPopup({
           </div>
           <div className="h-3 rounded-full bg-white/10 overflow-hidden">
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-ember via-gold to-volt"
+              className="h-full rounded-full bg-gradient-to-r from-or via-gold to-cyan"
               initial={{ width: 0 }}
               animate={{ width: `${questPct}%` }}
               transition={{ delay: 0.4, duration: 0.8, ease: 'easeOut' }}
@@ -184,7 +184,7 @@ export function CelebrationPopup({
         <div className="flex items-center justify-center gap-4 mt-4 text-sm text-slate-300">
           {celebration.streakDays > 1 && (
             <span className="inline-flex items-center gap-1 font-bold">
-              <Flame size={16} className="text-ember" /> Série : {celebration.streakDays} jours
+              <Flame size={16} className="text-or" /> Série : {celebration.streakDays} jours
             </span>
           )}
           <span className="font-bold">Niveau {celebration.tier}</span>
@@ -194,7 +194,7 @@ export function CelebrationPopup({
         <button
           type="button"
           onClick={onClose}
-          className="mt-6 w-full py-4 rounded-full bg-ember text-white font-black shadow-lg shadow-ember/30 hover:bg-ember-light transition-colors"
+          className="mt-6 w-full py-4 rounded-full bg-or text-night-900 font-black shadow-lg shadow-or/30 hover:bg-or-light transition-colors"
         >
           Continuer — prochaine course
         </button>

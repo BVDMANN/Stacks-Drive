@@ -181,6 +181,9 @@ export function HomeScreen({
 
   // --- Feuille draggable ---
   const [sheetH, setSheetH] = useState(SHEET_SNAPS[1]);
+  // Pendant un glisser, pas de transition (la feuille suit le doigt 1:1) ;
+  // au relâcher / au tap, la hauteur glisse vers le cran (ressort).
+  const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startY: number; startH: number; moved: boolean; pointerId: number } | null>(null);
 
   // Le cran mini n'existe qu'en phase idle : dès qu'une recherche ou une
@@ -189,6 +192,9 @@ export function HomeScreen({
     if (phase !== 'idle') setSheetH(58);
   }, [phase]);
   const isMini = phase === 'idle' && sheetH <= 20;
+  // Feuille dépliée : les pastilles du haut de la carte s'effacent
+  // (elles glissent vers le haut au lieu de rester figées sur la carte).
+  const sheetExpanded = sheetH >= 58;
 
   // Restaurer le brouillon après connexion.
   useEffect(() => {
@@ -441,6 +447,7 @@ export function HomeScreen({
       moved: false,
       pointerId: e.pointerId,
     };
+    setIsDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
   }
   function onHandlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
@@ -457,6 +464,7 @@ export function HomeScreen({
   function onHandlePointerUp(e: React.PointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current;
     dragRef.current = null;
+    setIsDragging(false);
     if (!drag) return;
     if (!drag.moved) {
       // Simple tap sur la poignée : mini → mi-hauteur, pleine → réduite,
@@ -603,31 +611,41 @@ export function HomeScreen({
         onDriverClick={(id) => setSelectedDriverId(id)}
       />
 
-      {/* Compteur de chauffeurs autour */}
+      {/* Compteur de chauffeurs autour — s'efface quand la feuille se déplie */}
       {phase === 'idle' && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+        <div
+          className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none transition-all duration-500 ${
+            sheetExpanded ? 'opacity-0 -translate-y-2' : 'opacity-100'
+          }`}
+        >
           <span className="inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/10 shadow-xl shadow-black/40 rounded-full px-4 py-2 text-xs font-black text-slate-100">
-            <span className="w-2 h-2 rounded-full bg-volt animate-pulse shadow-[0_0_8px_rgba(46,255,139,0.9)]" />
+            <span className="w-2 h-2 rounded-full bg-cyan animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
             {driversNearPickup} chauffeur{driversNearPickup > 1 ? 's' : ''} autour de toi
           </span>
         </div>
       )}
 
-      {/* Bouton « Recentrer » */}
+      {/* Bouton « Recentrer » — s'efface quand la feuille se déplie */}
       <button
         type="button"
         onClick={handleRecenter}
-        className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/15 text-white text-xs font-black px-3 py-2 rounded-full shadow-xl shadow-black/40 hover:border-volt/60 active:scale-95 transition-all"
+        className={`absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/15 text-white text-xs font-black px-3 py-2 rounded-full shadow-xl shadow-black/40 hover:border-cyan/60 active:scale-95 transition-all duration-500 ${
+          sheetExpanded ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100'
+        }`}
         aria-label={userLocation ? 'Recentrer sur ma position' : 'Recentrer sur Libreville'}
       >
-        <Crosshair size={15} className="text-volt" />
+        <Crosshair size={15} className="text-cyan" />
         {userLocation ? 'Moi' : 'Libreville'}
       </button>
 
-      {/* Feuille du bas — draggable */}
+      {/* Feuille du bas — draggable : glisse avec un ressort quand on
+          relâche ou qu'on tape (pas de saut direct au cran). */}
       <div
         className="absolute inset-x-0 bottom-0 sm:left-4 sm:bottom-4 sm:right-auto sm:w-[440px] z-20"
-        style={{ height: `${sheetH}dvh` }}
+        style={{
+          height: `${sheetH}dvh`,
+          transition: isDragging ? 'none' : 'height 0.5s cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
       >
         <div className="sheet-glass sheet-up h-full overflow-y-auto overscroll-contain rounded-t-[28px] sm:rounded-[28px] shadow-2xl shadow-black/60">
           {/* Poignée draggable */}
@@ -653,7 +671,7 @@ export function HomeScreen({
               aria-label="Agrandir la feuille"
             >
               <span className="text-base font-black text-white">Où allez-vous ?</span>
-              <ChevronUp size={20} className="text-volt" />
+              <ChevronUp size={20} className="text-cyan" />
             </button>
           )}
 
@@ -688,7 +706,7 @@ export function HomeScreen({
               {/* Départ / Destination */}
               <div className="space-y-2">
                 <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-3.5 py-1">
-                  <Navigation size={18} className="text-volt shrink-0" />
+                  <Navigation size={18} className="text-cyan shrink-0" />
                   <span className="flex-1 min-w-0">
                     <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
                       Départ
@@ -709,7 +727,7 @@ export function HomeScreen({
                     type="button"
                     onClick={handleLocate}
                     disabled={locating}
-                    className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-volt px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-cyan px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
                   >
                     {locating ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -720,7 +738,7 @@ export function HomeScreen({
                   </button>
                 </div>
                 {geoLabel && pickup !== '' && (
-                  <p className="text-xs font-bold text-volt flex items-center gap-1 px-1">
+                  <p className="text-xs font-bold text-cyan flex items-center gap-1 px-1">
                     <MapPin size={12} /> {geoLabel} · {pickup}
                   </p>
                 )}
@@ -758,7 +776,7 @@ export function HomeScreen({
               {/* Tarifs fixes */}
               <div className="space-y-1.5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                  <ShieldCheck size={13} className="text-volt" /> Tarifs fixes — prix garanti, jamais de surge
+                  <ShieldCheck size={13} className="text-cyan" /> Tarifs fixes — prix garanti, jamais de surge
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {FIXED_FARES.map((f) => (
@@ -772,7 +790,7 @@ export function HomeScreen({
                         setGeoLabel(null);
                         setRideType('groupe');
                       }}
-                      className="text-xs font-bold bg-volt/10 border border-volt/30 text-volt px-3 py-1.5 rounded-full hover:bg-volt/20 active:scale-95 transition-all"
+                      className="text-xs font-bold bg-cyan/10 border border-cyan/30 text-cyan px-3 py-1.5 rounded-full hover:bg-cyan/20 active:scale-95 transition-all"
                     >
                       {f.label}
                     </button>
@@ -793,7 +811,7 @@ export function HomeScreen({
                     className={cn(
                       'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
                       rideType === 'groupe'
-                        ? 'border-ember bg-ember/10 shadow-lg shadow-ember/20'
+                        ? 'border-or bg-or/10 shadow-lg shadow-or/20'
                         : 'border-white/10 bg-white/5 hover:border-white/25'
                     )}
                   >
@@ -824,7 +842,7 @@ export function HomeScreen({
                     className={cn(
                       'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
                       rideType === 'solo'
-                        ? 'border-ember bg-ember/10 shadow-lg shadow-ember/20'
+                        ? 'border-or bg-or/10 shadow-lg shadow-or/20'
                         : 'border-white/10 bg-white/5 hover:border-white/25'
                     )}
                   >
@@ -872,7 +890,7 @@ export function HomeScreen({
                       className={cn(
                         'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-black border-2 transition-all active:scale-95 disabled:opacity-40',
                         vehiclePref === v.value
-                          ? 'border-volt bg-volt/10 text-volt'
+                          ? 'border-cyan bg-cyan/10 text-cyan'
                           : 'border-white/10 bg-white/5 text-slate-300 hover:border-white/25'
                       )}
                     >
@@ -915,7 +933,7 @@ export function HomeScreen({
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-volt focus:outline-none"
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-cyan focus:outline-none"
                   aria-label="Moyen de paiement"
                 >
                   {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((m) => (
@@ -943,7 +961,7 @@ export function HomeScreen({
                     </p>
                     <p className="text-xs text-slate-400">{estimate.breakdown}</p>
                   </div>
-                  <span className="text-right text-xs font-bold text-volt">
+                  <span className="text-right text-xs font-bold text-cyan">
                     Prix garanti
                   </span>
                 </div>
@@ -953,7 +971,7 @@ export function HomeScreen({
                 type="button"
                 disabled={!validTrip || !estimate || busy || isChauffeurMode}
                 onClick={commander}
-                className="w-full bg-ember text-white font-black text-lg py-4 rounded-full shadow-lg shadow-ember/40 hover:bg-ember-light active:scale-[0.98] transition-all disabled:opacity-40"
+                className="w-full bg-or text-night-900 font-black text-lg py-4 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all disabled:opacity-40"
               >
                 {busy
                   ? 'Envoi…'
@@ -965,27 +983,27 @@ export function HomeScreen({
               </button>
 
               <p className="text-[11px] text-slate-500 text-center">
-                <Link href="/a-propos" className="underline hover:text-volt">
+                <Link href="/a-propos" className="underline hover:text-cyan">
                   Comment ça marche
                 </Link>
                 {' · '}
-                <Link href="/cgu" className="underline hover:text-volt">CGU</Link>
+                <Link href="/cgu" className="underline hover:text-cyan">CGU</Link>
                 {' · '}
-                <Link href="/cookies" className="underline hover:text-volt">Cookies</Link>
+                <Link href="/cookies" className="underline hover:text-cyan">Cookies</Link>
                 {' · '}
                 <span>© OpenStreetMap · Esri</span>
               </p>
 
               {/* Côté chauffeur : uniquement pour ceux que ça intéresse. */}
               {!isChauffeurMode && (
-                <Link href="/devenir-chauffeur" className="block bg-white/[0.03] border border-white/10 rounded-2xl p-4 hover:border-volt/40 transition-colors">
+                <Link href="/devenir-chauffeur" className="block bg-white/[0.03] border border-white/10 rounded-2xl p-4 hover:border-cyan/40 transition-colors">
                   <p className="font-black text-white text-sm flex items-center gap-2">
-                    <Car size={16} className="text-volt" /> Vous avez une voiture ?
+                    <Car size={16} className="text-cyan" /> Vous avez une voiture ?
                   </p>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     Conduisez quand vous voulez. Opter pour la liberté financière, à votre rythme.
                   </p>
-                  <span className="inline-flex items-center gap-1.5 mt-2 text-sm font-black text-volt">
+                  <span className="inline-flex items-center gap-1.5 mt-2 text-sm font-black text-cyan">
                     Devenir chauffeur →
                   </span>
                 </Link>
@@ -999,9 +1017,9 @@ export function HomeScreen({
                 <h2 className="text-lg font-black text-white flex items-center justify-center gap-2">
                   Recherche de chauffeurs
                   <span aria-hidden className="inline-flex gap-1">
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-volt inline-block" />
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-volt inline-block" />
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-volt inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-cyan inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-cyan inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-cyan inline-block" />
                   </span>
                 </h2>
                 <p className="text-sm text-slate-400">
@@ -1080,7 +1098,7 @@ export function HomeScreen({
               <button
                 type="button"
                 onClick={resetToIdle}
-                className="w-full text-sm font-bold text-volt hover:underline"
+                className="w-full text-sm font-bold text-cyan hover:underline"
               >
                 Nouvelle course
               </button>
@@ -1096,7 +1114,7 @@ export function HomeScreen({
               {acceptedRide && (
                 <Link
                   href={`/courses/${acceptedRide.id}`}
-                  className="inline-block bg-ember text-white font-black px-6 py-3.5 rounded-full shadow-md shadow-ember/30 hover:bg-ember-light transition-colors"
+                  className="inline-block bg-or text-night-900 font-black px-6 py-3.5 rounded-full shadow-md shadow-or/30 hover:bg-or-light transition-colors"
                 >
                   Noter mon chauffeur
                 </Link>
@@ -1104,7 +1122,7 @@ export function HomeScreen({
               <button
                 type="button"
                 onClick={resetToIdle}
-                className="block w-full text-sm font-bold text-volt hover:underline"
+                className="block w-full text-sm font-bold text-cyan hover:underline"
               >
                 Nouvelle course
               </button>

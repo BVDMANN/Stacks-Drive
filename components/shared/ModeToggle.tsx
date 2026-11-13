@@ -56,7 +56,7 @@ export function ModeToggle({ currentRole }: { currentRole: ProfileRole }) {
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black transition-all disabled:opacity-60',
               role === m.value
-                ? 'bg-ember text-white shadow-md shadow-ember/40'
+                ? 'bg-or text-night-900 shadow-md shadow-or/40'
                 : 'text-slate-400 hover:text-white'
             )}
           >

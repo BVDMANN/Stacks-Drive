@@ -21,10 +21,11 @@ const config: Config = {
           dark: '#0A0A0A',
           darker: '#080808',
         },
-        // Identité v2.1 « Libreville la nuit » — volontairement distincte
-        // de Gozem (vert plat) et d'Uber (noir/blanc) : ciel nocturne
-        // bleu encre, orange braise (coucher de soleil sur l'estuaire),
-        // vert volt (la ville qui vit) et or du drapeau gabonais.
+        // Identité « Libreville la nuit » — palette B « Or & Cyan »
+        // (choix de Randy, 13/11/2026) : ciel nocturne bleu encre,
+        // or (la valeur, l'argent) et cyan (la carte, la ville qui vit).
+        // Or remplace l'ancien orange braise, cyan remplace l'ancien
+        // vert volt. Le fond nuit et l'or du drapeau gabonais restent.
         night: {
           950: '#070B16',
           900: '#0B1020',
@@ -32,14 +33,14 @@ const config: Config = {
           700: '#1A2340',
           600: '#232E4D',
         },
-        ember: {
-          DEFAULT: '#FF5C00',
-          light: '#FF7A1A',
-          dark: '#D94A00',
+        or: {
+          DEFAULT: '#FFC700',
+          light: '#FFD60A',
+          dark: '#B89100',
         },
-        volt: {
-          DEFAULT: '#2EFF8B',
-          dark: '#00C853',
+        cyan: {
+          DEFAULT: '#22D3EE',
+          dark: '#0891B2',
         },
         gold: {
           DEFAULT: '#FFD60A',

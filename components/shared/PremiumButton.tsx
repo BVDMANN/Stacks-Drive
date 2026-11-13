@@ -3,7 +3,7 @@ import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface ButtonProps extends HTMLMotionProps<'button'> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'ember';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'or';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
 }
@@ -18,7 +18,7 @@ export const PremiumButton = ({
 }: ButtonProps) => {
   const variants = {
     primary: 'bg-stacks-green text-white shadow-lg shadow-stacks-green/20',
-    ember: 'bg-ember text-white shadow-lg shadow-ember/30',
+    or: 'bg-or text-night-900 shadow-lg shadow-or/30',
     secondary: 'bg-stacks-yellow text-stacks-blue shadow-lg shadow-stacks-yellow/20',
     outline: 'bg-white text-stacks-blue border border-gray-200',
     ghost: 'bg-transparent text-gray-500 hover:bg-gray-100',

@@ -49,7 +49,7 @@ export default function MotDePasseOubliePage() {
     return (
       <AuthCard title="E-mail envoyé" subtitle={`Si un compte existe pour ${email}, tu vas recevoir un lien de réinitialisation.`}>
         <div className="text-center space-y-4 py-2">
-          <div className="w-16 h-16 mx-auto rounded-full bg-volt/15 flex items-center justify-center text-volt">
+          <div className="w-16 h-16 mx-auto rounded-full bg-cyan/15 flex items-center justify-center text-cyan">
             <Mail size={32} />
           </div>
           <p className="text-sm text-slate-300 leading-relaxed">
@@ -59,7 +59,7 @@ export default function MotDePasseOubliePage() {
           <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
             <CheckCircle2 size={14} /> Le lien expire après un certain délai.
           </p>
-          <Link href="/connexion" className="inline-block text-volt font-bold text-sm hover:underline">
+          <Link href="/connexion" className="inline-block text-cyan font-bold text-sm hover:underline">
             Retour à la connexion
           </Link>
         </div>
@@ -87,15 +87,15 @@ export default function MotDePasseOubliePage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ton@email.com"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-volt focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
           />
         </div>
-        <PremiumButton variant="ember" type="submit" isLoading={loading} className="w-full justify-center py-4">
+        <PremiumButton variant="or" type="submit" isLoading={loading} className="w-full justify-center py-4">
           Envoyer le lien
         </PremiumButton>
       </form>
       <p className="text-sm text-center text-slate-400">
-        <Link href="/connexion" className="text-volt font-bold hover:underline">
+        <Link href="/connexion" className="text-cyan font-bold hover:underline">
           Retour à la connexion
         </Link>
       </p>

@@ -75,11 +75,11 @@ export default async function CookiesPage() {
           <h2 className="text-lg font-black text-white">4. Contact et mise à jour</h2>
           <p>
             Pour toute question sur les cookies et vos données, écrivez à{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-volt font-bold hover:underline">
+            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
               boulinguirandy12@gmail.com
             </a>
             . Voir aussi notre{' '}
-            <Link href="/confidentialite" className="text-volt font-bold hover:underline">
+            <Link href="/confidentialite" className="text-cyan font-bold hover:underline">
               politique de confidentialité
             </Link>
             . Cette page est mise à jour en même temps que nos pratiques.
@@ -88,7 +88,7 @@ export default async function CookiesPage() {
 
         <p className="text-sm text-slate-400">
           Dernière mise à jour : novembre 2026.{' '}
-          <Link href="/" className="text-volt font-bold hover:underline">
+          <Link href="/" className="text-cyan font-bold hover:underline">
             Retour à l’accueil
           </Link>
         </p>

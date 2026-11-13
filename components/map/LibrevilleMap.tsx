@@ -181,7 +181,7 @@ export function LibrevilleMap({
           [pickup.lat, pickup.lng],
           [destination.lat, destination.lng],
         ],
-        { color: '#ff5c00', weight: 9, opacity: 0.18 }
+        { color: '#FFC700', weight: 9, opacity: 0.18 }
       ).addTo(layers);
       L.polyline(
         [
@@ -199,7 +199,7 @@ export function LibrevilleMap({
       ).addTo(layers);
     }
 
-    // « Vous êtes ici » (géolocalisation) : pastille vert volt pulsante.
+    // « Vous êtes ici » (géolocalisation) : pastille cyan pulsante.
     if (userLocation) {
       const icon = L.divIcon({
         className: 'map-user-icon',
@@ -363,9 +363,9 @@ export function LibrevilleMap({
     if (!radarActive || !radarCenter) return;
     const circle = L.circle([radarCenter.lat, radarCenter.lng], {
       radius: 100,
-      color: '#2eff8b',
+      color: '#22D3EE',
       weight: 2,
-      fillColor: '#2eff8b',
+      fillColor: '#22D3EE',
       fillOpacity: 0.12,
     }).addTo(map);
     let radius = 100;

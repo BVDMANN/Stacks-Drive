@@ -35,11 +35,11 @@ export default function GlobalError({
             width: 64,
             height: 64,
             borderRadius: 16,
-            background: '#FF5C00',
+            background: '#FFC700',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#fff',
+            color: '#070B16',
           }}
         >
           <Car size={32} />
@@ -64,8 +64,8 @@ export default function GlobalError({
               gap: 8,
               padding: '14px 24px',
               borderRadius: 999,
-              background: '#FF5C00',
-              color: '#fff',
+              background: '#FFC700',
+              color: '#070B16',
               fontWeight: 800,
               border: 'none',
               cursor: 'pointer',

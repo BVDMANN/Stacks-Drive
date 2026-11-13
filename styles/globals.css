@@ -58,11 +58,11 @@ input::-ms-clear {
 
 /* 💊 BOUTONS D'ACTION — orange braise (identité v2.1) */
 .btn-action {
-  @apply bg-ember text-white rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-ember/40 hover:bg-ember-light hover:shadow-ember/60 active:scale-95;
+  @apply bg-or text-white rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-or/40 hover:bg-or-light hover:shadow-or/60 active:scale-95;
 }
 
 .btn-outline {
-  @apply bg-white/5 text-slate-100 border-2 border-white/15 rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 hover:border-volt/50 active:scale-95;
+  @apply bg-white/5 text-slate-100 border-2 border-white/15 rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 hover:border-cyan/50 active:scale-95;
 }
 
 /* 💰 BOUTON PRIX */
@@ -158,15 +158,15 @@ html {
 }
 
 /* 🚗 Marqueur chauffeur v2.1 : disque nuit, halo orange braise, pastille
-   vert volt « en ligne », voiture blanche. Le halo pulse doucement. */
+   cyan « en ligne », voiture blanche. Le halo pulse doucement. */
 .map-driver-marker {
   width: 44px;
   height: 44px;
   border-radius: 9999px;
   background: #12182b;
-  border: 2px solid #ff5c00;
+  border: 2px solid #FFC700;
   box-shadow:
-    0 0 0 4px rgba(255, 92, 0, 0.18),
+    0 0 0 4px rgba(255, 199, 0, 0.18),
     0 6px 16px rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
@@ -183,21 +183,21 @@ html {
   width: 10px;
   height: 10px;
   border-radius: 9999px;
-  background: #2eff8b;
+  background: #22D3EE;
   border: 2px solid #12182b;
-  box-shadow: 0 0 6px rgba(46, 255, 139, 0.9);
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.9);
 }
 .map-driver-marker svg {
   transition: transform 0.3s linear;
   will-change: transform;
 }
 @keyframes driver-halo {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 92, 0, 0.22), 0 6px 16px rgba(0, 0, 0, 0.55); }
-  50% { box-shadow: 0 0 0 7px rgba(255, 92, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.55); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 199, 0, 0.22), 0 6px 16px rgba(0, 0, 0, 0.55); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 199, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.55); }
 }
 .map-driver-marker.selected {
   transform: scale(1.15);
-  background: #ff5c00;
+  background: #FFC700;
   border-color: #ffd60a;
   animation: none;
 }
@@ -207,7 +207,7 @@ html {
   animation: driver-bounce 1.6s ease-in-out infinite;
 }
 .map-driver-marker.assigned::after {
-  background: #ff5c00;
+  background: #FFC700;
 }
 @keyframes driver-bounce {
   0%, 100% { transform: translateY(0); }
@@ -219,31 +219,31 @@ html {
   width: 20px;
   height: 20px;
   border-radius: 9999px;
-  background: #ff5c00;
+  background: #FFC700;
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 6px rgba(255, 92, 0, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 6px rgba(255, 199, 0, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5);
   animation: pickup-pulse 2s ease-out infinite;
 }
 @keyframes pickup-pulse {
-  0% { box-shadow: 0 0 0 4px rgba(255, 92, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5); }
-  70% { box-shadow: 0 0 0 14px rgba(255, 92, 0, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
-  100% { box-shadow: 0 0 0 4px rgba(255, 92, 0, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  0% { box-shadow: 0 0 0 4px rgba(255, 199, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(255, 199, 0, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  100% { box-shadow: 0 0 0 4px rgba(255, 199, 0, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
 }
 
-/* 🧍 « Vous êtes ici » : pastille vert volt pulsante, halo large */
+/* 🧍 « Vous êtes ici » : pastille cyan pulsante, halo large */
 .map-user-marker {
   width: 22px;
   height: 22px;
   border-radius: 9999px;
-  background: #2eff8b;
+  background: #22D3EE;
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 6px rgba(46, 255, 139, 0.3), 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 6px rgba(34, 211, 238, 0.3), 0 4px 12px rgba(0, 0, 0, 0.5);
   animation: user-pulse 1.8s ease-out infinite;
 }
 @keyframes user-pulse {
-  0% { box-shadow: 0 0 0 4px rgba(46, 255, 139, 0.45), 0 4px 12px rgba(0, 0, 0, 0.5); }
-  70% { box-shadow: 0 0 0 16px rgba(46, 255, 139, 0), 0 4px 12px rgba(0, 0, 0, 0.5); }
-  100% { box-shadow: 0 0 0 4px rgba(46, 255, 139, 0), 0 4px 12px rgba(0, 0, 0, 0.5); }
+  0% { box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.45), 0 4px 12px rgba(0, 0, 0, 0.5); }
+  70% { box-shadow: 0 0 0 16px rgba(34, 211, 238, 0), 0 4px 12px rgba(0, 0, 0, 0.5); }
+  100% { box-shadow: 0 0 0 4px rgba(34, 211, 238, 0), 0 4px 12px rgba(0, 0, 0, 0.5); }
 }
 
 /* 📌 Destination : épingle or */
@@ -264,11 +264,11 @@ html {
   to { stroke-dashoffset: -22; }
 }
 
-/* 📡 RADAR : anneaux pulsants vert volt autour du point de recherche */
+/* 📡 RADAR : anneaux pulsants cyan autour du point de recherche */
 .radar-ring {
   position: absolute;
   border-radius: 9999px;
-  border: 2px solid rgba(46, 255, 139, 0.55);
+  border: 2px solid rgba(34, 211, 238, 0.55);
   animation: radar-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
   pointer-events: none;
 }
@@ -305,7 +305,7 @@ html {
 .sheet-handle:hover .sheet-handle-bar,
 .sheet-handle:active .sheet-handle-bar {
   width: 3.5rem;
-  background-color: #ff5c00;
+  background-color: #FFC700;
 }
 
 /* 🔢 Prix animé : petit « pop » quand l'estimation change */

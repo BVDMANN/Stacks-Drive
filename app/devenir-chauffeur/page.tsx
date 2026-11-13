@@ -14,7 +14,7 @@ export default function DevenirChauffeurPage() {
       <Header user={null} />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-12">
         <header className="space-y-4">
-          <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-volt bg-volt/10 border border-volt/30 rounded-full px-4 py-2">
+          <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-cyan bg-cyan/10 border border-cyan/30 rounded-full px-4 py-2">
             <Car size={14} /> Libreville — pour les chauffeurs
           </p>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-tight">
@@ -28,11 +28,11 @@ export default function DevenirChauffeurPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/inscription?role=chauffeur"
-              className="inline-flex items-center gap-2 bg-ember text-white font-black px-7 py-4 rounded-full shadow-lg shadow-ember/40 hover:bg-ember-light active:scale-[0.98] transition-all"
+              className="inline-flex items-center gap-2 bg-or text-night-900 font-black px-7 py-4 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all"
             >
               S’inscrire en chauffeur <ArrowRight size={18} />
             </Link>
-            <Link href="/" className="text-sm font-bold text-slate-400 hover:text-volt transition-colors">
+            <Link href="/" className="text-sm font-bold text-slate-400 hover:text-cyan transition-colors">
               Tu cherches une course ? Retour à l’accueil →
             </Link>
           </div>
@@ -63,11 +63,11 @@ export default function DevenirChauffeurPage() {
               },
             ].map((s) => (
               <div key={s.step} className="bg-night-800/80 border border-white/10 rounded-3xl p-6 shadow-sm space-y-3">
-                <span className="inline-flex w-10 h-10 rounded-full bg-volt text-night-900 font-black items-center justify-center">
+                <span className="inline-flex w-10 h-10 rounded-full bg-cyan text-night-900 font-black items-center justify-center">
                   {s.step}
                 </span>
                 <h3 className="font-black text-lg text-white flex items-center gap-2">
-                  <s.icon size={18} className="text-volt" /> {s.title}
+                  <s.icon size={18} className="text-cyan" /> {s.title}
                 </h3>
                 <p className="text-sm text-slate-400 leading-relaxed">{s.desc}</p>
               </div>
@@ -95,7 +95,7 @@ export default function DevenirChauffeurPage() {
           </div>
           <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 space-y-3">
             <h2 className="text-2xl font-black text-white flex items-center gap-2">
-              <ShieldCheck size={24} className="text-volt" /> Un dépôt, et c’est tout
+              <ShieldCheck size={24} className="text-cyan" /> Un dépôt, et c’est tout
             </h2>
             <p className="text-slate-400 leading-relaxed">
               À l’inscription, un dépôt de garantie remboursable de 5 000 FCFA.
@@ -128,7 +128,7 @@ export default function DevenirChauffeurPage() {
         </section>
 
         {/* Appel final */}
-        <section className="text-center space-y-4 bg-ember/10 border border-ember/30 rounded-3xl p-8">
+        <section className="text-center space-y-4 bg-or/10 border border-or/30 rounded-3xl p-8">
           <h2 className="text-2xl font-black text-white">Prêt quand tu l’es.</h2>
           <p className="text-slate-400 max-w-xl mx-auto">
             L’inscription prend moins d’une minute. La vérification se fait
@@ -136,7 +136,7 @@ export default function DevenirChauffeurPage() {
           </p>
           <Link
             href="/inscription?role=chauffeur"
-            className="inline-flex items-center gap-2 bg-ember text-white font-black px-7 py-4 rounded-full shadow-lg shadow-ember/40 hover:bg-ember-light active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-2 bg-or text-night-900 font-black px-7 py-4 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all"
           >
             S’inscrire en chauffeur <ArrowRight size={18} />
           </Link>

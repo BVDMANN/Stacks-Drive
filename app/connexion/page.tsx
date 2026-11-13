@@ -97,7 +97,7 @@ function ConnexionForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ton@email.com"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-volt focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
           />
         </div>
         <div className="space-y-1.5">
@@ -112,18 +112,18 @@ function ConnexionForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-volt focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
           />
         </div>
-        <PremiumButton variant="ember" type="submit" isLoading={loading} className="w-full justify-center py-4">
+        <PremiumButton variant="or" type="submit" isLoading={loading} className="w-full justify-center py-4">
           Se connecter
         </PremiumButton>
       </form>
       <div className="flex justify-between text-sm">
-        <Link href="/mot-de-passe-oublie" className="text-slate-400 hover:text-volt font-semibold">
+        <Link href="/mot-de-passe-oublie" className="text-slate-400 hover:text-cyan font-semibold">
           Mot de passe oublié ?
         </Link>
-        <Link href={`/inscription${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-volt hover:underline font-bold">
+        <Link href={`/inscription${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-cyan hover:underline font-bold">
           Créer un compte
         </Link>
       </div>

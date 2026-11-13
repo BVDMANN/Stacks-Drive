@@ -47,7 +47,7 @@ function PeriodCard({
       )}
     >
       <p className="text-xs font-black uppercase tracking-widest text-slate-400">{title}</p>
-      <p className={cn('text-2xl font-black mt-2', highlight ? 'text-volt' : 'text-stacks-navy')}>
+      <p className={cn('text-2xl font-black mt-2', highlight ? 'text-cyan' : 'text-stacks-navy')}>
         {formatFcfa(kept)}
       </p>
       <p className={cn('text-sm mt-1', highlight ? 'text-slate-300' : 'text-slate-500')}>
@@ -244,7 +244,7 @@ export function DriverEarnings() {
         </div>
         <div className="h-3 rounded-full bg-white/10 overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-ember via-gold to-volt transition-all"
+            className="h-full rounded-full bg-gradient-to-r from-or via-gold to-cyan transition-all"
             style={{ width: `${questPct}%` }}
           />
         </div>
@@ -258,11 +258,11 @@ export function DriverEarnings() {
         <div className="flex flex-wrap items-center gap-4 text-sm">
           {summary.streakDays > 0 && (
             <span className="inline-flex items-center gap-1 font-bold">
-              <Flame size={16} className="text-ember" /> Série : {summary.streakDays} jour{summary.streakDays > 1 ? 's' : ''} d’affilée
+              <Flame size={16} className="text-or" /> Série : {summary.streakDays} jour{summary.streakDays > 1 ? 's' : ''} d’affilée
             </span>
           )}
           <span className="inline-flex items-center gap-1 font-bold">
-            <CalendarDays size={16} className="text-volt" />
+            <CalendarDays size={16} className="text-cyan" />
             Défi semaine : {summary.quest.week.done} / {summary.quest.week.target} → {formatFcfa(summary.quest.week.bonus)}
           </span>
         </div>
