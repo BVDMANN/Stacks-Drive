@@ -14,6 +14,9 @@ const config: Config = {
           greenLight: '#0E8A63',
           navy: '#0B1F3A',
           amber: '#FFB020',
+          // Jaune et bleu du drapeau gabonais (bandeau tricolore).
+          yellow: '#FCD116',
+          blue: '#3A75C4',
           ghost: '#F8F9FA',
           dark: '#0A0A0A',
           darker: '#080808',

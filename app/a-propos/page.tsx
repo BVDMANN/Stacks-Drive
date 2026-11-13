@@ -1,0 +1,157 @@
+import Link from 'next/link';
+import { BadgeCheck, Car, Gift, MapPin, ShieldCheck, Users } from 'lucide-react';
+import { Header } from '@/components/shared/Header';
+import { Footer } from '@/components/shared/Footer';
+import { COMMISSION_RATE, COMMISSION_RATE_PERMANENT, COMMISSION_CAP } from '@/lib/commission';
+
+export const dynamic = 'force-dynamic';
+
+/** À propos : comment ça marche, sécurité, prix garanti, commission —
+ *  les infos qui ne sont PAS sur l'accueil (carte + réservation). */
+export default function AProposPage() {
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <Header user={null} />
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-12">
+        <header className="space-y-3">
+          <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-stacks-green bg-green-50 border border-green-200 rounded-full px-4 py-2">
+            <Car size={14} /> Libreville — la solution du peuple
+          </p>
+          <h1 className="text-4xl font-black tracking-tight text-stacks-navy">
+            Comment marche Stacks Drive ?
+          </h1>
+          <p className="text-lg text-slate-500 leading-relaxed max-w-2xl">
+            Pas de négociation au bord de la route, pas de prix qui double la nuit :
+            tu demandes ta course, les chauffeurs vérifiés autour de toi proposent
+            leur prix, tu choisis — et tu montes.
+          </p>
+        </header>
+
+        {/* Passager */}
+        <section className="space-y-5">
+          <h2 className="text-2xl font-black text-stacks-navy">Côté passager</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {[
+              {
+                step: '1',
+                title: 'Tu demandes ta course',
+                desc: 'Départ, destination, Solo ou Groupe : le prix fixe s’affiche tout de suite, avant de commander. Jamais de surge.',
+              },
+              {
+                step: '2',
+                title: 'Les chauffeurs proposent',
+                desc: 'Les chauffeurs en ligne autour de toi reçoivent ta demande et proposent leur prix, leurs places et leur premier arrêt. Tu compares.',
+              },
+              {
+                step: '3',
+                title: 'Tu choisis, tu montes',
+                desc: 'Tu acceptes la proposition qui te convient : photo, véhicule et plaque du chauffeur affichés avant la montée. Tu paies directement avec lui.',
+              },
+            ].map((s) => (
+              <div key={s.step} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">
+                <span className="inline-flex w-10 h-10 rounded-full bg-stacks-green text-white font-black items-center justify-center">
+                  {s.step}
+                </span>
+                <h3 className="font-black text-lg text-slate-900">{s.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Chauffeur */}
+        <section className="space-y-5">
+          <h2 className="text-2xl font-black text-stacks-navy">Côté chauffeur</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {[
+              {
+                step: '1',
+                title: 'Tu te fais vérifier',
+                desc: 'Selfie + pièce d’identité (ou permis) contrôlés par notre équipe. Sans vérification, pas de mise en ligne : les passagers voyagent sereins.',
+              },
+              {
+                step: '2',
+                title: 'Tu te mets en ligne',
+                desc: 'Un interrupteur, ton quartier, et tu apparais sur la carte des passagers. Les demandes autour de toi arrivent en pop-up.',
+              },
+              {
+                step: '3',
+                title: 'Tu proposes, tu gagnes',
+                desc: `Tu fixes ton prix par course. Commission de ${Math.round(COMMISSION_RATE * 100)} % au lancement, puis ${Math.round(COMMISSION_RATE_PERMANENT * 100)} % — plafonnée à ${Math.round(COMMISSION_CAP * 100)} % pour toujours. Les concurrents prennent 15 à 30 %.`,
+              },
+            ].map((s) => (
+              <div key={s.step} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">
+                <span className="inline-flex w-10 h-10 rounded-full bg-stacks-navy text-white font-black items-center justify-center">
+                  {s.step}
+                </span>
+                <h3 className="font-black text-lg text-slate-900">{s.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/inscription"
+            className="inline-flex items-center gap-2 bg-stacks-green text-white font-black px-6 py-3.5 rounded-full shadow-md shadow-stacks-green/20 hover:bg-stacks-greenLight transition-colors"
+          >
+            <Car size={16} /> S’inscrire en chauffeur
+          </Link>
+        </section>
+
+        {/* Sécurité */}
+        <section className="space-y-5">
+          <h2 className="text-2xl font-black text-stacks-navy flex items-center gap-2">
+            <ShieldCheck size={26} className="text-stacks-green" /> La sécurité d’abord
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[
+              { icon: BadgeCheck, title: 'Chauffeurs vérifiés', desc: 'Selfie + pièce contrôlés avant activation. Badge « Vérifié » visible sur chaque course.' },
+              { icon: MapPin, title: 'Plaque avant de monter', desc: 'Photo, véhicule et plaque affichés avant la montée — vérifie la plaque, puis monte.' },
+              { icon: Users, title: 'Course partagée en direct', desc: 'Un proche suit ta course en direct sur une page de suivi : trajet, chauffeur, plaque.' },
+              { icon: ShieldCheck, title: 'Bouton SOS', desc: 'Pendant la course, le bouton SOS appelle les urgences (112) et partage ta course en direct.' },
+            ].map((f) => (
+              <div key={f.title} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">
+                <f.icon size={22} className="text-stacks-green" />
+                <h3 className="font-black text-slate-900">{f.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Prix + fidélité */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="bg-stacks-navy text-white rounded-3xl p-6 sm:p-8 space-y-3">
+            <h2 className="text-2xl font-black">Prix garanti, jamais de surge</h2>
+            <p className="text-slate-300 leading-relaxed">
+              Le tarif est annoncé avant la course et ne bouge pas — ni aux heures
+              de pointe, ni la nuit. Exemple : Centre-ville → Aéroport Léon-Mba,
+              5 000 FCFA en Solo, tarif fixe connu d’avance.
+            </p>
+            <p className="text-slate-300 leading-relaxed">
+              Le mode Groupe, comme le taxi partagé, divise le prix par passager :
+              Nzeng-Ayong → Centre-ville, 900 FCFA par passager.
+            </p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-3">
+            <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+              <Gift size={24} className="text-stacks-amber" /> 10e course offerte
+            </h2>
+            <p className="text-slate-500 leading-relaxed">
+              Chaque course terminée te rapproche de la 10e, offerte par la
+              plateforme. Ton chauffeur, lui, touche tout son tarif : c’est
+              Stacks Drive qui offre, pas le chauffeur.
+            </p>
+            <p className="text-slate-500 leading-relaxed">
+              Paiement en espèces, Airtel Money ou Moov Money, directement avec
+              ton chauffeur.
+            </p>
+            <Link href="/" className="inline-flex items-center gap-2 bg-stacks-amber text-stacks-navy font-black px-6 py-3.5 rounded-full shadow-md hover:bg-amber-400 transition-colors">
+              Commander une course
+            </Link>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
+}

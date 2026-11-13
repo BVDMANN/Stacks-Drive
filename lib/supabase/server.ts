@@ -42,6 +42,14 @@ export interface SessionProfile {
   is_verified: boolean;
   is_admin: boolean;
   is_demo: boolean;
+  verification_status: string | null;
+  selfie_url: string | null;
+  id_document_url: string | null;
+  id_document_type: string | null;
+  verification_note: string | null;
+  current_area: string | null;
+  last_lat: number | null;
+  last_lng: number | null;
   created_at: string;
 }
 

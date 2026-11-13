@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
-import { VEHICLE_TYPES } from '@/lib/neighborhoods';
+import { NEIGHBORHOODS, VEHICLE_TYPES, type Neighborhood } from '@/lib/neighborhoods';
 
 const ProfileSchema = z.object({
   fullName: z.string().trim().min(2, 'Nom complet requis.').max(120).optional(),
@@ -14,13 +14,19 @@ const ProfileSchema = z.object({
   plate: z.string().trim().max(20).optional().nullable(),
   seats: z.number().int().min(1).max(9).optional(),
   isOnline: z.boolean().optional(),
+  /** Bascule de mode Passager / Chauffeur (même compte). */
+  role: z.enum(['passager', 'chauffeur']).optional(),
+  /** Quartier où se trouve le chauffeur quand il est en ligne. */
+  currentArea: z.enum(NEIGHBORHOODS as unknown as [Neighborhood, ...Neighborhood[]]).optional(),
   // Réservé à l'admin : vérification d'un chauffeur (driverId requis).
   driverId: z.string().uuid().optional(),
-  isVerified: z.boolean().optional(),
+  verificationStatus: z.enum(['verifie', 'refuse']).optional(),
+  verificationNote: z.string().trim().max(300).optional(),
 });
 
-/** PATCH /api/profile — modifier son propre profil (véhicule inclus).
- *  Un administrateur peut aussi vérifier un chauffeur (driverId + isVerified). */
+/** PATCH /api/profile — modifier son propre profil (véhicule, mode,
+ *  zone, en ligne) ; un admin peut valider ou refuser la vérification
+ *  d'un chauffeur (driverId + verificationStatus + motif éventuel). */
 export async function PATCH(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
@@ -47,7 +53,7 @@ export async function PATCH(request: NextRequest) {
   const v = parsed.data;
 
   // Vérification d'un chauffeur : admin uniquement.
-  if (v.driverId !== undefined || v.isVerified !== undefined) {
+  if (v.driverId !== undefined || v.verificationStatus !== undefined) {
     const { data: caller } = await supabase
       .from('profiles')
       .select('is_admin')
@@ -56,15 +62,18 @@ export async function PATCH(request: NextRequest) {
     if (!caller?.is_admin) {
       return NextResponse.json({ error: 'Non autorisé.' }, { status: 403 });
     }
-    if (!v.driverId || v.isVerified === undefined) {
+    if (!v.driverId || !v.verificationStatus) {
       return NextResponse.json(
-        { error: 'Chauffeur et statut de vérification requis.' },
+        { error: 'Chauffeur et décision de vérification requis.' },
         { status: 400 }
       );
     }
     const { error } = await supabase
       .from('profiles')
-      .update({ is_verified: v.isVerified })
+      .update({
+        verification_status: v.verificationStatus,
+        verification_note: v.verificationNote ?? null,
+      })
       .eq('id', v.driverId);
     if (error) {
       console.error('[api/profile]', error.message);
@@ -86,6 +95,15 @@ export async function PATCH(request: NextRequest) {
   if (v.plate !== undefined) patch.plate = v.plate || null;
   if (v.seats !== undefined) patch.seats = v.seats;
   if (v.isOnline !== undefined) patch.is_online = v.isOnline;
+  if (v.role !== undefined) patch.role = v.role;
+  if (v.currentArea !== undefined) {
+    patch.current_area = v.currentArea;
+    // Position approximative = centre du quartier (carte + radar).
+    const { NEIGHBORHOOD_COORDS } = await import('@/lib/neighborhoods');
+    const coords = NEIGHBORHOOD_COORDS[v.currentArea];
+    patch.last_lat = coords.lat;
+    patch.last_lng = coords.lng;
+  }
 
   const { error } = await supabase
     .from('profiles')

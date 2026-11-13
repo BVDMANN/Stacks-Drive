@@ -104,8 +104,9 @@ function InscriptionForm() {
           </p>
           {role === 'chauffeur' && (
             <p className="text-sm text-slate-600 leading-relaxed">
-              Ensuite, complète ton véhicule dans « Mon compte » (type, places,
-              plaque) pour pouvoir publier tes courses.
+              Ensuite, fais vérifier ton compte dans « Mon compte » (selfie +
+              pièce d’identité ou permis) : c’est obligatoire avant de te mettre
+              en ligne et de recevoir des demandes.
             </p>
           )}
           <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
@@ -131,8 +132,8 @@ function InscriptionForm() {
         <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Je m’inscris en tant que">
           {(
             [
-              { value: 'passager', label: 'Passager', desc: 'Je réserve des courses' },
-              { value: 'chauffeur', label: 'Chauffeur', desc: 'Je publie des courses' },
+              { value: 'passager', label: 'Passager', desc: 'Je commande des courses' },
+              { value: 'chauffeur', label: 'Chauffeur', desc: 'Je reçois des demandes, je propose mes prix' },
             ] as const
           ).map((r) => (
             <button

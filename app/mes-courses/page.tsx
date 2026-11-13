@@ -1,87 +1,145 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Gift } from 'lucide-react';
 import { PageShell } from '@/components/shared/PageShell';
-import { BookingStatusBadge } from '@/components/shared/StatusBadge';
-import { CancelBookingButton } from '@/components/rides/BookingActions';
-import { formatDepartureTime } from '@/components/rides/RideCard';
-import { getSessionUser } from '@/lib/supabase/server';
-import { getMyBookings } from '@/lib/rides';
+import { RideStatusBadge } from '@/components/shared/StatusBadge';
+import { getSessionUser, createClient } from '@/lib/supabase/server';
+import { getMyRideRequests } from '@/lib/rides';
 import { formatFcfa } from '@/lib/commission';
 import { PAYMENT_LABELS } from '@/lib/neighborhoods';
+import { formatDepartureTime } from '@/lib/dates';
 
 export const dynamic = 'force-dynamic';
 
+/** Mes courses : demandes du passager, actives puis historique. */
 export default async function MesCoursesPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/connexion?next=/mes-courses');
 
-  const bookings = await getMyBookings(sessionUser.id);
+  const rides = await getMyRideRequests(sessionUser.id);
+
+  // Noms des chauffeurs assignés.
+  const driverIds = [...new Set(rides.map((r) => r.driverId).filter(Boolean))] as string[];
+  const drivers = new Map<string, string>();
+  if (driverIds.length > 0) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', driverIds);
+    (data ?? []).forEach((d: { id: string; full_name: string | null }) =>
+      drivers.set(d.id, d.full_name ?? 'Chauffeur')
+    );
+  }
+
+  const active = rides.filter((r) =>
+    ['recherche', 'propositions', 'acceptee', 'en_cours'].includes(r.status)
+  );
+  const past = rides.filter((r) => ['terminee', 'annulee'].includes(r.status));
 
   return (
     <PageShell
       title="Mes courses"
-      subtitle="Tes réservations, passées et à venir."
+      subtitle="Tes demandes de course, en cours et passées."
       actions={
         <Link
           href="/"
           className="inline-flex items-center gap-2 px-6 py-3.5 bg-stacks-green text-white font-bold rounded-full shadow-lg shadow-stacks-green/20 hover:bg-stacks-greenLight transition-colors"
         >
-          Trouver une course
+          Commander une course
         </Link>
       }
     >
-      {bookings.length === 0 ? (
+      {rides.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm text-center space-y-3">
-          <p className="text-lg font-black text-slate-900">Aucune course réservée pour le moment</p>
+          <p className="text-lg font-black text-slate-900">Aucune course pour le moment</p>
           <p className="text-sm text-slate-500">
-            Parcours les courses du jour à Libreville et réserve ta place — le
-            prix est fixe et affiché avant de monter.
+            Choisis ton départ et ta destination sur la carte — le prix est fixe
+            et affiché avant de commander, jamais de surge.
           </p>
           <Link href="/" className="inline-block px-6 py-3.5 bg-stacks-green text-white font-bold rounded-full hover:bg-stacks-greenLight transition-colors">
-            Voir les courses
+            Commander ma première course
           </Link>
         </div>
       ) : (
-        <div className="space-y-4">
-          {bookings.map((b) => {
-            const ride = b.rides;
-            if (!ride) return null;
-            const { date, time } = formatDepartureTime(ride.departure_time);
-            return (
-              <article key={b.id} className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <Link href={`/courses/${ride.id}`} className="font-black text-slate-900 text-lg hover:text-stacks-green transition-colors">
-                      {ride.departure} → {ride.destination}
-                    </Link>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      {date} · {time} · {ride.ride_type === 'partagee' ? 'Partagée' : 'Solo'} · {ride.vehicle_type}
-                      {ride.vehicle_label ? ` · ${ride.vehicle_label}` : ''}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      Chauffeur : {ride.driver_name} · Paiement : {PAYMENT_LABELS[b.payment_method]}
-                    </p>
-                    {b.message && (
-                      <p className="text-sm text-slate-500 mt-1">« {b.message} »</p>
-                    )}
-                  </div>
-                  <BookingStatusBadge status={b.status} />
-                </div>
+        <div className="space-y-6">
+          {active.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="font-black text-lg text-slate-900">En cours ({active.length})</h2>
+              {active.map((ride) => {
+                const { date, time } = formatDepartureTime(ride.createdAt);
+                return (
+                  <article key={ride.id} className="bg-white border-2 border-stacks-green/40 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <Link href={`/courses/${ride.id}`} className="font-black text-slate-900 text-lg hover:text-stacks-green transition-colors">
+                          {ride.pickup} → {ride.destination}
+                        </Link>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                          {date} · {time} · {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} pass.` : 'Solo'} ·{' '}
+                          Paiement : {PAYMENT_LABELS[ride.paymentMethod]}
+                          {ride.driverId ? ` · Chauffeur : ${drivers.get(ride.driverId) ?? ''}` : ''}
+                        </p>
+                      </div>
+                      <RideStatusBadge status={ride.status} />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                      <p className="text-sm">
+                        <span className="font-black text-slate-900">
+                          {ride.loyaltyFree ? '0 FCFA — 10e course offerte' : formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
+                        </span>
+                        {ride.proposedPrice !== null && !ride.loyaltyFree && (
+                          <span className="text-slate-500">
+                            {' '}· dont {formatFcfa(ride.driverShare)} pour le chauffeur et{' '}
+                            {formatFcfa(ride.platformFee)} de frais Stacks Drive
+                          </span>
+                        )}
+                      </p>
+                      <Link href={`/courses/${ride.id}`} className="px-4 py-2 rounded-full text-xs font-black bg-stacks-green text-white hover:bg-stacks-greenLight transition-colors">
+                        Suivre ma course
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                  <div className="text-sm">
-                    <span className="font-black text-slate-900">{formatFcfa(b.total_price)}</span>
-                    <span className="text-slate-500">
-                      {' '}· {b.seats} place{b.seats > 1 ? 's' : ''} · dont{' '}
-                      {formatFcfa(b.driver_share)} pour le chauffeur et{' '}
-                      {formatFcfa(b.platform_fee)} de frais Stacks Drive
-                    </span>
-                  </div>
-                  <CancelBookingButton bookingId={b.id} currentStatus={b.status} />
-                </div>
-              </article>
-            );
-          })}
+          {past.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="font-black text-lg text-slate-900">Historique ({past.length})</h2>
+              {past.map((ride) => {
+                const { date, time } = formatDepartureTime(ride.createdAt);
+                return (
+                  <article key={ride.id} className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <Link href={`/courses/${ride.id}`} className="font-black text-slate-900 text-lg hover:text-stacks-green transition-colors">
+                          {ride.pickup} → {ride.destination}
+                        </Link>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                          {date} · {time} · {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} pass.` : 'Solo'}
+                          {ride.driverId ? ` · Chauffeur : ${drivers.get(ride.driverId) ?? ''}` : ''}
+                          {ride.ratingDriver ? ` · Ta note : ${ride.ratingDriver}/5` : ''}
+                        </p>
+                      </div>
+                      <RideStatusBadge status={ride.status} />
+                    </div>
+                    <p className="text-sm border-t border-slate-100 pt-3">
+                      <span className="font-black text-slate-900">
+                        {ride.loyaltyFree ? '0 FCFA — 10e course offerte' : formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
+                      </span>
+                      {ride.loyaltyFree && (
+                        <span className="inline-flex items-center gap-1 text-xs font-black text-stacks-amber ml-2">
+                          <Gift size={13} /> Offerte
+                        </span>
+                      )}
+                    </p>
+                  </article>
+                );
+              })}
+            </section>
+          )}
         </div>
       )}
     </PageShell>

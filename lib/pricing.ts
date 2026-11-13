@@ -1,0 +1,107 @@
+import { NEIGHBORHOOD_COORDS, type Neighborhood } from './neighborhoods';
+import { haversineKm } from './geo';
+
+export type RideType = 'solo' | 'groupe';
+
+/** Préférence de véhicule du passager : voiture, moto (rapide aux heures
+ *  de pointe, 1 place) ou indifférent. La moto n'existe qu'en Solo :
+ *  une moto ne peut pas prendre plusieurs passagers. */
+export type VehiclePreference = 'voiture' | 'moto' | 'tous';
+
+export interface FareEstimate {
+  /** Prix fixe estimé, en FCFA (jamais de surge). */
+  price: number;
+  /** Distance à vol d'oiseau entre les deux quartiers, en km. */
+  distanceKm: number;
+  /** Durée estimée du trajet, en minutes. */
+  durationMin: number;
+  rideType: RideType;
+  vehiclePreference: VehiclePreference;
+  /** Explication courte affichée sous le prix (« Tarif fixe · ~4 km · ~12 min »). */
+  breakdown: string;
+}
+
+/** Tarifs fixes connus pour les trajets les plus courants — cohérents avec
+ *  les anciennes courses démo. Clé symétrique « A|B » (aller = retour).
+ *  Le prix Groupe est PAR PASSAGER (plus bas que le Solo). */
+const FARE_OVERRIDES: Record<string, { solo: number; groupe: number }> = {
+  'Aéroport Léon-Mba|Centre-ville': { solo: 5000, groupe: 2500 },
+  'Glass|Nzeng-Ayong': { solo: 1800, groupe: 1200 },
+  'Charbonnages|Owendo': { solo: 2200, groupe: 1500 },
+  'Centre-ville|Nzeng-Ayong': { solo: 1500, groupe: 900 },
+  'Akanda|Aéroport Léon-Mba': { solo: 2500, groupe: 1500 },
+  'Nzeng-Ayong|Owendo': { solo: 1200, groupe: 700 },
+};
+
+const AIRPORT = 'Aéroport Léon-Mba';
+
+function round50(n: number): number {
+  return Math.max(0, Math.round(n / 50) * 50);
+}
+
+function overrideKey(a: Neighborhood, b: Neighborhood): string {
+  // Tri par code UTF-16 (pas localeCompare : en français, « é » se trie
+  // comme « e », ce qui inverserait « Akanda » et « Aéroport » et ferait
+  // rater l'override Akanda ↔ Aéroport). Les clés de FARE_OVERRIDES sont
+  // écrites dans cet ordre.
+  return [a, b].sort().join('|');
+}
+
+/** Distance entre deux quartiers, en km. */
+export function distanceBetween(a: Neighborhood, b: Neighborhood): number {
+  const ca = NEIGHBORHOOD_COORDS[a];
+  const cb = NEIGHBORHOOD_COORDS[b];
+  if (!ca || !cb) return 0;
+  return haversineKm(ca.lat, ca.lng, cb.lat, cb.lng);
+}
+
+/** Estimation de prix fixe pour un trajet. Le prix est calculé côté
+ *  serveur à la création de la demande (jamais depuis le client) et
+ *  figé à l'acceptation de la proposition. */
+export function estimateFare(
+  pickup: Neighborhood,
+  destination: Neighborhood,
+  rideType: RideType,
+  vehiclePreference: VehiclePreference = 'tous'
+): FareEstimate {
+  const distanceKm = distanceBetween(pickup, destination);
+  const durationMin = Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
+  const isAirport = pickup === AIRPORT || destination === AIRPORT;
+  const pref: VehiclePreference =
+    rideType === 'groupe' && vehiclePreference === 'moto' ? 'voiture' : vehiclePreference;
+
+  // Recherche dans les deux ordres : la clé triée d'abord, puis les deux
+  // ordres bruts (filet de sécurité si une clé a été écrite à l'envers).
+  const override =
+    FARE_OVERRIDES[overrideKey(pickup, destination)] ??
+    FARE_OVERRIDES[`${pickup}|${destination}`] ??
+    FARE_OVERRIDES[`${destination}|${pickup}`];
+  let price: number;
+  if (override) {
+    price = rideType === 'solo' ? override.solo : override.groupe;
+    if (pref === 'moto' && rideType === 'solo') price = round50(price * 0.6);
+  } else if (rideType === 'solo') {
+    price = round50(600 + 280 * distanceKm + (isAirport ? 800 : 0));
+    if (pref === 'moto') price = round50(price * 0.6);
+    price = Math.max(price, 700);
+  } else {
+    price = round50(350 + 160 * distanceKm + (isAirport ? 400 : 0));
+    price = Math.max(price, 500);
+  }
+
+  const breakdown = `Tarif fixe · ~${Math.max(1, Math.round(distanceKm))} km · ~${durationMin} min${
+    pref === 'moto' ? ' · Moto' : ''
+  }`;
+  return { price, distanceKm, durationMin, rideType, vehiclePreference: pref, breakdown };
+}
+
+/** Temps d'arrivée estimé du chauffeur le plus proche, en minutes,
+ *  à partir de sa distance au point de prise en charge. */
+export function etaMinutes(distanceKm: number): number {
+  return Math.max(2, Math.round(2 + (distanceKm / 28) * 60));
+}
+
+/** Durée affichée pour un trajet (« ~12 min »). */
+export function formatDuration(minutes: number): string {
+  return `~${minutes} min`;
+}

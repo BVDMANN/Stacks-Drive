@@ -1,9 +1,14 @@
 "use client";
 
 import { useState } from 'react';
-import { BadgeCheck, ShieldAlert } from 'lucide-react';
 import { PremiumButton } from '@/components/shared/PremiumButton';
-import { VEHICLE_TYPES, type VehicleType } from '@/lib/neighborhoods';
+import { VerificationStatusBadge } from '@/components/shared/StatusBadge';
+import {
+  NEIGHBORHOODS,
+  VEHICLE_TYPES,
+  type Neighborhood,
+  type VehicleType,
+} from '@/lib/neighborhoods';
 import type { SessionProfile } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +29,9 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
   const [vehicleColor, setVehicleColor] = useState(profile.vehicle_color ?? '');
   const [plate, setPlate] = useState(profile.plate ?? '');
   const [seats, setSeats] = useState(profile.seats ?? 4);
+  const [currentArea, setCurrentArea] = useState<Neighborhood | ''>(
+    (profile.current_area as Neighborhood | '') ?? ''
+  );
   const [isOnline, setIsOnline] = useState(profile.is_online);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -48,6 +56,7 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
               vehicleColor: vehicleColor.trim(),
               plate: plate.trim().toUpperCase(),
               seats,
+              currentArea: currentArea || undefined,
               isOnline,
             }
           : {}),
@@ -80,16 +89,11 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-slate-100 text-slate-700">
           Compte {isDriver ? 'chauffeur' : 'passager'}
         </span>
-        {isDriver &&
-          (profile.is_verified ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-green-100 text-green-800">
-              <BadgeCheck size={14} /> Chauffeur vérifié
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-amber-100 text-amber-800">
-              <ShieldAlert size={14} /> Vérification en attente
-            </span>
-          ))}
+        {isDriver && (
+          <VerificationStatusBadge
+            status={profile.verification_status ?? 'non_verifie'}
+          />
+        )}
         {profile.is_admin && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-stacks-navy text-white">
             Admin
@@ -200,6 +204,23 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
                   className={inputCls}
                 />
               </div>
+              <div className="space-y-1.5">
+                <label htmlFor="current-area" className={labelCls}>Quartier où tu te trouves</label>
+                <select
+                  id="current-area"
+                  value={currentArea}
+                  onChange={(e) => setCurrentArea(e.target.value as Neighborhood | '')}
+                  className={inputCls}
+                >
+                  <option value="">Choisir un quartier…</option>
+                  {NEIGHBORHOODS.filter((n) => n !== 'Autre').map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400">
+                  C’est là que les passagers te verront sur la carte quand tu es en ligne.
+                </p>
+              </div>
             </div>
 
             {/* Disponibilité */}
@@ -238,9 +259,9 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
 
             {!profile.is_verified && (
               <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                Ta vérification est en cours : l’équipe Stacks Drive contrôle
-                tes pièces (permis, carte grise) avant d’activer le badge
-                « Vérifié » sur tes courses. Tu peux déjà publier des courses.
+                Pour te mettre en ligne et recevoir des demandes, fais vérifier
+                ton compte juste en dessous : selfie + pièce d’identité (ou
+                permis). C’est obligatoire, pour la sécurité des passagers.
               </p>
             )}
           </div>

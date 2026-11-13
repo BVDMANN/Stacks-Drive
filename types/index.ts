@@ -1,59 +1,102 @@
-import type { PaymentMethod, VehicleType } from '@/lib/neighborhoods';
+import type { Neighborhood, PaymentMethod, VehicleType } from '@/lib/neighborhoods';
 
 export type UserRole = 'passager' | 'chauffeur';
 
+/** Un chauffeur visible sur la carte (réel et en ligne, ou démo). */
 export interface DriverProfile {
   id: string;
   name: string;
   phone: string | null;
   vehicleType: VehicleType | null;
   vehicleLabel: string;
+  plate: string | null;
   seats: number | null;
   isVerified: boolean;
   isOnline: boolean;
+  /** Note moyenne (1 à 5) — null si aucune course notée. */
+  rating: number | null;
+  /** Nombre de courses terminées. */
+  trips: number;
+  /** Quartier où se trouve le chauffeur. */
+  area: Neighborhood | null;
+  lat: number | null;
+  lng: number | null;
+  isDemo: boolean;
 }
 
-export type RideType = 'solo' | 'partagee';
-export type RideStatus = 'published' | 'draft' | 'closed';
+/** Types de course (sélecteur style Uber dans la feuille du bas). */
+export type RideType = 'solo' | 'groupe';
+
+/** Statuts d'une demande de course (créée par le passager). */
+export type RideStatus =
+  | 'recherche' // demande envoyée, on cherche des chauffeurs
+  | 'propositions' // au moins une proposition reçue
+  | 'acceptee' // une proposition acceptée, chauffeur assigné
+  | 'en_cours' // course démarrée
+  | 'terminee'
+  | 'annulee';
+
+/** Statuts d'une proposition de chauffeur. */
+export type ProposalStatus = 'pending' | 'accepted' | 'declined' | 'expired';
+
+/** Statuts de la vérification d'identité d'un chauffeur. */
+export type VerificationStatus = 'non_verifie' | 'en_attente' | 'verifie' | 'refuse';
+
+/** Type de pièce d'identité pour la vérification chauffeur. */
+export type IdDocumentType = 'cni' | 'passeport' | 'permis';
 
 export interface Ride {
   id: string;
+  passengerId: string | null;
   driverId: string | null;
-  departure: string;
+  pickup: string;
   destination: string;
-  /** Date/heure de départ (ISO). */
-  departureTime: string;
-  seatsTotal: number;
-  seatsAvailable: number;
-  /** Prix en FCFA par place (par passager). Pour une course solo, c'est le
-   *  prix total de la course (1 place). Pour une course partagée, c'est le
-   *  prix par passager. */
-  price: number;
   rideType: RideType;
-  vehicleType: VehicleType;
-  vehicleLabel: string;
-  paymentMethods: PaymentMethod[];
-  note: string;
-  status: RideStatus;
-  isDemo: boolean;
-  createdAt: string;
-}
-
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
-
-export interface Booking {
-  id: string;
-  rideId: string;
-  passengerId: string;
+  /** Préférence de véhicule : voiture, moto (Solo uniquement) ou indifférent. */
+  vehiclePreference: 'voiture' | 'moto' | 'tous';
+  /** Nombre de passagers (1 en Solo, 1 à 4 en Groupe). */
   seats: number;
-  /** Prix total payé par le passager (FCFA). */
-  totalPrice: number;
-  /** Part plateforme (commission, FCFA) — figée à la réservation. */
-  platformFee: number;
-  /** Part chauffeur (FCFA) — figée à la réservation. */
-  driverShare: number;
+  /** Prix fixe estimé à la demande (FCFA) — calculé côté serveur. */
+  estimatedPrice: number;
+  /** Prix proposé par le chauffeur et accepté (FCFA) — figé à l'acceptation. */
+  proposedPrice: number | null;
+  /** Premier arrêt / point de prise en charge proposé par le chauffeur. */
+  firstStop: string | null;
   paymentMethod: PaymentMethod;
   message: string;
-  status: BookingStatus;
+  status: RideStatus;
+  /** Découpe figée à l'acceptation : commission plateforme + part chauffeur. */
+  platformFee: number;
+  driverShare: number;
+  /** Notes après course (1 à 5). */
+  ratingDriver: number | null;
+  ratingPassenger: number | null;
+  /** 10e course offerte (fidélité) : le passager ne paie rien, le
+   *  chauffeur touche l'intégralité du tarif, la plateforme absorbe. */
+  loyaltyFree: boolean;
+  /** Jeton public de suivi en direct (/suivi/[token]). */
+  shareToken: string | null;
   createdAt: string;
+  updatedAt: string;
+}
+
+/** Proposition d'un chauffeur sur une demande de course. */
+export interface RideProposal {
+  id: string;
+  rideId: string;
+  driverId: string;
+  /** Prix proposé par le chauffeur pour cette course (FCFA). */
+  proposedPrice: number;
+  /** Places restantes dans son véhicule. */
+  seatsLeft: number;
+  /** Premier arrêt / point de prise en charge proposé. */
+  firstStop: string;
+  status: ProposalStatus;
+  /** Expiration : 60 secondes après la proposition. */
+  expiresAt: string;
+  createdAt: string;
+  /** Chauffeur joint (quand la proposition est lue côté passager). */
+  driver?: DriverProfile | null;
+  /** Secondes restantes avant expiration (calculé côté client). */
+  secondsLeft?: number;
 }

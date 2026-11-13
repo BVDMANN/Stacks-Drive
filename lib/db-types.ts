@@ -1,5 +1,15 @@
-import type { Booking, BookingStatus, DriverProfile, Ride, RideStatus, RideType } from '@/types';
-import type { PaymentMethod, VehicleType } from '@/lib/neighborhoods';
+import type {
+  DriverProfile,
+  IdDocumentType,
+  ProposalStatus,
+  Ride,
+  RideProposal,
+  RideStatus,
+  RideType,
+  VerificationStatus,
+} from '@/types';
+import type { Neighborhood, PaymentMethod, VehicleType } from '@/lib/neighborhoods';
+import { NEIGHBORHOOD_COORDS } from '@/lib/neighborhoods';
 
 /** Lignes brutes telles que renvoyées par Supabase (PostgREST). */
 
@@ -19,58 +29,63 @@ export interface ProfileRow {
   is_verified: boolean;
   is_admin: boolean;
   is_demo: boolean;
+  verification_status: VerificationStatus | null;
+  selfie_url: string | null;
+  id_document_url: string | null;
+  id_document_type: IdDocumentType | null;
+  verification_note: string | null;
+  current_area: Neighborhood | null;
+  last_lat: number | null;
+  last_lng: number | null;
   created_at: string;
 }
 
+/** Demande de course (table `rides` requalifiée en v2 : créée par le
+ *  passager, jamais par le chauffeur). */
 export interface RideRow {
   id: string;
+  passenger_id: string | null;
   driver_id: string | null;
-  departure: string;
+  pickup: string;
   destination: string;
-  departure_time: string;
-  seats_total: number;
-  seats_available: number;
-  price: number;
   ride_type: RideType;
-  vehicle_type: VehicleType;
-  vehicle_label: string;
-  payment_methods: PaymentMethod[] | null;
-  note: string | null;
+  vehicle_preference: 'voiture' | 'moto' | 'tous';
+  seats: number;
+  estimated_price: number;
+  proposed_price: number | null;
+  first_stop: string | null;
+  payment_method: PaymentMethod;
+  message: string | null;
   status: RideStatus;
-  driver_name: string;
-  driver_phone: string | null;
-  is_demo: boolean;
+  platform_fee: number;
+  driver_share: number;
+  rating_driver: number | null;
+  rating_passenger: number | null;
+  loyalty_free: boolean;
+  share_token: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
   created_at: string;
   updated_at: string;
-  /** Jointure éventuelle vers le profil du chauffeur. */
+  /** Jointures éventuelles. */
+  passenger?: ProfileRow | null;
+  driver?: ProfileRow | null;
   profiles?: ProfileRow | null;
 }
 
-export interface BookingRow {
+/** Proposition d'un chauffeur (table `ride_proposals`). */
+export interface RideProposalRow {
   id: string;
   ride_id: string;
-  passenger_id: string;
-  seats: number;
-  total_price: number;
-  platform_fee: number;
-  driver_share: number;
-  payment_method: PaymentMethod;
-  message: string | null;
-  status: BookingStatus;
+  driver_id: string;
+  proposed_price: number;
+  seats_left: number;
+  first_stop: string;
+  status: ProposalStatus;
+  expires_at: string;
   created_at: string;
-  rides?: {
-    id: string;
-    departure: string;
-    destination: string;
-    departure_time: string;
-    price: number;
-    ride_type: RideType;
-    vehicle_type: VehicleType;
-    vehicle_label: string;
-    status: string;
-    driver_id: string | null;
-    driver_name: string;
-  } | null;
+  /** Chauffeur joint. */
+  driver?: ProfileRow | null;
   profiles?: ProfileRow | null;
 }
 
@@ -78,57 +93,69 @@ export interface BookingRow {
 export function mapRideRow(row: RideRow): Ride {
   return {
     id: row.id,
-    driverId: row.driver_id,
-    departure: row.departure,
-    destination: row.destination,
-    departureTime: row.departure_time,
-    seatsTotal: row.seats_total,
-    seatsAvailable: row.seats_available,
-    price: row.price,
-    rideType: row.ride_type,
-    vehicleType: row.vehicle_type,
-    vehicleLabel: row.vehicle_label || '',
-    paymentMethods: row.payment_methods ?? ['especes'],
-    note: row.note ?? '',
-    status: row.status,
-    isDemo: row.is_demo,
-    createdAt: row.created_at,
-  };
-}
-
-/** Construit l'objet d'affichage `DriverProfile` pour une course. */
-export function mapDriver(row: RideRow): DriverProfile {
-  const profile = row.profiles ?? null;
-  const vehicleLabel =
-    row.vehicle_label ||
-    [profile?.vehicle_brand, profile?.vehicle_model, profile?.vehicle_color]
-      .filter(Boolean)
-      .join(' ');
-  return {
-    id: row.driver_id ?? `demo-${row.id}`,
-    name: profile?.full_name || row.driver_name,
-    phone: profile?.phone ?? row.driver_phone,
-    vehicleType: (profile?.vehicle_type ?? row.vehicle_type) as VehicleType,
-    vehicleLabel,
-    seats: profile?.seats ?? row.seats_total,
-    isVerified: profile?.is_verified ?? false,
-    isOnline: profile?.is_online ?? false,
-  };
-}
-
-/** Convertit une ligne `bookings` en `Booking`. */
-export function mapBookingRow(row: BookingRow): Booking {
-  return {
-    id: row.id,
-    rideId: row.ride_id,
     passengerId: row.passenger_id,
+    driverId: row.driver_id,
+    pickup: row.pickup,
+    destination: row.destination,
+    rideType: row.ride_type,
+    vehiclePreference: row.vehicle_preference,
     seats: row.seats,
-    totalPrice: row.total_price,
-    platformFee: row.platform_fee,
-    driverShare: row.driver_share,
+    estimatedPrice: row.estimated_price,
+    proposedPrice: row.proposed_price,
+    firstStop: row.first_stop,
     paymentMethod: row.payment_method,
     message: row.message ?? '',
     status: row.status,
+    platformFee: row.platform_fee ?? 0,
+    driverShare: row.driver_share ?? 0,
+    ratingDriver: row.rating_driver,
+    ratingPassenger: row.rating_passenger,
+    loyaltyFree: row.loyalty_free ?? false,
+    shareToken: row.share_token,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/** Construit l'objet d'affichage `DriverProfile` depuis une ligne `profiles`. */
+export function mapDriverProfile(row: ProfileRow): DriverProfile {
+  const vehicleLabel = [row.vehicle_brand, row.vehicle_model, row.vehicle_color]
+    .filter(Boolean)
+    .join(' ');
+  const area = row.current_area ?? null;
+  const coords = area ? NEIGHBORHOOD_COORDS[area] : null;
+  return {
+    id: row.id,
+    name: row.full_name ?? 'Chauffeur Stacks Drive',
+    phone: row.phone,
+    vehicleType: row.vehicle_type,
+    vehicleLabel,
+    plate: row.plate,
+    seats: row.seats,
+    isVerified: row.is_verified,
+    isOnline: row.is_online,
+    rating: null,
+    trips: 0,
+    area,
+    lat: row.last_lat ?? coords?.lat ?? null,
+    lng: row.last_lng ?? coords?.lng ?? null,
+    isDemo: row.is_demo,
+  };
+}
+
+/** Convertit une ligne `ride_proposals` en `RideProposal`. */
+export function mapProposalRow(row: RideProposalRow): RideProposal {
+  const driverRow = row.driver ?? row.profiles ?? null;
+  return {
+    id: row.id,
+    rideId: row.ride_id,
+    driverId: row.driver_id,
+    proposedPrice: row.proposed_price,
+    seatsLeft: row.seats_left,
+    firstStop: row.first_stop,
+    status: row.status,
+    expiresAt: row.expires_at,
+    createdAt: row.created_at,
+    driver: driverRow ? mapDriverProfile(driverRow) : null,
   };
 }

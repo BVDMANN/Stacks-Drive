@@ -10,7 +10,7 @@
  *
  *  Le gain du chauffeur par course = tarif × (1 − commission).
  *  La part plateforme et la part chauffeur sont calculées à la réservation
- *  et figées dans la table `bookings` (snapshot) : un changement de taux
+ *  et figées dans la table `rides` (snapshot) : un changement de taux
  *  plus tard ne modifie jamais les courses déjà réservées.
  */
 
