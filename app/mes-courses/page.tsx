@@ -41,6 +41,7 @@ export default async function MesCoursesPage() {
     <PageShell
       title="Mes courses"
       subtitle="Tes demandes de course, en cours et passées."
+      user={{ id: sessionUser.id, email: sessionUser.email }}
       actions={
         <Link
           href="/"

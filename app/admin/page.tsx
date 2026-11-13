@@ -18,7 +18,7 @@ export default async function AdminPage() {
 
   if (!sessionUser.profile?.is_admin) {
     return (
-      <PageShell title="Administration" subtitle="Pilotage de la plateforme Stacks Drive.">
+      <PageShell title="Administration" subtitle="Pilotage de la plateforme Stacks Drive." user={{ id: sessionUser.id, email: sessionUser.email }}>
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
           <p className="text-slate-600">
             Cette page est réservée à l’administrateur de la plateforme.
@@ -65,6 +65,7 @@ export default async function AdminPage() {
     <PageShell
       title="Administration"
       subtitle="Pilotage de la plateforme Stacks Drive."
+      user={{ id: sessionUser.id, email: sessionUser.email }}
     >
       {/* Statistiques */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">

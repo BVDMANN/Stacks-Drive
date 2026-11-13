@@ -5,18 +5,23 @@ import { cn } from '@/lib/utils';
 /** En-tête commun des pages privées (courses, tableau de bord, compte, admin)
  *  et des pages légales. `dark` applique l'identité « Libreville la nuit »
  *  (fonds sombres, texte clair, accents ember/volt) ; par défaut le thème
- *  reste clair pour ne pas toucher aux pages privées existantes. */
+ *  reste clair pour ne pas toucher aux pages privées existantes.
+ *  `user` : l'utilisateur connecté — sans lui, l'en-tête affiche
+ *  « Connexion » au lieu de « Mon compte » / « Déconnexion » (bug : ces
+ *  liens s'affichaient même déconnecté). */
 export function PageShell({
   title,
   subtitle,
   actions,
   dark,
+  user,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
   dark?: boolean;
+  user?: { id: string; email: string } | null;
   children: ReactNode;
 }) {
   return (
@@ -36,15 +41,26 @@ export function PageShell({
             ← Toutes les courses
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            <Link href="/compte" className={cn('text-sm font-bold', dark ? 'text-slate-300 hover:text-volt' : 'text-slate-600 hover:text-stacks-green')}>
-              Mon compte
-            </Link>
-            <a
-              href="/auth/signout"
-              className={cn('text-sm font-bold', dark ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600')}
-            >
-              Déconnexion
-            </a>
+            {user ? (
+              <>
+                <Link href="/compte" className={cn('text-sm font-bold', dark ? 'text-slate-300 hover:text-volt' : 'text-slate-600 hover:text-stacks-green')}>
+                  Mon compte
+                </Link>
+                <a
+                  href="/auth/signout"
+                  className={cn('text-sm font-bold', dark ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600')}
+                >
+                  Déconnexion
+                </a>
+              </>
+            ) : (
+              <Link
+                href="/connexion"
+                className="text-sm font-black text-white bg-ember px-4 py-2 rounded-full shadow-md shadow-ember/40 hover:bg-ember-light transition-colors"
+              >
+                Connexion
+              </Link>
+            )}
           </div>
         </div>
       </header>

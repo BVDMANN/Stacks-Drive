@@ -230,9 +230,15 @@ export function HomeScreen({
     [pickup, destination, validTrip]
   );
 
-  // Chauffeurs visibles : réels en ligne + démos, filtrés par type/véhicule.
+  // Tous les chauffeurs en ligne : réels + démos. La carte et le compteur
+  // « chauffeurs autour de toi » les montrent TOUS, Moto comprise : la
+  // carte est une vitrine de l'offre, pas un filtre de mise en relation.
   const allDrivers = useMemo(() => [...realDrivers, ...demoDrivers], [realDrivers, demoDrivers]);
-  const visibleDrivers = useMemo(() => {
+  // Chauffeurs éligibles à la mise en relation pour le trajet choisi :
+  // la Moto est Solo uniquement (jamais en Groupe) et la préférence de
+  // véhicule s'applique aussi. Utilisé uniquement pour l'ETA — jamais
+  // pour la carte ni le compteur.
+  const matchableDrivers = useMemo(() => {
     return allDrivers.filter((d) => {
       if (rideType === 'groupe' && d.vehicleType === 'Moto') return false;
       if (vehiclePref === 'moto') return d.vehicleType === 'Moto';
@@ -249,29 +255,29 @@ export function HomeScreen({
 
   // ETA du chauffeur le plus proche du point de départ.
   const nearestEta = useMemo(() => {
-    if (!pickupCoords || visibleDrivers.length === 0) return null;
+    if (!pickupCoords || matchableDrivers.length === 0) return null;
     let best: number | null = null;
-    visibleDrivers.forEach((d) => {
+    matchableDrivers.forEach((d) => {
       if (d.lat === null || d.lng === null) return;
       const dist = haversineKm(pickupCoords.lat, pickupCoords.lng, d.lat, d.lng);
       const eta = etaMinutes(dist);
       if (best === null || eta < best) best = eta;
     });
     return best;
-  }, [pickupCoords, visibleDrivers]);
+  }, [pickupCoords, matchableDrivers]);
 
   const driversNearPickup = useMemo(() => {
-    if (!pickupCoords) return visibleDrivers.length;
+    if (!pickupCoords) return allDrivers.length;
     // Rayon « autour de toi » : 10 km, comme le premier rayon de
-    // recherche. À 8 km, le chauffeur d'Akanda (à 8,2 km de
-    // Centre-ville) était exclu et le compteur n'affichait que 5/6.
-    return visibleDrivers.filter(
+    // recherche. Compte TOUS les chauffeurs en ligne, Moto comprise :
+    // la Moto était exclue en Groupe et le compteur n'affichait que 5/6.
+    return allDrivers.filter(
       (d) =>
         d.lat !== null &&
         d.lng !== null &&
         haversineKm(pickupCoords.lat, pickupCoords.lng, d.lat, d.lng) <= 10
     ).length;
-  }, [pickupCoords, visibleDrivers]);
+  }, [pickupCoords, allDrivers]);
 
   // Horloge (comptes à rebours des propositions + élargissement).
   useEffect(() => {
@@ -350,9 +356,12 @@ export function HomeScreen({
     now - searchStartedAt > 30000 &&
     liveProposals.length === 0;
 
+  // Marqueurs de la carte : TOUS les chauffeurs en ligne, découplés du
+  // filtre de mise en relation (la Moto reste visible en Groupe — sa
+  // bulle précise « Solo uniquement »).
   const mapDrivers = useMemo(
     () =>
-      visibleDrivers
+      allDrivers
         .filter((d) => d.lat !== null && d.lng !== null)
         .map((d) => ({
           id: d.id,
@@ -364,7 +373,7 @@ export function HomeScreen({
           rating: d.rating,
           isDemo: d.isDemo,
         })),
-    [visibleDrivers]
+    [allDrivers]
   );
 
   function saveDraft() {

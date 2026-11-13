@@ -15,7 +15,7 @@ export default async function TableauDeBordPage() {
 
   if (sessionUser.profile?.role !== 'chauffeur') {
     return (
-      <PageShell title="Tableau de bord chauffeur" subtitle="Reçois des demandes et propose tes prix.">
+      <PageShell title="Tableau de bord chauffeur" subtitle="Reçois des demandes et propose tes prix." user={{ id: sessionUser.id, email: sessionUser.email }}>
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
           <p className="text-slate-600">
             Cette page est réservée aux chauffeurs. Ton compte actuel est en
@@ -37,6 +37,7 @@ export default async function TableauDeBordPage() {
     <PageShell
       title="Tableau de bord chauffeur"
       subtitle={`Bonjour ${sessionUser.profile?.full_name ?? ''} — mets-toi en ligne et reçois des demandes.`}
+      user={{ id: sessionUser.id, email: sessionUser.email }}
       actions={
         <Link
           href="/"

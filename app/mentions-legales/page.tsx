@@ -1,14 +1,16 @@
 import Link from 'next/link';
 import { PageShell } from '@/components/shared/PageShell';
+import { getSessionUser } from '@/lib/supabase/server';
 
 export const metadata = {
   title: 'Mentions légales — Stacks Drive',
   description: 'Mentions légales de la plateforme Stacks Drive.',
 };
 
-export default function MentionsLegalesPage() {
+export default async function MentionsLegalesPage() {
+  const sessionUser = await getSessionUser();
   return (
-    <PageShell dark title="Mentions légales" subtitle="Informations sur l’éditeur et l’hébergement de Stacks Drive.">
+    <PageShell dark title="Mentions légales" subtitle="Informations sur l’éditeur et l’hébergement de Stacks Drive." user={sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null}>
       <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-300 leading-relaxed">
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">Éditeur du site</h2>

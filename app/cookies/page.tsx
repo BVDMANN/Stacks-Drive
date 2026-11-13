@@ -1,14 +1,16 @@
 import Link from 'next/link';
 import { PageShell } from '@/components/shared/PageShell';
+import { getSessionUser } from '@/lib/supabase/server';
 
 export const metadata = {
   title: 'Politique cookies — Stacks Drive',
   description: 'Politique cookies de la plateforme Stacks Drive (Libreville, Gabon).',
 };
 
-export default function CookiesPage() {
+export default async function CookiesPage() {
+  const sessionUser = await getSessionUser();
   return (
-    <PageShell dark title="Politique cookies" subtitle="Ce que Stacks Drive stocke dans ton navigateur — et ce qu’elle ne stocke pas.">
+    <PageShell dark title="Politique cookies" subtitle="Ce que Stacks Drive stocke dans ton navigateur — et ce qu’elle ne stocke pas." user={sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null}>
       <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-300 leading-relaxed">
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">1. Ce qu’est un cookie</h2>

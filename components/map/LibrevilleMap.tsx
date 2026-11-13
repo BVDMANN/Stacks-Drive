@@ -143,6 +143,18 @@ export function LibrevilleMap({
       attribution:
         'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
+    // Couche de référence « World Dark Gray » : noms de lieux et de rues
+    // en clair sur le fond sombre (tuiles PNG transparentes, même ordre
+    // de paramètres {z}/{y}/{x} que le fond). Vérifiée par curl autour
+    // de Libreville (z12–13 : HTTP 200, PNG, contenu non uniforme —
+    // libellés en gris clair sur fond transparent). Pas d'attribution
+    // séparée : les sources sont les mêmes que le fond, déjà citées.
+    // Limite connue : la couche est clairsemée à Libreville (peu de
+    // libellés aux zooms 14–16 dans les quartiers) — les noms de rues
+    // restent donc rares, la couche ajoute surtout les grands libellés.
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+    }).addTo(map);
     L.control.attribution({ position: 'topright' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     routeLayersRef.current = L.layerGroup().addTo(map);
@@ -274,7 +286,7 @@ export function LibrevilleMap({
         icon: driverIcon(d, isAssigned, isSelected),
       });
       marker.bindTooltip(
-        `${d.name} · ${d.vehicleLabel}${d.rating ? ` · ★ ${d.rating.toFixed(1)}` : ''}${d.isDemo ? ' · Démo' : ''}`,
+        `${d.name} · ${d.vehicleLabel}${d.vehicleType === 'Moto' ? ' · Solo uniquement' : ''}${d.rating ? ` · ★ ${d.rating.toFixed(1)}` : ''}${d.isDemo ? ' · Démo' : ''}`,
         { direction: 'top', offset: [0, -24], className: 'map-tooltip' }
       );
       marker.on('click', () => onDriverClickRef.current?.(d.id));

@@ -109,21 +109,26 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">6. Paiement et solde chauffeur</h2>
+          <h2 className="text-lg font-black text-white">6. Paiement, commission et dépôt de garantie</h2>
           <p>
             Le passager paie le chauffeur <strong>directement</strong>, en
-            espèces ou par Mobile Money (Airtel Money, Moov Money), selon le
-            moyen choisi à la demande. Stacks Drive ne collecte pas l’argent
-            des passagers et ne détient aucun fonds de course. La commission
-            est prélevée <strong>automatiquement sur le solde du
-            chauffeur</strong> : le chauffeur recharge son solde par Mobile
-            Money (comme il recharge du crédit téléphonique), et chaque
-            course acceptée déduit la commission de son solde. Le solde et le
-            nombre de courses qu’il couvre sont affichés clairement dans son
-            tableau de bord. Si le solde est insuffisant pour couvrir la
-            commission d’une course, le chauffeur ne reçoit plus de nouvelles
-            demandes tant qu’il n’a pas rechargé. Aucune recharge n’est
-            remboursable, sauf erreur technique avérée.
+            espèces ou par transfert Mobile Money (Airtel Money, Moov Money)
+            vers le numéro personnel du chauffeur, selon le moyen choisi à
+            la demande. Stacks Drive ne collecte pas l’argent des passagers
+            et ne détient aucun fonds de course : la plateforme ne fait que
+            compter. La commission (5 % au lancement pendant 3 mois, puis
+            8 %, plafond garanti de 10 %) est calculée en silence sur chaque
+            course acceptée, sans rien déduire pendant la course. Le chauffeur
+            règle le total de ses commissions <strong>une fois par
+            semaine</strong>, en un seul transfert Mobile Money vers le numéro
+            de Stacks Drive affiché dans son tableau de bord, qui indique
+            aussi le montant dû. À l’inscription, le chauffeur verse un{' '}
+            <strong>dépôt de garantie remboursable de 5 000 FCFA</strong>,
+            par simple transfert Mobile Money : il couvre la première semaine
+            de commissions et est remboursé quand le chauffeur quitte la
+            plateforme proprement, après avoir soldé ce qu’il doit. Si le
+            montant dû dépasse <strong>5 000 FCFA</strong>, le chauffeur ne
+            reçoit plus de nouvelles demandes tant qu’il n’a pas réglé.
           </p>
         </section>
 

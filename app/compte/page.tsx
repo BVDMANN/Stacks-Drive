@@ -35,6 +35,7 @@ export default async function ComptePage() {
     <PageShell
       title="Mon compte"
       subtitle={`Bonjour ${profile.full_name ?? ''} — tes informations${isDriver ? ' et ton véhicule' : ''}.`}
+      user={{ id: sessionUser.id, email: sessionUser.email }}
       actions={
         <Link
           href="/"

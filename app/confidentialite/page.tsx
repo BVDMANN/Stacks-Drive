@@ -34,7 +34,7 @@ export default function ConfidentialitePage() {
             <li><strong>Vérification chauffeur :</strong> selfie de vérification et pièce d’identité (carte nationale d’identité ou passeport) ou permis de conduire. Ces documents sont sensibles : ils sont stockés dans un espace privé, accessibles uniquement à l’administrateur chargé du contrôle, et ne sont jamais montrés aux passagers (seul le badge « Vérifié » s’affiche).</li>
             <li><strong>Géolocalisation :</strong> ta position, uniquement quand tu appuies sur « Me localiser » pour définir ton point de départ. La position n’est jamais suivie en continu et n’est jamais conservée après la course.</li>
             <li><strong>Courses :</strong> demandes (départ, destination, type Solo ou Groupe, places, prix estimé), propositions des chauffeurs (prix, places restantes, premier arrêt), statut et historique des courses, notes entre passagers et chauffeurs.</li>
-            <li><strong>Solde chauffeur :</strong> montant du solde, recharges et commissions prélevées. Stacks Drive ne conserve aucune donnée bancaire : les recharges passent par Mobile Money (Airtel Money, Moov Money).</li>
+            <li><strong>Commission et dépôt chauffeur :</strong> dépôt de garantie versé, commissions dues par course et règlements hebdomadaires (montants et références de transfert). Stacks Drive ne conserve aucune donnée bancaire : tous les paiements sont des transferts directs de personne à personne par Mobile Money (Airtel Money, Moov Money).</li>
             <li><strong>Technique :</strong> cookies de session indispensables à la connexion (voir notre{' '}
               <Link href="/cookies" className="text-volt font-bold hover:underline">
                 politique cookies
@@ -50,7 +50,7 @@ export default function ConfidentialitePage() {
             créer et sécuriser ton compte, te mettre en relation avec un
             chauffeur ou un passager, afficher le prix et le suivi de la
             course, vérifier l’identité des chauffeurs pour la sécurité de
-            tous, gérer le solde et les commissions, et t’envoyer les e-mails
+            tous, gérer le dépôt, les commissions dues et leur règlement, et t’envoyer les e-mails
             indispensables (vérification d’inscription, réinitialisation de
             mot de passe). Base légale : exécution du service demandé ;
             vérification et sécurité relevant de l’intérêt légitime ;
