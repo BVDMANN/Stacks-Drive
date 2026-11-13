@@ -1,0 +1,232 @@
+"use client";
+
+import { Suspense, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { CheckCircle2, Mail } from 'lucide-react';
+import { getBrowserClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { AuthCard } from '@/components/auth/AuthCard';
+import { PremiumButton } from '@/components/shared/PremiumButton';
+import { cn } from '@/lib/utils';
+
+type Role = 'passager' | 'chauffeur';
+
+function translateError(message: string): string {
+  if (/already registered|already exists/i.test(message))
+    return 'Un compte existe déjà avec cet e-mail. Essaie de te connecter.';
+  if (/password/i.test(message))
+    return 'Ton mot de passe doit faire au moins 6 caractères.';
+  return 'Inscription impossible. Vérifie tes informations et réessaie.';
+}
+
+export default function InscriptionPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard title="Créer un compte" subtitle="Rejoins Stacks Drive, gratuitement.">
+          <p className="text-sm text-slate-500 text-center">Chargement…</p>
+        </AuthCard>
+      }
+    >
+      <InscriptionForm />
+    </Suspense>
+  );
+}
+
+function InscriptionForm() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next') ?? '/';
+
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<Role>('passager');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const supabase = getBrowserClient();
+    if (!supabase) {
+      setError('Supabase n’est pas configuré sur ce déploiement.');
+      return;
+    }
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName.trim(), phone: phone.trim(), role },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      setError(translateError(error.message));
+      return;
+    }
+    // Si la confirmation e-mail est activée, il n'y a pas encore de session :
+    // l'utilisateur doit cliquer sur le lien reçu par e-mail.
+    if (data.user && !data.session) {
+      setSent(true);
+      return;
+    }
+    // Confirmation désactivée : session immédiate.
+    window.location.href = next;
+  }
+
+  if (!isSupabaseConfigured()) {
+    return (
+      <AuthCard title="Créer un compte" subtitle="Rejoins Stacks Drive, gratuitement.">
+        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          L’inscription n’est pas encore configurée sur ce déploiement : les
+          clés Supabase manquent. Voir SETUP.md.
+        </p>
+      </AuthCard>
+    );
+  }
+
+  if (sent) {
+    return (
+      <AuthCard title="Vérifie ta boîte mail" subtitle={`Un e-mail de vérification vient d’être envoyé à ${email}.`}>
+        <div className="text-center space-y-4 py-2">
+          <div className="w-16 h-16 mx-auto rounded-full bg-green-100 flex items-center justify-center text-stacks-green">
+            <Mail size={32} />
+          </div>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Clique sur le lien dans l’e-mail pour activer ton compte{' '}
+            {role === 'chauffeur' ? 'chauffeur' : 'passager'}.
+            Vérifie aussi tes spams si tu ne vois rien arriver.
+          </p>
+          {role === 'chauffeur' && (
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Ensuite, complète ton véhicule dans « Mon compte » (type, places,
+              plaque) pour pouvoir publier tes courses.
+            </p>
+          )}
+          <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
+            <CheckCircle2 size={14} /> Ton compte sera actif dès la vérification.
+          </p>
+          <Link href="/connexion" className="inline-block text-stacks-green font-bold text-sm hover:underline">
+            Aller à la connexion
+          </Link>
+        </div>
+      </AuthCard>
+    );
+  }
+
+  return (
+    <AuthCard title="Créer un compte" subtitle="Gratuit, en moins d’une minute.">
+      {error && (
+        <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
+          {error}
+        </p>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Choix du rôle */}
+        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Je m’inscris en tant que">
+          {(
+            [
+              { value: 'passager', label: 'Passager', desc: 'Je réserve des courses' },
+              { value: 'chauffeur', label: 'Chauffeur', desc: 'Je publie des courses' },
+            ] as const
+          ).map((r) => (
+            <button
+              key={r.value}
+              type="button"
+              role="radio"
+              aria-checked={role === r.value}
+              onClick={() => setRole(r.value)}
+              className={cn(
+                'p-4 rounded-2xl border-2 text-left transition-colors',
+                role === r.value
+                  ? 'border-stacks-green bg-green-50/60'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+              )}
+            >
+              <span className="block font-black text-slate-900">{r.label}</span>
+              <span className="block text-xs text-slate-500 mt-0.5">{r.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="full-name" className="text-xs font-black uppercase tracking-widest text-slate-500">
+            Nom complet
+          </label>
+          <input
+            id="full-name"
+            type="text"
+            required
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Ex : Jean Nguema"
+            className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-stacks-green focus:outline-none"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="phone" className="text-xs font-black uppercase tracking-widest text-slate-500">
+            Téléphone
+          </label>
+          <input
+            id="phone"
+            type="tel"
+            required
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Ex : 074 00 00 00"
+            className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-stacks-green focus:outline-none"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-slate-500">
+            E-mail
+          </label>
+          <input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ton@email.com"
+            className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-stacks-green focus:outline-none"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-slate-500">
+            Mot de passe
+          </label>
+          <input
+            id="password"
+            type="password"
+            required
+            minLength={6}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="6 caractères minimum"
+            className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-stacks-green focus:outline-none"
+          />
+        </div>
+
+        <PremiumButton type="submit" isLoading={loading} className="w-full justify-center py-4">
+          Créer mon compte
+        </PremiumButton>
+      </form>
+      <p className="text-sm text-center text-slate-500">
+        Déjà inscrit ?{' '}
+        <Link href="/connexion" className="text-stacks-green font-bold hover:underline">
+          Se connecter
+        </Link>
+      </p>
+    </AuthCard>
+  );
+}
