@@ -25,8 +25,7 @@ export default function MentionsLegalesPage() {
             </a>
           </p>
           <p>
-            Directeur de la publication : Gilchrist Randy Boulingui.{' '}
-            <span className="text-amber-700 bg-amber-50 px-1 rounded">[à compléter : numéro de téléphone de contact, si souhaité]</span>
+            Directeur de la publication : Gilchrist Randy Boulingui.
           </p>
         </section>
 
@@ -34,13 +33,12 @@ export default function MentionsLegalesPage() {
           <h2 className="text-lg font-black text-slate-900">Hébergement</h2>
           <p>
             Le site est hébergé par Vercel Inc., 340 S Lemon Ave #4133, Walnut,
-            CA 91789, États-Unis.{' '}
-            <span className="text-amber-700 bg-amber-50 px-1 rounded">[à compléter : confirmer l’hébergeur au moment du déploiement]</span>
+            CA 91789, États-Unis.
           </p>
           <p>
-            Les données (comptes, courses, réservations) sont hébergées par
-            Supabase Inc. (base de données PostgreSQL et authentification),{' '}
-            <span className="text-amber-700 bg-amber-50 px-1 rounded">[à compléter : région d’hébergement choisie dans Supabase]</span>
+            Les données (comptes, demandes, propositions) sont hébergées par
+            Supabase Inc. (base de données PostgreSQL et authentification),
+            région Europe — Francfort (eu-central-1).
           </p>
         </section>
 
@@ -56,13 +54,15 @@ export default function MentionsLegalesPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">Courses publiées</h2>
+          <h2 className="text-lg font-black text-slate-900">Chauffeurs affichés</h2>
           <p>
-            Les courses publiées par les chauffeurs le sont sous leur seule
-            responsabilité. Stacks Drive ne garantit ni l’exactitude des annonces, ni
-            la réalisation d’un trajet. Les 6 courses initiales affichées au
-            lancement sont des <strong>exemples fictifs</strong> destinés à
-            présenter la plateforme ; elles ne correspondent à aucun chauffeur réel.
+            Les chauffeurs affichés sur la carte au lancement sont des{' '}
+            <strong>profils de démonstration fictifs</strong> destinés à
+            présenter la plateforme ; ils ne correspondent à aucun chauffeur
+            réel et seront retirés avant le lancement commercial. Les demandes
+            et propositions des chauffeurs réels le sont sous leur seule
+            responsabilité. Stacks Drive ne garantit ni l’exactitude des
+            annonces, ni la réalisation d’un trajet.
           </p>
         </section>
 

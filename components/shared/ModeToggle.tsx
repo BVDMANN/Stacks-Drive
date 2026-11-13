@@ -37,7 +37,7 @@ export function ModeToggle({ currentRole }: { currentRole: ProfileRole }) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
       <span
-        className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 p-1"
+        className="inline-flex items-center rounded-full bg-white/5 border border-white/10 p-1"
         role="group"
         aria-label="Mode : passager ou chauffeur"
       >
@@ -56,8 +56,8 @@ export function ModeToggle({ currentRole }: { currentRole: ProfileRole }) {
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black transition-all disabled:opacity-60',
               role === m.value
-                ? 'bg-stacks-green text-white shadow-md shadow-stacks-green/30'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-ember text-white shadow-md shadow-ember/40'
+                : 'text-slate-400 hover:text-white'
             )}
           >
             <m.icon size={14} />
@@ -65,7 +65,7 @@ export function ModeToggle({ currentRole }: { currentRole: ProfileRole }) {
           </button>
         ))}
       </span>
-      {error && <span className="text-[11px] text-red-600 font-bold px-1">{error}</span>}
+      {error && <span className="text-[11px] text-red-400 font-bold px-1">{error}</span>}
     </span>
   );
 }

@@ -8,7 +8,10 @@ import {
   Bike,
   Car,
   Clock,
+  Crosshair,
   Gift,
+  Loader2,
+  LocateFixed,
   MapPin,
   Navigation,
   ShieldCheck,
@@ -21,6 +24,7 @@ import type { DriverProfile, Ride, RideProposal } from '@/types';
 import { ProposalCard } from './ProposalCard';
 import { DriverCard } from './DriverCard';
 import {
+  LIBREVILLE_CENTER,
   NEIGHBORHOODS,
   NEIGHBORHOOD_COORDS,
   PAYMENT_LABELS,
@@ -28,17 +32,24 @@ import {
   type PaymentMethod,
 } from '@/lib/neighborhoods';
 import { estimateFare, etaMinutes, type RideType, type VehiclePreference } from '@/lib/pricing';
-import { haversineKm } from '@/lib/geo';
+import { haversineKm, nearestNeighborhood } from '@/lib/geo';
+import {
+  geoErrorMessage,
+  getUserPosition,
+  reverseGeocodeNominatim,
+  type GeoErrorKind,
+} from '@/lib/geolocation';
 import { formatFcfa } from '@/lib/commission';
 import { cn } from '@/lib/utils';
+import type { FocusPoint } from '@/components/map/LibrevilleMap';
 
 const LibrevilleMap = dynamic(
   () => import('@/components/map/LibrevilleMap').then((m) => m.LibrevilleMap),
   {
     ssr: false,
     loading: () => (
-      <div className="h-full w-full bg-slate-200 animate-pulse flex items-center justify-center">
-        <p className="text-sm font-bold text-slate-500">Chargement de la carte de Libreville…</p>
+      <div className="h-full w-full bg-night-900 animate-pulse flex items-center justify-center">
+        <p className="text-sm font-bold text-slate-400">Chargement de la carte de Libreville…</p>
       </div>
     ),
   }
@@ -56,6 +67,9 @@ const FIXED_FARES: { pickup: Neighborhood; destination: Neighborhood; label: str
 ];
 
 const SELECTABLE = NEIGHBORHOODS.filter((n) => n !== 'Autre');
+
+/** Hauteurs de la feuille (dvh) : réduite, mi-hauteur, pleine. */
+const SHEET_SNAPS = [30, 58, 88];
 
 interface Draft {
   pickup: Neighborhood | '';
@@ -78,9 +92,54 @@ function readDraft(): Draft | null {
   }
 }
 
-/** Écran d'accueil map-first, style Uber : carte plein écran + feuille
- *  de demande en bas (départ, destination, type de course, prix fixe,
- *  commander). */
+/** Prix animé : le chiffre glisse vers la nouvelle valeur (~450 ms) et
+ *  fait un petit « pop » à chaque changement d'estimation. */
+function AnimatedPrice({
+  value,
+  className,
+  suffix,
+}: {
+  value: number | null;
+  className?: string;
+  suffix?: React.ReactNode;
+}) {
+  const [display, setDisplay] = useState(value ?? 0);
+  const prevRef = useRef(value ?? 0);
+  const [popKey, setPopKey] = useState(0);
+  useEffect(() => {
+    if (value === null) return;
+    const from = prevRef.current;
+    const to = value;
+    prevRef.current = value;
+    if (from === to) {
+      setDisplay(to);
+      return;
+    }
+    setPopKey((k) => k + 1);
+    const start = performance.now();
+    const dur = 450;
+    let raf = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(Math.round(from + (to - from) * eased));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  if (value === null) return <span className={className}>—</span>;
+  return (
+    <span key={popKey} className={cn('price-pop', className)}>
+      {formatFcfa(display)}
+      {suffix}
+    </span>
+  );
+}
+
+/** Écran d'accueil map-first « Libreville la nuit » : carte sombre plein
+ *  écran + feuille de demande draggable en bas (départ géolocalisable,
+ *  destination, type de course, prix fixe, commander). */
 export function HomeScreen({
   user,
   realDrivers,
@@ -109,7 +168,19 @@ export function HomeScreen({
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
   const [loyalty, setLoyalty] = useState<{ completedRides: number; ridesUntilFree: number } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(true);
+
+  // --- Géolocalisation du départ (« Me localiser ») ---
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [geoLabel, setGeoLabel] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const [pickupExact, setPickupExact] = useState<{ lat: number; lng: number } | null>(null);
+  const [focusPoint, setFocusPoint] = useState<FocusPoint | null>(null);
+  const focusNonceRef = useRef(0);
+
+  // --- Feuille draggable ---
+  const [sheetH, setSheetH] = useState(SHEET_SNAPS[1]);
+  const dragRef = useRef<{ startY: number; startH: number; moved: boolean; pointerId: number } | null>(null);
 
   // Restaurer le brouillon après connexion.
   useEffect(() => {
@@ -170,7 +241,10 @@ export function HomeScreen({
     });
   }, [allDrivers, rideType, vehiclePref]);
 
-  const pickupCoords = pickup !== '' ? NEIGHBORHOOD_COORDS[pickup as Neighborhood] : null;
+  // Coordonnées du départ : position exacte si géolocalisée, sinon centre du quartier.
+  const pickupCoords = pickup !== ''
+    ? (pickupExact ?? NEIGHBORHOOD_COORDS[pickup as Neighborhood])
+    : null;
   const destCoords = destination !== '' ? NEIGHBORHOOD_COORDS[destination as Neighborhood] : null;
 
   // ETA du chauffeur le plus proche du point de départ.
@@ -299,6 +373,98 @@ export function HomeScreen({
     }
   }
 
+  // --- « Me localiser » : GPS → quartier le plus proche → départ. ---
+  async function handleLocate() {
+    if (locating) return;
+    setLocating(true);
+    setGeoError(null);
+    try {
+      const pos = await getUserPosition();
+      const nearest = nearestNeighborhood(pos.lat, pos.lng);
+      if (nearest.distanceKm > 60) {
+        // Hors de Libreville (ex. test depuis la France) : on ne place
+        // pas un faux départ — message clair + sélection manuelle.
+        setGeoError(
+          `Tu es à ~${Math.round(nearest.distanceKm)} km de Libreville — la géolocalisation ne peut pas te placer ici. Choisis ton quartier dans la liste.`
+        );
+        return;
+      }
+      setPickup(nearest.neighborhood);
+      setPickupExact({ lat: pos.lat, lng: pos.lng });
+      setUserLocation({ lat: pos.lat, lng: pos.lng, label: nearest.neighborhood });
+      setGeoLabel(null);
+      focusNonceRef.current += 1;
+      setFocusPoint({ lat: pos.lat, lng: pos.lng, zoom: 15, nonce: focusNonceRef.current });
+      // Nom de rue en complément (best-effort, jamais bloquant).
+      reverseGeocodeNominatim(pos.lat, pos.lng).then((label) => {
+        if (label) setGeoLabel(label);
+      });
+    } catch (err) {
+      setGeoError(geoErrorMessage(err as GeoErrorKind));
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  // Choix manuel du départ : on revient au centre du quartier.
+  function handlePickupChange(value: Neighborhood | '') {
+    setPickup(value);
+    setPickupExact(null);
+    setGeoLabel(null);
+  }
+
+  // Bouton « Recentrer » sur la carte : sur moi si localisé, sinon Libreville.
+  function handleRecenter() {
+    focusNonceRef.current += 1;
+    if (userLocation) {
+      setFocusPoint({ lat: userLocation.lat, lng: userLocation.lng, zoom: 15, nonce: focusNonceRef.current });
+    } else {
+      setFocusPoint({ lat: LIBREVILLE_CENTER.lat, lng: LIBREVILLE_CENTER.lng, zoom: 13, nonce: focusNonceRef.current });
+    }
+  }
+
+  // --- Feuille draggable : glisser la poignée, relâcher = cran le plus proche. ---
+  function onHandlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    const vh = window.innerHeight;
+    dragRef.current = {
+      startY: e.clientY,
+      startH: (sheetH / 100) * vh,
+      moved: false,
+      pointerId: e.pointerId,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function onHandlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const vh = window.innerHeight;
+    if (Math.abs(drag.startY - e.clientY) > 6) drag.moved = true;
+    const px = Math.min(0.9 * vh, Math.max(0.26 * vh, drag.startH + (drag.startY - e.clientY)));
+    setSheetH((px / vh) * 100);
+  }
+  function onHandlePointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    if (!drag) return;
+    if (!drag.moved) {
+      // Simple tap sur la poignée : bascule réduite ↔ mi-hauteur.
+      setSheetH((h) => (h > 45 ? SHEET_SNAPS[0] : SHEET_SNAPS[1]));
+      return;
+    }
+    setSheetH((h) => {
+      let best = SHEET_SNAPS[0];
+      let bestDist = Infinity;
+      SHEET_SNAPS.forEach((s) => {
+        const d = Math.abs(h - s);
+        if (d < bestDist) {
+          bestDist = d;
+          best = s;
+        }
+      });
+      return best;
+    });
+  }
+
   async function commander() {
     setError(null);
     if (!validTrip || !estimate) return;
@@ -416,35 +582,53 @@ export function HomeScreen({
         radarCenter={pickupCoords && pickup ? { ...pickupCoords, label: pickup } : null}
         selectedDriverId={selectedDriverId}
         assignedDriverId={acceptedDriver?.id ?? null}
+        userLocation={userLocation}
+        focusPoint={focusPoint}
         onDriverClick={(id) => setSelectedDriverId(id)}
       />
 
       {/* Compteur de chauffeurs autour */}
       {phase === 'idle' && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-          <span className="inline-flex items-center gap-1.5 bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-full px-4 py-2 text-xs font-black text-slate-800">
-            <span className="w-2 h-2 rounded-full bg-stacks-green animate-pulse" />
+          <span className="inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/10 shadow-xl shadow-black/40 rounded-full px-4 py-2 text-xs font-black text-slate-100">
+            <span className="w-2 h-2 rounded-full bg-volt animate-pulse shadow-[0_0_8px_rgba(46,255,139,0.9)]" />
             {driversNearPickup} chauffeur{driversNearPickup > 1 ? 's' : ''} autour de toi
           </span>
         </div>
       )}
 
-      {/* Feuille du bas */}
-      <div className="absolute inset-x-0 bottom-0 sm:left-4 sm:bottom-4 sm:right-auto sm:w-[440px] z-20">
-        <div className="sheet-up bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl shadow-slate-900/25 border border-slate-200 max-h-[68dvh] sm:max-h-[calc(100dvh-130px)] overflow-y-auto">
-          {/* Poignée mobile */}
+      {/* Bouton « Recentrer » */}
+      <button
+        type="button"
+        onClick={handleRecenter}
+        className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/15 text-white text-xs font-black px-3 py-2 rounded-full shadow-xl shadow-black/40 hover:border-volt/60 active:scale-95 transition-all"
+        aria-label={userLocation ? 'Recentrer sur ma position' : 'Recentrer sur Libreville'}
+      >
+        <Crosshair size={15} className="text-volt" />
+        {userLocation ? 'Moi' : 'Libreville'}
+      </button>
+
+      {/* Feuille du bas — draggable */}
+      <div
+        className="absolute inset-x-0 bottom-0 sm:left-4 sm:bottom-4 sm:right-auto sm:w-[440px] z-20"
+        style={{ height: `${sheetH}dvh` }}
+      >
+        <div className="sheet-glass sheet-up h-full overflow-y-auto rounded-t-[28px] sm:rounded-[28px] shadow-2xl shadow-black/60">
+          {/* Poignée draggable */}
           <button
             type="button"
-            className="sm:hidden w-full pt-2 pb-1 flex justify-center"
-            onClick={() => setSheetOpen(!sheetOpen)}
-            aria-label={sheetOpen ? 'Réduire la feuille' : 'Agrandir la feuille'}
+            className="sheet-handle w-full pt-2.5 pb-1.5 flex justify-center"
+            onPointerDown={onHandlePointerDown}
+            onPointerMove={onHandlePointerMove}
+            onPointerUp={onHandlePointerUp}
+            onPointerCancel={onHandlePointerUp}
+            aria-label="Glisser pour agrandir ou réduire la feuille"
           >
-            <span className="w-10 h-1.5 rounded-full bg-slate-300" />
+            <span className="sheet-handle-bar w-10 h-1.5 rounded-full bg-white/30" />
           </button>
 
-          <div className={cn(!sheetOpen && 'hidden sm:block')}>
           {error && (
-            <div className="mx-4 mt-3 flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm font-bold rounded-2xl p-3">
+            <div className="mx-4 mt-2 flex items-start gap-2 bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-bold rounded-2xl p-3">
               <span className="flex-1">{error}</span>
               <button type="button" onClick={() => setError(null)} aria-label="Fermer le message">
                 <X size={16} />
@@ -453,13 +637,13 @@ export function HomeScreen({
           )}
 
           {phase === 'idle' && (
-            <div className="p-4 sm:p-5 space-y-4">
+            <div className="p-4 sm:p-5 pt-1 space-y-4">
               {isChauffeurMode && (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm">
-                  <p className="font-black text-amber-800">Tu es en mode Chauffeur.</p>
-                  <p className="text-amber-700 mt-0.5">
+                <div className="bg-gold/10 border border-gold/30 rounded-2xl p-3 text-sm">
+                  <p className="font-black text-gold">Tu es en mode Chauffeur.</p>
+                  <p className="text-slate-300 mt-0.5">
                     Mets-toi en ligne depuis ton{' '}
-                    <Link href="/tableau-de-bord" className="font-black underline">
+                    <Link href="/tableau-de-bord" className="font-black underline text-white">
                       tableau de bord
                     </Link>{' '}
                     pour recevoir des demandes — ou bascule en mode Passager (en haut) pour commander.
@@ -467,22 +651,22 @@ export function HomeScreen({
                 </div>
               )}
 
-              <h1 className="text-xl font-black text-slate-900 leading-tight">
+              <h1 className="text-xl font-black text-white leading-tight">
                 Où allez-vous ?
               </h1>
 
               {/* Départ / Destination */}
               <div className="space-y-2">
-                <label className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-1">
-                  <Navigation size={18} className="text-stacks-green shrink-0" />
-                  <span className="flex-1">
+                <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-3.5 py-1">
+                  <Navigation size={18} className="text-volt shrink-0" />
+                  <span className="flex-1 min-w-0">
                     <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
                       Départ
                     </span>
                     <select
                       value={pickup}
-                      onChange={(e) => setPickup(e.target.value as Neighborhood | '')}
-                      className="w-full bg-transparent font-bold text-slate-900 focus:outline-none py-0.5"
+                      onChange={(e) => handlePickupChange(e.target.value as Neighborhood | '')}
+                      className="w-full bg-transparent font-bold text-white focus:outline-none py-0.5"
                       aria-label="Point de départ"
                     >
                       <option value="">Ton point de départ…</option>
@@ -491,9 +675,32 @@ export function HomeScreen({
                       ))}
                     </select>
                   </span>
-                </label>
-                <label className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-1">
-                  <MapPin size={18} className="text-stacks-navy shrink-0" />
+                  <button
+                    type="button"
+                    onClick={handleLocate}
+                    disabled={locating}
+                    className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-volt px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
+                  >
+                    {locating ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <LocateFixed size={14} />
+                    )}
+                    {locating ? 'Localisation…' : 'Me localiser'}
+                  </button>
+                </div>
+                {geoLabel && pickup !== '' && (
+                  <p className="text-xs font-bold text-volt flex items-center gap-1 px-1">
+                    <MapPin size={12} /> {geoLabel} · {pickup}
+                  </p>
+                )}
+                {geoError && (
+                  <p className="text-xs font-bold text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
+                    {geoError}
+                  </p>
+                )}
+                <label className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-3.5 py-1">
+                  <MapPin size={18} className="text-gold shrink-0" />
                   <span className="flex-1">
                     <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
                       Destination
@@ -501,7 +708,7 @@ export function HomeScreen({
                     <select
                       value={destination}
                       onChange={(e) => setDestination(e.target.value as Neighborhood | '')}
-                      className="w-full bg-transparent font-bold text-slate-900 focus:outline-none py-0.5"
+                      className="w-full bg-transparent font-bold text-white focus:outline-none py-0.5"
                       aria-label="Destination"
                     >
                       <option value="">Où vas-tu ?</option>
@@ -512,7 +719,7 @@ export function HomeScreen({
                   </span>
                 </label>
                 {pickup !== '' && destination !== '' && pickup === destination && (
-                  <p className="text-xs font-bold text-red-600">
+                  <p className="text-xs font-bold text-red-300">
                     Le départ et la destination doivent être différents.
                   </p>
                 )}
@@ -521,7 +728,7 @@ export function HomeScreen({
               {/* Tarifs fixes */}
               <div className="space-y-1.5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                  <ShieldCheck size={13} className="text-stacks-green" /> Tarifs fixes — prix garanti, jamais de surge
+                  <ShieldCheck size={13} className="text-volt" /> Tarifs fixes — prix garanti, jamais de surge
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {FIXED_FARES.map((f) => (
@@ -531,9 +738,11 @@ export function HomeScreen({
                       onClick={() => {
                         setPickup(f.pickup);
                         setDestination(f.destination);
+                        setPickupExact(null);
+                        setGeoLabel(null);
                         setRideType('groupe');
                       }}
-                      className="text-xs font-bold bg-green-50 border border-green-200 text-stacks-green px-3 py-1.5 rounded-full hover:bg-green-100 transition-colors"
+                      className="text-xs font-bold bg-volt/10 border border-volt/30 text-volt px-3 py-1.5 rounded-full hover:bg-volt/20 active:scale-95 transition-all"
                     >
                       {f.label}
                     </button>
@@ -552,26 +761,28 @@ export function HomeScreen({
                     onClick={() => setRideType('groupe')}
                     aria-pressed={rideType === 'groupe'}
                     className={cn(
-                      'relative text-left rounded-3xl border-2 p-3.5 transition-colors',
+                      'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
                       rideType === 'groupe'
-                        ? 'border-stacks-green bg-green-50/60'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
+                        ? 'border-ember bg-ember/10 shadow-lg shadow-ember/20'
+                        : 'border-white/10 bg-white/5 hover:border-white/25'
                     )}
                   >
-                    <span className="absolute -top-2.5 left-3 bg-stacks-amber text-stacks-navy text-[10px] font-black px-2 py-0.5 rounded-full">
+                    <span className="absolute -top-2.5 left-3 bg-gold text-night-900 text-[10px] font-black px-2 py-0.5 rounded-full">
                       LE MOINS CHER
                     </span>
-                    <span className="flex items-center gap-1.5 font-black text-slate-900">
+                    <span className="flex items-center gap-1.5 font-black text-white">
                       <Users size={17} /> Groupe
                     </span>
-                    <span className="block text-xs text-slate-500 mt-1 leading-snug">
+                    <span className="block text-xs text-slate-400 mt-1 leading-snug">
                       Partagée, comme le taxi — prix divisé par passager, arrêts dans l’ordre.
                     </span>
-                    <span className="block font-black text-lg text-stacks-navy mt-2">
-                      {estimateGroupe ? `${formatFcfa(estimateGroupe.price)}` : '—'}
-                      <span className="text-xs font-bold text-slate-400"> / passager</span>
+                    <span className="block font-black text-lg text-white mt-2">
+                      <AnimatedPrice
+                        value={validTrip ? estimateGroupe?.price ?? null : null}
+                        suffix={<span className="text-xs font-bold text-slate-400"> / passager</span>}
+                      />
                     </span>
-                    <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                    <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
                       <Clock size={12} />
                       {nearestEta !== null ? `chauffeur dans ~${nearestEta} min` : 'chauffeurs autour'}
                     </span>
@@ -581,23 +792,25 @@ export function HomeScreen({
                     onClick={() => setRideType('solo')}
                     aria-pressed={rideType === 'solo'}
                     className={cn(
-                      'relative text-left rounded-3xl border-2 p-3.5 transition-colors',
+                      'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
                       rideType === 'solo'
-                        ? 'border-stacks-green bg-green-50/60'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
+                        ? 'border-ember bg-ember/10 shadow-lg shadow-ember/20'
+                        : 'border-white/10 bg-white/5 hover:border-white/25'
                     )}
                   >
-                    <span className="flex items-center gap-1.5 font-black text-slate-900">
+                    <span className="flex items-center gap-1.5 font-black text-white">
                       <User size={17} /> Solo
                     </span>
-                    <span className="block text-xs text-slate-500 mt-1 leading-snug">
+                    <span className="block text-xs text-slate-400 mt-1 leading-snug">
                       Privée et directe, sans arrêt — pour toi seul ou ton petit groupe.
                     </span>
-                    <span className="block font-black text-lg text-stacks-navy mt-2">
-                      {estimateSolo ? `${formatFcfa(estimateSolo.price)}` : '—'}
-                      <span className="text-xs font-bold text-slate-400"> la course</span>
+                    <span className="block font-black text-lg text-white mt-2">
+                      <AnimatedPrice
+                        value={validTrip ? estimateSolo?.price ?? null : null}
+                        suffix={<span className="text-xs font-bold text-slate-400"> la course</span>}
+                      />
                     </span>
-                    <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                    <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
                       <Clock size={12} />
                       {nearestEta !== null ? `chauffeur dans ~${nearestEta} min` : 'chauffeurs autour'}
                     </span>
@@ -627,10 +840,10 @@ export function HomeScreen({
                       onClick={() => setVehiclePref(v.value)}
                       aria-pressed={vehiclePref === v.value}
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-black border-2 transition-colors disabled:opacity-40',
+                        'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-black border-2 transition-all active:scale-95 disabled:opacity-40',
                         vehiclePref === v.value
-                          ? 'border-stacks-green bg-green-50/60 text-stacks-green'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          ? 'border-volt bg-volt/10 text-volt'
+                          : 'border-white/10 bg-white/5 text-slate-300 hover:border-white/25'
                       )}
                     >
                       <v.icon size={14} /> {v.label}
@@ -639,24 +852,24 @@ export function HomeScreen({
                 })}
                 {rideType === 'groupe' && (
                   <span className="inline-flex items-center gap-1 ml-1">
-                    <span className="text-xs font-bold text-slate-500">Passagers :</span>
-                    <span className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200">
+                    <span className="text-xs font-bold text-slate-400">Passagers :</span>
+                    <span className="inline-flex items-center rounded-full bg-white/5 border border-white/10">
                       <button
                         type="button"
                         aria-label="Moins de passagers"
                         disabled={seats <= 1}
                         onClick={() => setSeats((s) => Math.max(1, s - 1))}
-                        className="w-7 h-7 font-black text-slate-700 disabled:opacity-40"
+                        className="w-7 h-7 font-black text-slate-200 disabled:opacity-40"
                       >
                         −
                       </button>
-                      <span className="w-6 text-center text-sm font-black">{seats}</span>
+                      <span className="w-6 text-center text-sm font-black text-white">{seats}</span>
                       <button
                         type="button"
                         aria-label="Plus de passagers"
                         disabled={seats >= 4}
                         onClick={() => setSeats((s) => Math.min(4, s + 1))}
-                        className="w-7 h-7 font-black text-slate-700 disabled:opacity-40"
+                        className="w-7 h-7 font-black text-slate-200 disabled:opacity-40"
                       >
                         +
                       </button>
@@ -672,7 +885,7 @@ export function HomeScreen({
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="flex-1 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold focus:border-stacks-green focus:outline-none"
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-volt focus:outline-none"
                   aria-label="Moyen de paiement"
                 >
                   {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((m) => (
@@ -683,20 +896,24 @@ export function HomeScreen({
 
               {/* Estimation + Commander */}
               {estimate && (
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center justify-between gap-3 rise-in">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                       Prix estimé — fixe
                     </p>
-                    <p className="text-2xl font-black text-stacks-navy leading-tight">
-                      {formatFcfa(estimate.price)}
-                      {rideType === 'groupe' && (
-                        <span className="text-sm font-bold text-slate-400"> / passager</span>
-                      )}
+                    <p className="text-2xl font-black text-white leading-tight">
+                      <AnimatedPrice
+                        value={estimate.price}
+                        suffix={
+                          rideType === 'groupe' ? (
+                            <span className="text-sm font-bold text-slate-400"> / passager</span>
+                          ) : undefined
+                        }
+                      />
                     </p>
-                    <p className="text-xs text-slate-500">{estimate.breakdown}</p>
+                    <p className="text-xs text-slate-400">{estimate.breakdown}</p>
                   </div>
-                  <span className="text-right text-xs font-bold text-stacks-green">
+                  <span className="text-right text-xs font-bold text-volt">
                     Prix garanti
                     <span className="block text-slate-400 font-semibold">jamais de surge</span>
                   </span>
@@ -707,7 +924,7 @@ export function HomeScreen({
                 type="button"
                 disabled={!validTrip || !estimate || busy || isChauffeurMode}
                 onClick={commander}
-                className="w-full bg-stacks-green text-white font-black text-lg py-4 rounded-full shadow-lg shadow-stacks-green/30 hover:bg-stacks-greenLight transition-colors disabled:opacity-40"
+                className="w-full bg-ember text-white font-black text-lg py-4 rounded-full shadow-lg shadow-ember/40 hover:bg-ember-light active:scale-[0.98] transition-all disabled:opacity-40"
               >
                 {busy
                   ? 'Envoi…'
@@ -719,44 +936,44 @@ export function HomeScreen({
               </button>
 
               {loyalty && (
-                <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5 justify-center">
-                  <Gift size={14} className="text-stacks-amber" />
+                <p className="text-xs font-bold text-slate-300 flex items-center gap-1.5 justify-center">
+                  <Gift size={14} className="text-gold" />
                   {loyalty.ridesUntilFree === 1
                     ? 'Ta prochaine course est OFFERTE — la 10e !'
                     : `Plus que ${loyalty.ridesUntilFree} course${loyalty.ridesUntilFree > 1 ? 's' : ''} avant ta course offerte`}
-                  <span className="text-slate-400">({loyalty.completedRides % 10}/10)</span>
+                  <span className="text-slate-500">({loyalty.completedRides % 10}/10)</span>
                 </p>
               )}
 
-              <p className="text-[11px] text-slate-400 text-center">
-                <Link href="/a-propos" className="underline hover:text-stacks-green">
+              <p className="text-[11px] text-slate-500 text-center">
+                <Link href="/a-propos" className="underline hover:text-volt">
                   Comment ça marche
                 </Link>
                 {' · '}
-                <Link href="/cgu" className="underline hover:text-stacks-green">CGU</Link>
+                <Link href="/cgu" className="underline hover:text-volt">CGU</Link>
                 {' · '}
-                <span>© OpenStreetMap</span>
+                <span>© OpenStreetMap · CARTO</span>
               </p>
             </div>
           )}
 
           {(phase === 'searching' || phase === 'proposals') && (
-            <div className="p-4 sm:p-5 space-y-4">
+            <div className="p-4 sm:p-5 pt-1 space-y-4">
               <div className="text-center space-y-1">
-                <h2 className="text-lg font-black text-slate-900 flex items-center justify-center gap-2">
+                <h2 className="text-lg font-black text-white flex items-center justify-center gap-2">
                   Recherche de chauffeurs
                   <span aria-hidden className="inline-flex gap-1">
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-stacks-green inline-block" />
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-stacks-green inline-block" />
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-stacks-green inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-volt inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-volt inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-volt inline-block" />
                   </span>
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-400">
                   {pickup} → {destination} · {rideType === 'groupe' ? 'Groupe' : 'Solo'} ·{' '}
                   {estimate ? formatFcfa(estimate.price) : ''} · prix fixe
                 </p>
                 {widened && (
-                  <p className="text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5 mt-2">
+                  <p className="text-sm font-bold text-gold bg-gold/10 border border-gold/30 rounded-xl p-2.5 mt-2">
                     Aucun chauffeur pour l’instant — on élargit la recherche autour de toi…
                   </p>
                 )}
@@ -764,7 +981,7 @@ export function HomeScreen({
 
               {liveProposals.length > 0 ? (
                 <div className="space-y-3">
-                  <p className="text-sm font-black text-slate-900">
+                  <p className="text-sm font-black text-white">
                     {liveProposals.length} proposition{liveProposals.length > 1 ? 's' : ''} reçue{liveProposals.length > 1 ? 's' : ''} — à toi de choisir :
                   </p>
                   {liveProposals.map((p) => (
@@ -779,14 +996,14 @@ export function HomeScreen({
                       onDecline={refuser}
                     />
                   ))}
-                  <p className="text-xs text-slate-400 text-center">
+                  <p className="text-xs text-slate-500 text-center">
                     D’autres chauffeurs peuvent encore proposer — la meilleure offre gagne.
                   </p>
                 </div>
               ) : (
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-center text-sm text-slate-500">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center text-sm text-slate-400">
                   Les chauffeurs en ligne autour de {pickup} reçoivent ta demande…
-                  <span className="block text-xs text-slate-400 mt-1">
+                  <span className="block text-xs text-slate-500 mt-1">
                     Le radar cherche jusqu’à 10 km, puis élargit à 25 km.
                   </span>
                 </div>
@@ -796,7 +1013,7 @@ export function HomeScreen({
                 type="button"
                 disabled={busy}
                 onClick={annulerCourse}
-                className="w-full text-sm font-bold text-red-600 hover:underline disabled:opacity-50"
+                className="w-full text-sm font-bold text-red-400 hover:underline disabled:opacity-50"
               >
                 Annuler la demande
               </button>
@@ -804,12 +1021,12 @@ export function HomeScreen({
           )}
 
           {phase === 'confirmed' && acceptedRide && acceptedDriver && (
-            <div className="p-4 sm:p-5 space-y-4">
+            <div className="p-4 sm:p-5 pt-1 space-y-4">
               <div className="text-center space-y-1">
-                <h2 className="text-lg font-black text-slate-900">
+                <h2 className="text-lg font-black text-white">
                   {acceptedRide.status === 'en_cours' ? 'Course en cours — bon trajet !' : 'Ton chauffeur arrive !'}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-400">
                   {acceptedRide.pickup} → {acceptedRide.destination} ·{' '}
                   {acceptedRide.rideType === 'groupe' ? 'Groupe' : 'Solo'}
                   {acceptedRide.firstStop ? ` · 1er arrêt : ${acceptedRide.firstStop}` : ''}
@@ -827,7 +1044,7 @@ export function HomeScreen({
               <button
                 type="button"
                 onClick={resetToIdle}
-                className="w-full text-sm font-bold text-stacks-green hover:underline"
+                className="w-full text-sm font-bold text-volt hover:underline"
               >
                 Nouvelle course
               </button>
@@ -835,15 +1052,15 @@ export function HomeScreen({
           )}
 
           {phase === 'done' && (
-            <div className="p-4 sm:p-5 space-y-4 text-center">
-              <h2 className="text-lg font-black text-slate-900">Course terminée — merci !</h2>
-              <p className="text-sm text-slate-500">
+            <div className="p-4 sm:p-5 pt-1 space-y-4 text-center">
+              <h2 className="text-lg font-black text-white">Course terminée — merci !</h2>
+              <p className="text-sm text-slate-400">
                 Dis-nous comment s’est passée ta course : ta note aide les autres passagers.
               </p>
               {acceptedRide && (
                 <Link
                   href={`/courses/${acceptedRide.id}`}
-                  className="inline-block bg-stacks-green text-white font-black px-6 py-3.5 rounded-full shadow-md shadow-stacks-green/20 hover:bg-stacks-greenLight transition-colors"
+                  className="inline-block bg-ember text-white font-black px-6 py-3.5 rounded-full shadow-md shadow-ember/30 hover:bg-ember-light transition-colors"
                 >
                   Noter mon chauffeur
                 </Link>
@@ -851,13 +1068,12 @@ export function HomeScreen({
               <button
                 type="button"
                 onClick={resetToIdle}
-                className="block w-full text-sm font-bold text-stacks-green hover:underline"
+                className="block w-full text-sm font-bold text-volt hover:underline"
               >
                 Nouvelle course
               </button>
             </div>
           )}
-          </div>
         </div>
       </div>
     </div>

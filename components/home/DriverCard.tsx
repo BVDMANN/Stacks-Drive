@@ -53,23 +53,23 @@ export function DriverCard({
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
+    <div className="rise-in bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
       <div className="flex items-center gap-3">
-        <span className="w-14 h-14 rounded-full bg-stacks-green text-white text-xl font-black flex items-center justify-center shrink-0">
+        <span className="w-14 h-14 rounded-full bg-ember text-white text-xl font-black flex items-center justify-center shrink-0">
           {driver.name.trim().charAt(0)}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-black text-slate-900 text-lg leading-tight flex flex-wrap items-center gap-1.5">
+          <p className="font-black text-white text-lg leading-tight flex flex-wrap items-center gap-1.5">
             <span className="truncate">{driver.name}</span>
             {driver.isVerified && (
-              <span className="inline-flex items-center gap-0.5 text-xs font-black text-stacks-green shrink-0">
+              <span className="inline-flex items-center gap-0.5 text-xs font-black text-volt shrink-0">
                 <BadgeCheck size={15} /> Vérifié
               </span>
             )}
           </p>
-          <p className="text-sm text-slate-500 flex flex-wrap items-center gap-x-2">
+          <p className="text-sm text-slate-400 flex flex-wrap items-center gap-x-2">
             <span className="inline-flex items-center gap-1">
-              <Star size={14} className="text-stacks-amber fill-stacks-amber" />
+              <Star size={14} className="text-gold fill-gold" />
               {driver.rating ? driver.rating.toFixed(1) : 'Nouveau'} · {driver.trips} courses
             </span>
             {etaMin !== null && (
@@ -82,7 +82,7 @@ export function DriverCard({
         {driver.phone && (
           <a
             href={`tel:${tel}`}
-            className="w-11 h-11 rounded-full bg-green-100 text-stacks-green flex items-center justify-center shrink-0 hover:bg-green-200 transition-colors"
+            className="w-11 h-11 rounded-full bg-volt/15 text-volt flex items-center justify-center shrink-0 hover:bg-volt/25 transition-colors"
             aria-label={`Appeler ${driver.name}`}
           >
             <Phone size={20} />
@@ -91,18 +91,18 @@ export function DriverCard({
       </div>
 
       {/* Véhicule + plaque : à vérifier AVANT de monter. */}
-      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-bold text-slate-200 flex items-center gap-2">
           <Car size={16} className="text-slate-400" />
           {driver.vehicleLabel} · {driver.vehicleType ?? ''}
         </p>
-        <p className="font-black text-stacks-navy tracking-widest bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+        <p className="font-black text-white tracking-widest bg-night-900 border border-white/15 rounded-lg px-3 py-1.5">
           {driver.plate ?? '—'}
         </p>
       </div>
       <p className="text-xs text-slate-400 -mt-2">
         Vérifie la plaque avant de monter. Prix :{' '}
-        <strong className="text-slate-600">
+        <strong className="text-slate-200">
           {ride.loyaltyFree ? '0 FCFA — 10e course offerte 🎁' : formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
         </strong>
         {' '}· {ride.paymentMethod === 'especes' ? 'Espèces' : ride.paymentMethod === 'airtel' ? 'Airtel Money' : 'Moov Money'}
@@ -119,13 +119,13 @@ export function DriverCard({
         <button
           type="button"
           onClick={copyShareLink}
-          className="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-black py-3 rounded-full hover:bg-slate-200 transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 bg-white/10 text-slate-200 text-sm font-black py-3 rounded-full hover:bg-white/15 transition-colors"
         >
           <Share2 size={16} /> {copied ? 'Lien copié !' : 'Partager'}
         </button>
         <Link
           href={detailUrl}
-          className="inline-flex items-center justify-center gap-1.5 bg-stacks-navy text-white text-sm font-black py-3 rounded-full hover:bg-slate-800 transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 bg-ember text-white text-sm font-black py-3 rounded-full hover:bg-ember-light transition-colors"
         >
           <Link2 size={16} /> Suivi
         </Link>
@@ -136,7 +136,7 @@ export function DriverCard({
           type="button"
           disabled={cancelling}
           onClick={onCancel}
-          className="w-full text-sm font-bold text-red-600 hover:underline disabled:opacity-50"
+          className="w-full text-sm font-bold text-red-400 hover:underline disabled:opacity-50"
         >
           Annuler la course
         </button>
@@ -145,20 +145,20 @@ export function DriverCard({
       {/* Modale SOS */}
       {sosOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
           aria-label="SOS — urgence"
           onClick={() => setSosOpen(false)}
         >
           <div
-            className="bg-white rounded-3xl p-6 w-full max-w-sm space-y-4 sheet-up"
+            className="bg-night-800 border border-white/10 rounded-3xl p-6 w-full max-w-sm space-y-4 sheet-up"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="font-black text-lg text-slate-900">Besoin d’aide ?</h3>
-                <p className="text-sm text-slate-500 mt-1">
+                <h3 className="font-black text-lg text-white">Besoin d’aide ?</h3>
+                <p className="text-sm text-slate-400 mt-1">
                   Ta course en cours est partagée en direct via ton lien de suivi.
                   Appelle les urgences si tu te sens en danger.
                 </p>
@@ -166,7 +166,7 @@ export function DriverCard({
               <button
                 type="button"
                 onClick={() => setSosOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0"
+                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 shrink-0"
                 aria-label="Fermer"
               >
                 <X size={16} />
@@ -181,11 +181,11 @@ export function DriverCard({
             <button
               type="button"
               onClick={copyShareLink}
-              className="w-full bg-slate-100 text-slate-800 font-black py-4 rounded-full hover:bg-slate-200 transition-colors"
+              className="w-full bg-white/10 text-white font-black py-4 rounded-full hover:bg-white/15 transition-colors"
             >
               {copied ? 'Lien de suivi copié !' : 'Partager ma course en direct'}
             </button>
-            <p className="text-xs text-slate-400 text-center">
+            <p className="text-xs text-slate-500 text-center">
               Ton proche voit ton trajet, ton chauffeur et sa plaque en direct.
             </p>
           </div>

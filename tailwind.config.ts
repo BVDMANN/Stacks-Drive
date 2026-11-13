@@ -21,6 +21,29 @@ const config: Config = {
           dark: '#0A0A0A',
           darker: '#080808',
         },
+        // Identité v2.1 « Libreville la nuit » — volontairement distincte
+        // de Gozem (vert plat) et d'Uber (noir/blanc) : ciel nocturne
+        // bleu encre, orange braise (coucher de soleil sur l'estuaire),
+        // vert volt (la ville qui vit) et or du drapeau gabonais.
+        night: {
+          950: '#070B16',
+          900: '#0B1020',
+          800: '#12182B',
+          700: '#1A2340',
+          600: '#232E4D',
+        },
+        ember: {
+          DEFAULT: '#FF5C00',
+          light: '#FF7A1A',
+          dark: '#D94A00',
+        },
+        volt: {
+          DEFAULT: '#2EFF8B',
+          dark: '#00C853',
+        },
+        gold: {
+          DEFAULT: '#FFD60A',
+        },
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Inter', 'system-ui', 'sans-serif'],

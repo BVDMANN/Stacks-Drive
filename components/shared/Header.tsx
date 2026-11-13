@@ -18,14 +18,14 @@ export function Header({ user }: { user: HeaderUser | null }) {
     <header className="glass-dark sticky top-0 z-40">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3">
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <span className="w-9 h-9 rounded-xl bg-stacks-green flex items-center justify-center text-white shadow-md">
+          <span className="w-9 h-9 rounded-xl bg-ember flex items-center justify-center text-white shadow-md shadow-ember/40">
             <Car size={20} />
           </span>
           <span className="leading-none">
-            <span className="block text-base font-black text-stacks-navy tracking-tight">
+            <span className="block text-base font-black text-white tracking-tight">
               Stacks Drive
             </span>
-            <span className="block text-[10px] font-bold uppercase tracking-widest text-stacks-green">
+            <span className="block text-[10px] font-bold uppercase tracking-widest text-volt">
               Libreville
             </span>
           </span>
@@ -37,21 +37,21 @@ export function Header({ user }: { user: HeaderUser | null }) {
               <ModeToggle currentRole={user.role} />
               <Link
                 href="/compte"
-                className="hidden sm:inline-flex text-sm font-bold text-slate-600 hover:text-stacks-green px-2 py-2"
+                className="hidden sm:inline-flex text-sm font-bold text-slate-300 hover:text-volt px-2 py-2"
               >
                 Mon compte
               </Link>
               {user.isAdmin && (
                 <Link
                   href="/admin"
-                  className="hidden sm:inline-flex text-sm font-bold text-slate-600 hover:text-stacks-green px-2 py-2"
+                  className="hidden sm:inline-flex text-sm font-bold text-slate-300 hover:text-volt px-2 py-2"
                 >
                   Admin
                 </Link>
               )}
               <a
                 href="/auth/signout"
-                className="text-sm font-bold text-slate-500 hover:text-red-600 px-2 py-2"
+                className="text-sm font-bold text-slate-400 hover:text-red-400 px-2 py-2"
                 aria-label="Déconnexion"
               >
                 ✕
@@ -60,7 +60,7 @@ export function Header({ user }: { user: HeaderUser | null }) {
           ) : (
             <Link
               href="/connexion"
-              className="text-sm font-black text-white bg-stacks-navy px-4 py-2 rounded-full shadow-md hover:bg-slate-800 transition-colors"
+              className="text-sm font-black text-white bg-ember px-4 py-2 rounded-full shadow-md shadow-ember/40 hover:bg-ember-light active:scale-95 transition-all"
             >
               Connexion
             </Link>
