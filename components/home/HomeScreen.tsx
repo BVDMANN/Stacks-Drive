@@ -7,9 +7,9 @@ import { useRouter } from 'next/navigation';
 import {
   Bike,
   Car,
+  ChevronUp,
   Clock,
   Crosshair,
-  Gift,
   Loader2,
   LocateFixed,
   MapPin,
@@ -68,8 +68,10 @@ const FIXED_FARES: { pickup: Neighborhood; destination: Neighborhood; label: str
 
 const SELECTABLE = NEIGHBORHOODS.filter((n) => n !== 'Autre');
 
-/** Hauteurs de la feuille (dvh) : réduite, mi-hauteur, pleine. */
-const SHEET_SNAPS = [30, 58, 88];
+/** Hauteurs de la feuille (dvh) : mini (poignée + titre), réduite,
+ *  mi-hauteur, pleine. Le cran mini (12) n'existe qu'en phase idle :
+ *  glisser la feuille vers le bas l'y range et libère la carte. */
+const SHEET_SNAPS = [12, 30, 58, 88];
 
 interface Draft {
   pickup: Neighborhood | '';
@@ -166,7 +168,6 @@ export function HomeScreen({
   const [busyProposalId, setBusyProposalId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
-  const [loyalty, setLoyalty] = useState<{ completedRides: number; ridesUntilFree: number } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
   // --- Géolocalisation du départ (« Me localiser ») ---
@@ -182,6 +183,13 @@ export function HomeScreen({
   const [sheetH, setSheetH] = useState(SHEET_SNAPS[1]);
   const dragRef = useRef<{ startY: number; startH: number; moved: boolean; pointerId: number } | null>(null);
 
+  // Le cran mini n'existe qu'en phase idle : dès qu'une recherche ou une
+  // course démarre, la feuille remonte à mi-hauteur pour rester lisible.
+  useEffect(() => {
+    if (phase !== 'idle') setSheetH(58);
+  }, [phase]);
+  const isMini = phase === 'idle' && sheetH <= 20;
+
   // Restaurer le brouillon après connexion.
   useEffect(() => {
     const d = readDraft();
@@ -195,17 +203,6 @@ export function HomeScreen({
       window.localStorage.removeItem(DRAFT_KEY);
     }
   }, []);
-
-  // Fidélité : progression vers la 10e course offerte.
-  useEffect(() => {
-    if (!user || user.role !== 'passager') return;
-    fetch('/api/loyalty')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.ok) setLoyalty({ completedRides: d.completedRides, ridesUntilFree: d.ridesUntilFree });
-      })
-      .catch(() => undefined);
-  }, [user]);
 
   const validTrip = pickup !== '' && destination !== '' && pickup !== destination;
   const estimate = useMemo(
@@ -451,7 +448,10 @@ export function HomeScreen({
     if (!drag || e.pointerId !== drag.pointerId) return;
     const vh = window.innerHeight;
     if (Math.abs(drag.startY - e.clientY) > 6) drag.moved = true;
-    const px = Math.min(0.9 * vh, Math.max(0.26 * vh, drag.startH + (drag.startY - e.clientY)));
+    // En phase idle on peut descendre jusqu'au cran mini (12 dvh) ;
+    // pendant une recherche / course, la feuille ne descend pas sous 30.
+    const minPx = phase === 'idle' ? 0.1 * vh : 0.28 * vh;
+    const px = Math.min(0.9 * vh, Math.max(minPx, drag.startH + (drag.startY - e.clientY)));
     setSheetH((px / vh) * 100);
   }
   function onHandlePointerUp(e: React.PointerEvent<HTMLButtonElement>) {
@@ -459,14 +459,18 @@ export function HomeScreen({
     dragRef.current = null;
     if (!drag) return;
     if (!drag.moved) {
-      // Simple tap sur la poignée : bascule réduite ↔ mi-hauteur.
-      setSheetH((h) => (h > 45 ? SHEET_SNAPS[0] : SHEET_SNAPS[1]));
+      // Simple tap sur la poignée : mini → mi-hauteur, pleine → réduite,
+      // réduite/mi-hauteur → mi-hauteur.
+      setSheetH((h) => (h <= 20 ? 58 : h > 45 ? 30 : 58));
       return;
     }
+    // Glisser : on s'arrête au cran le plus proche. Hors phase idle, le
+    // cran mini n'existe pas : le minimum est 30.
+    const snaps = phase === 'idle' ? SHEET_SNAPS : SHEET_SNAPS.filter((s) => s >= 30);
     setSheetH((h) => {
-      let best = SHEET_SNAPS[0];
+      let best = snaps[0];
       let bestDist = Infinity;
-      SHEET_SNAPS.forEach((s) => {
+      snaps.forEach((s) => {
         const d = Math.abs(h - s);
         if (d < bestDist) {
           bestDist = d;
@@ -625,11 +629,11 @@ export function HomeScreen({
         className="absolute inset-x-0 bottom-0 sm:left-4 sm:bottom-4 sm:right-auto sm:w-[440px] z-20"
         style={{ height: `${sheetH}dvh` }}
       >
-        <div className="sheet-glass sheet-up h-full overflow-y-auto rounded-t-[28px] sm:rounded-[28px] shadow-2xl shadow-black/60">
+        <div className="sheet-glass sheet-up h-full overflow-y-auto overscroll-contain rounded-t-[28px] sm:rounded-[28px] shadow-2xl shadow-black/60">
           {/* Poignée draggable */}
           <button
             type="button"
-            className="sheet-handle w-full pt-2.5 pb-1.5 flex justify-center"
+            className="sheet-handle touch-none w-full pt-2.5 pb-1.5 flex justify-center"
             onPointerDown={onHandlePointerDown}
             onPointerMove={onHandlePointerMove}
             onPointerUp={onHandlePointerUp}
@@ -639,7 +643,21 @@ export function HomeScreen({
             <span className="sheet-handle-bar w-10 h-1.5 rounded-full bg-white/30" />
           </button>
 
-          {error && (
+          {/* Cran mini : poignée + titre seulement — la carte est libérée.
+              Tap sur la barre = rouvrir ; la poignée reste draggable. */}
+          {isMini && (
+            <button
+              type="button"
+              onClick={() => setSheetH(58)}
+              className="w-full px-4 pb-3 flex items-center justify-between"
+              aria-label="Agrandir la feuille"
+            >
+              <span className="text-base font-black text-white">Où allez-vous ?</span>
+              <ChevronUp size={20} className="text-volt" />
+            </button>
+          )}
+
+          {error && !isMini && (
             <div className="mx-4 mt-2 flex items-start gap-2 bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-bold rounded-2xl p-3">
               <span className="flex-1">{error}</span>
               <button type="button" onClick={() => setError(null)} aria-label="Fermer le message">
@@ -648,7 +666,7 @@ export function HomeScreen({
             </div>
           )}
 
-          {phase === 'idle' && (
+          {phase === 'idle' && !isMini && (
             <div className="p-4 sm:p-5 pt-1 space-y-4">
               {isChauffeurMode && (
                 <div className="bg-gold/10 border border-gold/30 rounded-2xl p-3 text-sm">
@@ -927,7 +945,6 @@ export function HomeScreen({
                   </div>
                   <span className="text-right text-xs font-bold text-volt">
                     Prix garanti
-                    <span className="block text-slate-400 font-semibold">jamais de surge</span>
                   </span>
                 </div>
               )}
@@ -947,16 +964,6 @@ export function HomeScreen({
                       : 'Commander'}
               </button>
 
-              {loyalty && (
-                <p className="text-xs font-bold text-slate-300 flex items-center gap-1.5 justify-center">
-                  <Gift size={14} className="text-gold" />
-                  {loyalty.ridesUntilFree === 1
-                    ? 'Ta prochaine course est OFFERTE — la 10e !'
-                    : `Plus que ${loyalty.ridesUntilFree} course${loyalty.ridesUntilFree > 1 ? 's' : ''} avant ta course offerte`}
-                  <span className="text-slate-500">({loyalty.completedRides % 10}/10)</span>
-                </p>
-              )}
-
               <p className="text-[11px] text-slate-500 text-center">
                 <Link href="/a-propos" className="underline hover:text-volt">
                   Comment ça marche
@@ -964,8 +971,25 @@ export function HomeScreen({
                 {' · '}
                 <Link href="/cgu" className="underline hover:text-volt">CGU</Link>
                 {' · '}
+                <Link href="/cookies" className="underline hover:text-volt">Cookies</Link>
+                {' · '}
                 <span>© OpenStreetMap · Esri</span>
               </p>
+
+              {/* Côté chauffeur : uniquement pour ceux que ça intéresse. */}
+              {!isChauffeurMode && (
+                <Link href="/devenir-chauffeur" className="block bg-white/[0.03] border border-white/10 rounded-2xl p-4 hover:border-volt/40 transition-colors">
+                  <p className="font-black text-white text-sm flex items-center gap-2">
+                    <Car size={16} className="text-volt" /> Vous avez une voiture ?
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    Conduisez quand vous voulez. Opter pour la liberté financière, à votre rythme.
+                  </p>
+                  <span className="inline-flex items-center gap-1.5 mt-2 text-sm font-black text-volt">
+                    Devenir chauffeur →
+                  </span>
+                </Link>
+              )}
             </div>
           )}
 

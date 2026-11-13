@@ -8,12 +8,8 @@ export const metadata = {
 
 export default function ConfidentialitePage() {
   return (
-    <PageShell dark title="Politique de confidentialité" subtitle="Comment Stacks Drive collecte, utilise et protège tes données.">
+    <PageShell dark title="Politique de confidentialité" subtitle="Comment Stacks Drive collecte, utilise et protège vos données.">
       <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-300 leading-relaxed">
-        <p className="text-sm bg-gold/10 border border-gold/30 text-gold rounded-2xl px-4 py-3">
-          Document rédigé en novembre 2026. Il sera relu par un juriste avant
-          le lancement commercial de la plateforme.
-        </p>
 
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">1. Responsable du traitement</h2>
@@ -32,7 +28,7 @@ export default function ConfidentialitePage() {
           <ul className="list-disc pl-5 space-y-1">
             <li><strong>Compte :</strong> e-mail, nom complet, téléphone, rôle (passager / chauffeur), informations du véhicule pour les chauffeurs (type, marque, modèle, couleur, plaque, places).</li>
             <li><strong>Vérification chauffeur :</strong> selfie de vérification et pièce d’identité (carte nationale d’identité ou passeport) ou permis de conduire. Ces documents sont sensibles : ils sont stockés dans un espace privé, accessibles uniquement à l’administrateur chargé du contrôle, et ne sont jamais montrés aux passagers (seul le badge « Vérifié » s’affiche).</li>
-            <li><strong>Géolocalisation :</strong> ta position, uniquement quand tu appuies sur « Me localiser » pour définir ton point de départ. La position n’est jamais suivie en continu et n’est jamais conservée après la course.</li>
+            <li><strong>Géolocalisation :</strong> votre position, uniquement lorsque vous appuyez sur « Me localiser » pour définir votre point de départ. La position n’est jamais suivie en continu et n’est jamais conservée après la course.</li>
             <li><strong>Courses :</strong> demandes (départ, destination, type Solo ou Groupe, places, prix estimé), propositions des chauffeurs (prix, places restantes, premier arrêt), statut et historique des courses, notes entre passagers et chauffeurs.</li>
             <li><strong>Commission et dépôt chauffeur :</strong> dépôt de garantie versé, commissions dues par course et règlements hebdomadaires (montants et références de transfert). Stacks Drive ne conserve aucune donnée bancaire : tous les paiements sont des transferts directs de personne à personne par Mobile Money (Airtel Money, Moov Money).</li>
             <li><strong>Technique :</strong> cookies de session indispensables à la connexion (voir notre{' '}
@@ -47,14 +43,14 @@ export default function ConfidentialitePage() {
           <h2 className="text-lg font-black text-white">3. Finalités et base légale</h2>
           <p>
             Les données servent uniquement à faire fonctionner la plateforme :
-            créer et sécuriser ton compte, te mettre en relation avec un
+            créer et sécuriser votre compte, vous mettre en relation avec un
             chauffeur ou un passager, afficher le prix et le suivi de la
             course, vérifier l’identité des chauffeurs pour la sécurité de
-            tous, gérer le dépôt, les commissions dues et leur règlement, et t’envoyer les e-mails
+            tous, gérer le dépôt, les commissions dues et leur règlement, et vous envoyer les e-mails
             indispensables (vérification d’inscription, réinitialisation de
             mot de passe). Base légale : exécution du service demandé ;
             vérification et sécurité relevant de l’intérêt légitime ;
-            consentement pour la géolocalisation (tu peux toujours saisir ton
+            consentement pour la géolocalisation (vous pouvez toujours saisir votre
             départ à la main).
           </p>
         </section>
@@ -62,7 +58,7 @@ export default function ConfidentialitePage() {
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">4. Destinataires</h2>
           <p>
-            Tes données ne sont jamais vendues. Elles sont visibles uniquement
+            Vos données ne sont jamais vendues. Elles sont visibles uniquement
             par les personnes concernées : un chauffeur voit les demandes des
             passagers de son périmètre (départ, destination, places) ; un
             passager voit le nom, la photo, la note, le véhicule et la plaque
@@ -79,10 +75,10 @@ export default function ConfidentialitePage() {
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">5. Conservation</h2>
           <p>
-            Tes données sont conservées tant que ton compte est actif. Les
+            Vos données sont conservées tant que votre compte est actif. Les
             documents de vérification sont conservés tant que le chauffeur
-            est actif sur la plateforme, puis supprimés. Tu peux demander la
-            suppression de ton compte et de tes données à tout moment en
+            est actif sur la plateforme, puis supprimés. Vous pouvez demander la
+            suppression de votre compte et de vos données à tout moment en
             écrivant à{' '}
             <a href="mailto:boulinguirandy12@gmail.com" className="text-volt font-bold hover:underline">
               boulinguirandy12@gmail.com
@@ -93,15 +89,15 @@ export default function ConfidentialitePage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">6. Tes droits</h2>
+          <h2 className="text-lg font-black text-white">6. Vos droits</h2>
           <p>
-            Tu disposes d’un droit d’accès, de rectification, d’effacement,
-            de limitation et de portabilité de tes données, ainsi que d’un
-            droit d’opposition. Pour exercer ces droits, écris à{' '}
+            Vous disposez d’un droit d’accès, de rectification, d’effacement,
+            de limitation et de portabilité de vos données, ainsi que d’un
+            droit d’opposition. Pour exercer ces droits, écrivez à{' '}
             <a href="mailto:boulinguirandy12@gmail.com" className="text-volt font-bold hover:underline">
               boulinguirandy12@gmail.com
             </a>
-            . Tu peux également introduire une réclamation auprès de la CNIL
+            . Vous pouvez également introduire une réclamation auprès de la CNIL
             (France, au titre du RGPD) et auprès de l’APDPVP, l’autorité
             gabonaise de protection des données personnelles (loi
             n°001/2011 relative à la protection des données à caractère

@@ -1,7 +1,7 @@
 import '@/styles/globals.css';
 
 export const metadata = {
-  title: 'Stacks Drive | Courses à Libreville — prix fixe, jamais de surge',
+  title: 'Stacks Drive | Courses à Libreville — prix fixe',
   description:
     'Stacks Drive, la solution du peuple pour se déplacer à Libreville : prix fixe affiché avant la course, chauffeurs vérifiés, paiement en espèces ou Mobile Money.',
   manifest: '/manifest.json',

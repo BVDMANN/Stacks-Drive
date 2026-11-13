@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Mail } from 'lucide-react';
@@ -43,6 +43,13 @@ function InscriptionForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('passager');
+
+  // Lien direct « Devenir chauffeur » (/inscription?role=chauffeur) :
+  // on présélectionne le rôle chauffeur au montage. Défaut : passager.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('role') === 'chauffeur') setRole('chauffeur');
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);

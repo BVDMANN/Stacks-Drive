@@ -56,7 +56,7 @@ export default async function MesCoursesPage() {
           <p className="text-lg font-black text-slate-900">Aucune course pour le moment</p>
           <p className="text-sm text-slate-500">
             Choisis ton départ et ta destination sur la carte — le prix est fixe
-            et affiché avant de commander, jamais de surge.
+            et affiché avant de commander.
           </p>
           <Link href="/" className="inline-block px-6 py-3.5 bg-stacks-green text-white font-bold rounded-full hover:bg-stacks-greenLight transition-colors">
             Commander ma première course

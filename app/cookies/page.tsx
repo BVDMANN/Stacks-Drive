@@ -10,14 +10,14 @@ export const metadata = {
 export default async function CookiesPage() {
   const sessionUser = await getSessionUser();
   return (
-    <PageShell dark title="Politique cookies" subtitle="Ce que Stacks Drive stocke dans ton navigateur — et ce qu’elle ne stocke pas." user={sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null}>
+    <PageShell dark title="Politique cookies" subtitle="Ce que Stacks Drive stocke dans votre navigateur — et ce qu’elle ne stocke pas." user={sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null}>
       <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-300 leading-relaxed">
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">1. Ce qu’est un cookie</h2>
           <p>
-            Un cookie est un petit fichier déposé dans ton navigateur quand tu
-            visites un site. Il permet au site de te reconnaître, de garder
-            ta session ouverte ou de mémoriser un réglage. Stacks Drive
+            Un cookie est un petit fichier déposé dans votre navigateur lorsque vous
+            visitez un site. Il permet au site de vous reconnaître, de garder
+            votre session ouverte ou de mémoriser un réglage. Stacks Drive
             n’utilise que le strict minimum : aucun cookie publicitaire,
             aucun suivi à des fins de publicité, aucune revente de données de
             navigation.
@@ -38,13 +38,13 @@ export default async function CookiesPage() {
               <tbody>
                 <tr className="border-t border-white/10">
                   <td className="px-4 py-3 font-bold text-white">Session (Supabase Auth)</td>
-                  <td className="px-4 py-3">Garder ta connexion ouverte quand tu es connecté(e).</td>
+                  <td className="px-4 py-3">Garder votre connexion ouverte lorsque vous êtes connecté(e).</td>
                   <td className="px-4 py-3">Session (supprimé à la déconnexion ou à l’expiration).</td>
                 </tr>
                 <tr className="border-t border-white/10">
                   <td className="px-4 py-3 font-bold text-white">Préférences (stockage local)</td>
-                  <td className="px-4 py-3">Mémoriser ton brouillon de course et tes derniers choix (départ, destination, type Solo ou Groupe).</td>
-                  <td className="px-4 py-3">Conservé sur ton appareil jusqu’à effacement manuel.</td>
+                  <td className="px-4 py-3">Mémoriser votre brouillon de course et vos derniers choix (départ, destination, type Solo ou Groupe).</td>
+                  <td className="px-4 py-3">Conservé sur votre appareil jusqu’à effacement manuel.</td>
                 </tr>
               </tbody>
             </table>
@@ -54,27 +54,27 @@ export default async function CookiesPage() {
             publiques ; elle ne dépose pas de cookie de suivi. Aucun outil
             de mesure d’audience ni de publicité n’est installé à ce jour :
             si un jour nous en ajoutons un, cette page sera mise à jour et
-            ton consentement sera demandé.
+            votre consentement sera demandé.
           </p>
         </section>
 
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">3. Gérer les cookies</h2>
           <p>
-            Tu peux refuser ou supprimer les cookies depuis les réglages de
-            ton navigateur (Chrome, Safari, Firefox…). Attention : sans le
-            cookie de session, la connexion à ton compte ne fonctionne pas —
-            tu pourras consulter la carte et les tarifs, mais pas commander
-            ni te mettre en ligne. Les préférences stockées localement
-            peuvent être effacées à tout moment depuis ton navigateur sans
-            conséquence sur ton compte.
+            Vous pouvez refuser ou supprimer les cookies depuis les réglages de
+            votre navigateur (Chrome, Safari, Firefox…). Attention : sans le
+            cookie de session, la connexion à votre compte ne fonctionne pas —
+            vous pourrez consulter la carte et les tarifs, mais pas commander
+            ni vous mettre en ligne. Les préférences stockées localement
+            peuvent être effacées à tout moment depuis votre navigateur sans
+            conséquence sur votre compte.
           </p>
         </section>
 
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">4. Contact et mise à jour</h2>
           <p>
-            Pour toute question sur les cookies et tes données, écris à{' '}
+            Pour toute question sur les cookies et vos données, écrivez à{' '}
             <a href="mailto:boulinguirandy12@gmail.com" className="text-volt font-bold hover:underline">
               boulinguirandy12@gmail.com
             </a>

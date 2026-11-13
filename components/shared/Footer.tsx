@@ -44,7 +44,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/inscription" className="text-slate-400 hover:text-volt transition-colors">
+                <Link href="/devenir-chauffeur" className="text-slate-400 hover:text-volt transition-colors">
                   Devenir chauffeur
                 </Link>
               </li>
@@ -61,14 +61,14 @@ export function Footer() {
             <ul className="space-y-2 text-sm">
               <li className="text-slate-400 flex items-center gap-1.5">
                 <ShieldCheck size={15} className="text-volt shrink-0" />
-                Prix garanti, jamais de surge — même la nuit
+                Prix garanti — même la nuit
               </li>
               <li className="text-slate-400">
                 Commission chauffeur : {Math.round(COMMISSION_RATE * 100)} % au lancement,
                 8 % ensuite, 10 % maximum garanti
               </li>
               <li className="text-slate-400">Espèces, Airtel Money, Moov Money</li>
-              <li className="text-slate-400">Libreville, Gabon — 10e course offerte</li>
+              <li className="text-slate-400">Libreville, Gabon</li>
               <li>
                 <Link href="/mentions-legales" className="text-slate-400 hover:text-volt transition-colors">
                   Mentions légales

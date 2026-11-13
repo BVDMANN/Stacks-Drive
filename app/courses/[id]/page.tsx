@@ -303,7 +303,7 @@ export default async function CoursePage({ params }: Ctx) {
 
               <p className="text-xs text-slate-400 flex items-center gap-1.5">
                 <ShieldCheck size={14} className="text-stacks-green" />
-                Prix garanti, jamais de surge · Commission Stacks Drive 5 % au lancement
+                Prix garanti · Commission Stacks Drive 5 % au lancement
                 (8 % ensuite, 10 % maximum) — le chauffeur garde le reste.
               </p>
             </div>

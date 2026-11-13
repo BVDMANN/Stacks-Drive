@@ -48,8 +48,7 @@ export default async function MentionsLegalesPage() {
           <h2 className="text-lg font-black text-white">Propriété intellectuelle</h2>
           <p>
             L’ensemble du contenu du site Stacks Drive (textes, design, logo) est la
-            propriété exclusive de Stacks, sauf mention contraire. Les photos
-            d’illustration proviennent de la banque d’images libre Unsplash.
+            propriété exclusive de Stacks, sauf mention contraire.
             Toute reproduction, même partielle, est interdite sans autorisation
             écrite préalable.
           </p>

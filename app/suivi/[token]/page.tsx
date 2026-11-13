@@ -40,13 +40,15 @@ export default async function SuiviPage({ params }: Ctx) {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="glass-dark sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-xl bg-stacks-green flex items-center justify-center text-white shadow-md">
-            <Car size={20} />
-          </span>
-          <span className="leading-none">
-            <span className="block text-base font-black text-stacks-navy tracking-tight">Stacks Drive</span>
-            <span className="block text-[10px] font-bold uppercase tracking-widest text-stacks-green">Suivi en direct</span>
-          </span>
+          <Link href="/" className="flex items-center gap-2.5" aria-label="Retour à l'accueil Stacks Drive">
+            <span className="w-9 h-9 rounded-xl bg-stacks-green flex items-center justify-center text-white shadow-md">
+              <Car size={20} />
+            </span>
+            <span className="leading-none">
+              <span className="block text-base font-black text-stacks-navy tracking-tight">Stacks Drive</span>
+              <span className="block text-[10px] font-bold uppercase tracking-widest text-stacks-green">Suivi en direct</span>
+            </span>
+          </Link>
           <Link
             href={`/suivi/${token}`}
             className="ml-auto inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-stacks-green"
@@ -159,7 +161,7 @@ export default async function SuiviPage({ params }: Ctx) {
         </div>
 
         <p className="text-xs text-slate-400 text-center">
-          Stacks Drive — Libreville · Prix fixe, jamais de surge ·{' '}
+          Stacks Drive — Libreville · Prix fixe ·{' '}
           <Link href="/" className="underline hover:text-stacks-green">Commander une course</Link>
         </p>
       </main>

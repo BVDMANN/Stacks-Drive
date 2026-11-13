@@ -8,14 +8,12 @@
 
 ## C'est quoi ?
 
-Une appli type Uber, pensée pour Libreville : le passager demande une course, les chauffeurs en ligne reçoivent une pop-up et font une proposition (prix, places restantes, premier arrêt). Le passager accepte ou refuse. Pas de surge, des prix fixes, des chauffeurs vérifiés, et le chauffeur garde 92 à 95 % de chaque course.
+Une appli type Uber, pensée pour Libreville : le passager demande une course, les chauffeurs en ligne reçoivent une pop-up et font une proposition (prix, places restantes, premier arrêt). Le passager accepte ou refuse. Des prix fixes, des chauffeurs vérifiés, et le chauffeur garde 92 à 95 % de chaque course.
 
 - **Deux types de course :** Solo (privée, directe, prix plein) et Groupe (partagée, prix divisé, arrêts multiples dans l'ordre — par défaut, badge « LE MOINS CHER »). Moto = Solo uniquement.
 - **Commission :** 5 % au lancement (3 mois), puis 8 % permanent, **plafond 10 % garanti** (voir `lib/commission.ts`).
 - **Paiement :** le passager paie le chauffeur directement (espèces ou transfert P2P Airtel Money / Moov Money). L'appli ne touche jamais l'argent — elle compte seulement. Commission réglée 1 fois par semaine, en un seul transfert Mobile Money. Dépôt de garantie remboursable : 5 000 FCFA. Plafond de dette : ~5 000 FCFA.
 - **Sécurité :** vérification chauffeur dès le jour 1 (selfie + pièce d'identité), SOS (112), partage de course en direct, code PIN à 4 chiffres donné au chauffeur pour démarrer la course.
-- **Fidélité :** 10e course offerte (passager gratuit, chauffeur payé intégralement).
-- **Gamification chauffeur :** tableau de bord clair (par course, 24 h, dû en temps réel, récaps hebdo / mensuel), célébrations, quêtes, séries, niveaux Bronze / Argent / Or / Diamant, badges, « Course Double ».
 
 ## Stack technique
 
@@ -52,7 +50,7 @@ npm run build   # doit passer avant tout push
 ## État du produit
 
 - **v2.1.2** — en ligne et vérifiée en vrai navigateur le 13/11/2026 (6 marqueurs chauffeurs, noms de rues au zoom, thème « Libreville la nuit », CGU modèle dépôt + plafond).
-- **v2.2** — tableau de bord chauffeur, gamification, code PIN, vue course chauffeur, recommandations & plaintes, fiabilité des prix et des paiements, page d'erreur de marque.
+- **v2.2** — tableau de bord chauffeur, code PIN, vue course chauffeur, recommandations & plaintes, fiabilité des prix et des paiements, page d'erreur de marque.
 
 ## Règles à respecter avant de modifier le code
 

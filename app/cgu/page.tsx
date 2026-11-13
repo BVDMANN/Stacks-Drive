@@ -10,10 +10,6 @@ export default function CguPage() {
   return (
     <PageShell dark title="Conditions Générales d’Utilisation" subtitle="Règles d’utilisation de la plateforme Stacks Drive, à Libreville.">
       <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-300 leading-relaxed">
-        <p className="text-sm bg-gold/10 border border-gold/30 text-gold rounded-2xl px-4 py-3">
-          Document rédigé en novembre 2026. Il sera relu par un juriste avant
-          le lancement commercial de la plateforme.
-        </p>
 
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">1. Objet</h2>
@@ -59,10 +55,7 @@ export default function CguPage() {
             en cours de validité. Les documents sont contrôlés par Stacks
             Drive ; le chauffeur reçoit le badge « Vérifié » une fois le
             contrôle réussi. En cas de document faux, illisible ou
-            usurpé, le compte est suspendu définitivement. Cette vérification
-            est mise en place dès le lancement : elle ne sera pas imposée
-            après coup aux chauffeurs déjà inscrits, elle fait partie des
-            règles du premier jour. Le chauffeur s’engage en outre à
+            usurpé, le compte est suspendu définitivement. Le chauffeur s’engage en outre à
             disposer d’un permis de conduire valide, d’un véhicule en bon
             état et d’une assurance en cours de validité, et à respecter le
             code de la route.
@@ -77,23 +70,23 @@ export default function CguPage() {
             (course privée et directe, prix plein) ou{' '}
             <strong>Groupe</strong> (course partagée, prix divisé par
             passager, arrêts multiples dans l’ordre) — puis envoie sa
-            demande. Le prix estimé, fixe et garanti sans majoration
-            (« jamais de surge »), est affiché avant l’envoi. Les chauffeurs
+            demande. Le prix estimé, fixe et sans majoration aux heures de
+            pointe, est affiché avant l’envoi. Les chauffeurs
             en ligne dans le périmètre reçoivent une notification et peuvent
             faire une proposition (prix, places restantes, premier arrêt),
             valable 60 secondes. Le passager accepte ou refuse chaque
             proposition. L’acceptation vaut course confirmée, au prix
             accepté, figé. Le passager peut annuler sans frais tant qu’aucune
             proposition n’a été acceptée ; après acceptation, l’annulation
-            reste possible mais peut entraîner une pénalité de fiabilité sur
-            le compte (annulations répétées). Le chauffeur qui accepte
+            reste possible ; les annulations répétées peuvent entraîner la
+            suspension du compte. Le chauffeur qui accepte
             s’engage à effectuer la course ; les annulations répétées côté
             chauffeur entraînent la suspension du compte.
           </p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">5. Prix, commission et fidélité</h2>
+          <h2 className="text-lg font-black text-white">5. Prix et commission</h2>
           <p>
             Les prix sont fixes et affichés avant la course : ils ne changent
             ni aux heures de pointe ni la nuit. Stacks Drive prélève une
@@ -101,10 +94,7 @@ export default function CguPage() {
             <strong>5 % au lancement (3 mois), puis 8 %</strong>, avec un{' '}
             <strong>plafond garanti de 10 %</strong>. La découpe du tarif
             (part du chauffeur / frais de plateforme) est affichée avant
-            l’acceptation et figée dans la course. Programme de fidélité :
-            la <strong>10e course est offerte</strong> au passager, la
-            plateforme prenant en charge l’intégralité du tarif, le chauffeur
-            étant payé normalement.
+            l’acceptation et figée dans la course.
           </p>
         </section>
 
@@ -116,8 +106,7 @@ export default function CguPage() {
             vers le numéro personnel du chauffeur, selon le moyen choisi à
             la demande. Stacks Drive ne collecte pas l’argent des passagers
             et ne détient aucun fonds de course : la plateforme ne fait que
-            compter. La commission (5 % au lancement pendant 3 mois, puis
-            8 %, plafond garanti de 10 %) est calculée en silence sur chaque
+            compter. La commission prévue à l’article 5 est calculée en silence sur chaque
             course acceptée, sans rien déduire pendant la course. Le chauffeur
             règle le total de ses commissions <strong>une fois par
             semaine</strong>, en un seul transfert Mobile Money vers le numéro
