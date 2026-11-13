@@ -104,7 +104,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* 🗺️ CARTE LEAFLET — « Libreville la nuit » (v2.1) : tuiles sombres CARTO */
+/* 🗺️ CARTE LEAFLET — « Libreville la nuit » (v2.1.1) : tuiles sombres Esri World Dark Gray (gratuites, sans clé) */
 .leaflet-container {
   font: inherit;
   background: #0b1020;

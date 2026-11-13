@@ -82,9 +82,11 @@ interface DriverMarkerEntry {
   lastIconKey: string;
 }
 
-/** Carte de Libreville « la nuit » (Leaflet + tuiles sombres CARTO,
- *  gratuites, sans clé API). Composant client uniquement — importé avec
- *  `next/dynamic` + ssr:false, Leaflet ne tourne jamais côté serveur. */
+/** Carte de Libreville « la nuit » (Leaflet + tuiles sombres Esri World
+ *  Dark Gray, gratuites, sans clé API). Composant client uniquement —
+ *  importé avec `next/dynamic` + ssr:false, Leaflet ne tourne jamais
+ *  côté serveur. Zoom initial 12 : à 13, le chauffeur d'Akanda (le plus
+ *  au nord) sortait du champ et la carte n'affichait que 5 marqueurs. */
 export function LibrevilleMap({
   drivers,
   pickup,
@@ -124,18 +126,22 @@ export function LibrevilleMap({
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
       center: [LIBREVILLE_CENTER.lat, LIBREVILLE_CENTER.lng],
-      zoom: 13,
+      zoom: 12,
       zoomControl: false,
       attributionControl: false,
       scrollWheelZoom: true,
     });
-    // Tuiles sombres CARTO (dark_all) : gratuites, sans clé — l'identité
-    // « Libreville la nuit ». Attribution OSM + CARTO obligatoire.
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-      subdomains: 'abcd',
+    // Tuiles sombres Esri « World Dark Gray » : gratuites, sans clé —
+    // l'identité « Libreville la nuit ». ATTENTION à l'ordre des
+    // paramètres ArcGIS : level/row/col = {z}/{y}/{x} (et non {z}/{x}/{y}).
+    // Une tuile a été vérifiée par curl (z=13, Libreville : HTTP 200,
+    // JPEG 256×256, rues réelles sur fond sombre). Attribution Esri
+    // obligatoire (texte exact du service : « Esri, HERE, Garmin,
+    // (c) OpenStreetMap contributors, and the GIS user community »).
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
     L.control.attribution({ position: 'topright' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);

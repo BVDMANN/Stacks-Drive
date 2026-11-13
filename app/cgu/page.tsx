@@ -8,15 +8,15 @@ export const metadata = {
 
 export default function CguPage() {
   return (
-    <PageShell title="Conditions Générales d’Utilisation" subtitle="Règles d’utilisation de la plateforme Stacks Drive, à Libreville.">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-600 leading-relaxed">
-        <p className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-3">
+    <PageShell dark title="Conditions Générales d’Utilisation" subtitle="Règles d’utilisation de la plateforme Stacks Drive, à Libreville.">
+      <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-300 leading-relaxed">
+        <p className="text-sm bg-gold/10 border border-gold/30 text-gold rounded-2xl px-4 py-3">
           Document rédigé en novembre 2026. Il sera relu par un juriste avant
           le lancement commercial de la plateforme.
         </p>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">1. Objet</h2>
+          <h2 className="text-lg font-black text-white">1. Objet</h2>
           <p>
             Stacks Drive est une plateforme de mise en relation entre des
             passagers et des chauffeurs à Libreville, au Gabon. Le passager
@@ -32,7 +32,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">2. Comptes</h2>
+          <h2 className="text-lg font-black text-white">2. Comptes</h2>
           <p>
             L’inscription est gratuite et réservée aux personnes majeures
             (18 ans et plus). Elle nécessite une adresse e-mail valide,
@@ -49,7 +49,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">3. Vérification des chauffeurs — obligatoire dès l’inscription</h2>
+          <h2 className="text-lg font-black text-white">3. Vérification des chauffeurs — obligatoire dès l’inscription</h2>
           <p>
             Un chauffeur ne peut ni se mettre en ligne ni recevoir de
             demandes tant que sa vérification n’est pas validée. La
@@ -70,7 +70,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">4. Demandes, propositions et courses</h2>
+          <h2 className="text-lg font-black text-white">4. Demandes, propositions et courses</h2>
           <p>
             Le passager saisit son départ (il peut aussi se géolocaliser) et
             sa destination, choisit le type de course — <strong>Solo</strong>{' '}
@@ -93,7 +93,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">5. Prix, commission et fidélité</h2>
+          <h2 className="text-lg font-black text-white">5. Prix, commission et fidélité</h2>
           <p>
             Les prix sont fixes et affichés avant la course : ils ne changent
             ni aux heures de pointe ni la nuit. Stacks Drive prélève une
@@ -109,7 +109,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">6. Paiement et solde chauffeur</h2>
+          <h2 className="text-lg font-black text-white">6. Paiement et solde chauffeur</h2>
           <p>
             Le passager paie le chauffeur <strong>directement</strong>, en
             espèces ou par Mobile Money (Airtel Money, Moov Money), selon le
@@ -128,7 +128,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">7. Comportement, sécurité et signalement</h2>
+          <h2 className="text-lg font-black text-white">7. Comportement, sécurité et signalement</h2>
           <p>
             Passagers et chauffeurs s’engagent à se comporter avec respect, à
             ne pas discriminer, et à ne pas utiliser la plateforme à des fins
@@ -144,7 +144,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">8. Responsabilité</h2>
+          <h2 className="text-lg font-black text-white">8. Responsabilité</h2>
           <p>
             Stacks Drive met en relation passagers et chauffeurs mais
             n’intervient pas dans l’exécution des trajets, les paiements
@@ -159,14 +159,14 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">9. Données personnelles et cookies</h2>
+          <h2 className="text-lg font-black text-white">9. Données personnelles et cookies</h2>
           <p>
             Le traitement des données personnelles est décrit dans notre{' '}
-            <Link href="/confidentialite" className="text-stacks-green font-bold hover:underline">
+            <Link href="/confidentialite" className="text-volt font-bold hover:underline">
               politique de confidentialité
             </Link>{' '}
             et notre{' '}
-            <Link href="/cookies" className="text-stacks-green font-bold hover:underline">
+            <Link href="/cookies" className="text-volt font-bold hover:underline">
               politique cookies
             </Link>
             .
@@ -174,7 +174,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">10. Suspension et suppression de compte</h2>
+          <h2 className="text-lg font-black text-white">10. Suspension et suppression de compte</h2>
           <p>
             L’utilisateur peut supprimer son compte à tout moment depuis son
             compte ou en écrivant au support ; ses données sont alors
@@ -186,7 +186,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">11. Modifications et droit applicable</h2>
+          <h2 className="text-lg font-black text-white">11. Modifications et droit applicable</h2>
           <p>
             Stacks Drive peut modifier les présentes conditions ; les
             utilisateurs en sont informés sur la plateforme, et la poursuite
@@ -199,10 +199,10 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">12. Contact</h2>
+          <h2 className="text-lg font-black text-white">12. Contact</h2>
           <p>
             Pour toute question :{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-stacks-green font-bold hover:underline">
+            <a href="mailto:boulinguirandy12@gmail.com" className="text-volt font-bold hover:underline">
               boulinguirandy12@gmail.com
             </a>
             .
@@ -211,7 +211,7 @@ export default function CguPage() {
 
         <p className="text-sm text-slate-400">
           Dernière mise à jour : novembre 2026.{' '}
-          <Link href="/" className="text-stacks-green font-bold hover:underline">
+          <Link href="/" className="text-volt font-bold hover:underline">
             Retour à l’accueil
           </Link>
         </p>

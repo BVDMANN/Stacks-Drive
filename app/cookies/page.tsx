@@ -8,10 +8,10 @@ export const metadata = {
 
 export default function CookiesPage() {
   return (
-    <PageShell title="Politique cookies" subtitle="Ce que Stacks Drive stocke dans ton navigateur — et ce qu’elle ne stocke pas.">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-600 leading-relaxed">
+    <PageShell dark title="Politique cookies" subtitle="Ce que Stacks Drive stocke dans ton navigateur — et ce qu’elle ne stocke pas.">
+      <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-slate-300 leading-relaxed">
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">1. Ce qu’est un cookie</h2>
+          <h2 className="text-lg font-black text-white">1. Ce qu’est un cookie</h2>
           <p>
             Un cookie est un petit fichier déposé dans ton navigateur quand tu
             visites un site. Il permet au site de te reconnaître, de garder
@@ -23,24 +23,24 @@ export default function CookiesPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">2. Cookies utilisés</h2>
+          <h2 className="text-lg font-black text-white">2. Cookies utilisés</h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border border-slate-200 rounded-2xl overflow-hidden">
+            <table className="w-full text-sm border border-white/10 rounded-2xl overflow-hidden">
               <thead>
-                <tr className="bg-slate-50 text-left">
-                  <th className="px-4 py-3 font-black text-slate-900">Nom</th>
-                  <th className="px-4 py-3 font-black text-slate-900">Rôle</th>
-                  <th className="px-4 py-3 font-black text-slate-900">Durée</th>
+                <tr className="bg-night-700 text-left">
+                  <th className="px-4 py-3 font-black text-white">Nom</th>
+                  <th className="px-4 py-3 font-black text-white">Rôle</th>
+                  <th className="px-4 py-3 font-black text-white">Durée</th>
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-t border-slate-200">
-                  <td className="px-4 py-3 font-bold text-slate-900">Session (Supabase Auth)</td>
+                <tr className="border-t border-white/10">
+                  <td className="px-4 py-3 font-bold text-white">Session (Supabase Auth)</td>
                   <td className="px-4 py-3">Garder ta connexion ouverte quand tu es connecté(e).</td>
                   <td className="px-4 py-3">Session (supprimé à la déconnexion ou à l’expiration).</td>
                 </tr>
-                <tr className="border-t border-slate-200">
-                  <td className="px-4 py-3 font-bold text-slate-900">Préférences (stockage local)</td>
+                <tr className="border-t border-white/10">
+                  <td className="px-4 py-3 font-bold text-white">Préférences (stockage local)</td>
                   <td className="px-4 py-3">Mémoriser ton brouillon de course et tes derniers choix (départ, destination, type Solo ou Groupe).</td>
                   <td className="px-4 py-3">Conservé sur ton appareil jusqu’à effacement manuel.</td>
                 </tr>
@@ -57,7 +57,7 @@ export default function CookiesPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">3. Gérer les cookies</h2>
+          <h2 className="text-lg font-black text-white">3. Gérer les cookies</h2>
           <p>
             Tu peux refuser ou supprimer les cookies depuis les réglages de
             ton navigateur (Chrome, Safari, Firefox…). Attention : sans le
@@ -70,14 +70,14 @@ export default function CookiesPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-slate-900">4. Contact et mise à jour</h2>
+          <h2 className="text-lg font-black text-white">4. Contact et mise à jour</h2>
           <p>
             Pour toute question sur les cookies et tes données, écris à{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-stacks-green font-bold hover:underline">
+            <a href="mailto:boulinguirandy12@gmail.com" className="text-volt font-bold hover:underline">
               boulinguirandy12@gmail.com
             </a>
             . Voir aussi notre{' '}
-            <Link href="/confidentialite" className="text-stacks-green font-bold hover:underline">
+            <Link href="/confidentialite" className="text-volt font-bold hover:underline">
               politique de confidentialité
             </Link>
             . Cette page est mise à jour en même temps que nos pratiques.
@@ -86,7 +86,7 @@ export default function CookiesPage() {
 
         <p className="text-sm text-slate-400">
           Dernière mise à jour : novembre 2026.{' '}
-          <Link href="/" className="text-stacks-green font-bold hover:underline">
+          <Link href="/" className="text-volt font-bold hover:underline">
             Retour à l’accueil
           </Link>
         </p>

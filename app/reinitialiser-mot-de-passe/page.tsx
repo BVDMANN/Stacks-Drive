@@ -53,11 +53,11 @@ export default function ReinitialiserMotDePassePage() {
   if (hasSession === false) {
     return (
       <AuthCard title="Lien invalide ou expiré" subtitle="Ce lien de réinitialisation ne fonctionne plus.">
-        <p className="text-sm text-slate-600 leading-relaxed">
+        <p className="text-sm text-slate-300 leading-relaxed">
           Les liens de réinitialisation expirent après un certain délai et ne
           peuvent servir qu’une fois. Redemande un nouveau lien.
         </p>
-        <Link href="/mot-de-passe-oublie" className="block text-center text-stacks-green font-bold text-sm hover:underline">
+        <Link href="/mot-de-passe-oublie" className="block text-center text-volt font-bold text-sm hover:underline">
           Redemander un lien
         </Link>
       </AuthCard>
@@ -67,13 +67,13 @@ export default function ReinitialiserMotDePassePage() {
   return (
     <AuthCard title="Nouveau mot de passe" subtitle="Choisis un mot de passe solide.">
       {error && (
-        <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
+        <p role="alert" className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
           {error}
         </p>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-slate-500">
+          <label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-slate-400">
             Nouveau mot de passe
           </label>
           <input
@@ -85,11 +85,11 @@ export default function ReinitialiserMotDePassePage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="6 caractères minimum"
-            className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-stacks-green focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-volt focus:outline-none"
           />
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="confirm" className="text-xs font-black uppercase tracking-widest text-slate-500">
+          <label htmlFor="confirm" className="text-xs font-black uppercase tracking-widest text-slate-400">
             Confirmer le mot de passe
           </label>
           <input
@@ -101,10 +101,10 @@ export default function ReinitialiserMotDePassePage() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             placeholder="Retape ton mot de passe"
-            className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-stacks-green focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-volt focus:outline-none"
           />
         </div>
-        <PremiumButton type="submit" isLoading={loading || hasSession === null} className="w-full justify-center py-4">
+        <PremiumButton variant="ember" type="submit" isLoading={loading || hasSession === null} className="w-full justify-center py-4">
           Enregistrer le nouveau mot de passe
         </PremiumButton>
       </form>

@@ -21,7 +21,7 @@ export default function ConnexionPage() {
     <Suspense
       fallback={
         <AuthCard title="Connexion" subtitle="Content de te revoir sur Stacks Drive.">
-          <p className="text-sm text-slate-500 text-center">Chargement…</p>
+          <p className="text-sm text-slate-400 text-center">Chargement…</p>
         </AuthCard>
       }
     >
@@ -69,7 +69,7 @@ function ConnexionForm() {
   if (!isSupabaseConfigured()) {
     return (
       <AuthCard title="Connexion" subtitle="Accède à ton compte Stacks Drive.">
-        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <p className="text-sm text-gold bg-gold/10 border border-gold/30 rounded-xl p-4">
           La connexion n’est pas encore configurée sur ce déploiement : les
           clés Supabase manquent. Voir SETUP.md.
         </p>
@@ -80,13 +80,13 @@ function ConnexionForm() {
   return (
     <AuthCard title="Connexion" subtitle="Content de te revoir sur Stacks Drive.">
       {error && (
-        <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
+        <p role="alert" className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
           {error}
         </p>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-slate-500">
+          <label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-slate-400">
             E-mail
           </label>
           <input
@@ -97,11 +97,11 @@ function ConnexionForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ton@email.com"
-            className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-stacks-green focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-volt focus:outline-none"
           />
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-slate-500">
+          <label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-slate-400">
             Mot de passe
           </label>
           <input
@@ -112,18 +112,18 @@ function ConnexionForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-stacks-green focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-volt focus:outline-none"
           />
         </div>
-        <PremiumButton type="submit" isLoading={loading} className="w-full justify-center py-4">
+        <PremiumButton variant="ember" type="submit" isLoading={loading} className="w-full justify-center py-4">
           Se connecter
         </PremiumButton>
       </form>
       <div className="flex justify-between text-sm">
-        <Link href="/mot-de-passe-oublie" className="text-slate-500 hover:text-stacks-green font-semibold">
+        <Link href="/mot-de-passe-oublie" className="text-slate-400 hover:text-volt font-semibold">
           Mot de passe oublié ?
         </Link>
-        <Link href={`/inscription${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-stacks-green hover:underline font-bold">
+        <Link href={`/inscription${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-volt hover:underline font-bold">
           Créer un compte
         </Link>
       </div>

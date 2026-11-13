@@ -262,11 +262,14 @@ export function HomeScreen({
 
   const driversNearPickup = useMemo(() => {
     if (!pickupCoords) return visibleDrivers.length;
+    // Rayon « autour de toi » : 10 km, comme le premier rayon de
+    // recherche. À 8 km, le chauffeur d'Akanda (à 8,2 km de
+    // Centre-ville) était exclu et le compteur n'affichait que 5/6.
     return visibleDrivers.filter(
       (d) =>
         d.lat !== null &&
         d.lng !== null &&
-        haversineKm(pickupCoords.lat, pickupCoords.lng, d.lat, d.lng) <= 8
+        haversineKm(pickupCoords.lat, pickupCoords.lng, d.lat, d.lng) <= 10
     ).length;
   }, [pickupCoords, visibleDrivers]);
 
@@ -419,7 +422,7 @@ export function HomeScreen({
     if (userLocation) {
       setFocusPoint({ lat: userLocation.lat, lng: userLocation.lng, zoom: 15, nonce: focusNonceRef.current });
     } else {
-      setFocusPoint({ lat: LIBREVILLE_CENTER.lat, lng: LIBREVILLE_CENTER.lng, zoom: 13, nonce: focusNonceRef.current });
+      setFocusPoint({ lat: LIBREVILLE_CENTER.lat, lng: LIBREVILLE_CENTER.lng, zoom: 12, nonce: focusNonceRef.current });
     }
   }
 
@@ -952,7 +955,7 @@ export function HomeScreen({
                 {' · '}
                 <Link href="/cgu" className="underline hover:text-volt">CGU</Link>
                 {' · '}
-                <span>© OpenStreetMap · CARTO</span>
+                <span>© OpenStreetMap · Esri</span>
               </p>
             </div>
           )}

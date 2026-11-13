@@ -1,20 +1,26 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
-/** En-tête commun des pages privées (courses, tableau de bord, compte, admin). */
+/** En-tête commun des pages privées (courses, tableau de bord, compte, admin)
+ *  et des pages légales. `dark` applique l'identité « Libreville la nuit »
+ *  (fonds sombres, texte clair, accents ember/volt) ; par défaut le thème
+ *  reste clair pour ne pas toucher aux pages privées existantes. */
 export function PageShell({
   title,
   subtitle,
   actions,
+  dark,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  dark?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className={dark ? 'min-h-screen bg-night-950 text-slate-100' : 'min-h-screen bg-slate-50 text-slate-900'}>
       <div className="h-1 w-full flex">
         <div className="flex-1 bg-stacks-green" />
         <div className="flex-1 bg-stacks-yellow" />
@@ -24,18 +30,18 @@ export function PageShell({
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 shrink-0">
             <span className="w-9 h-9 rounded-xl bg-stacks-green flex items-center justify-center text-white font-black shadow-md">S</span>
-            <span className="text-lg font-black text-stacks-blue tracking-tight">Stacks Drive</span>
+            <span className={cn('text-lg font-black tracking-tight', dark ? 'text-white' : 'text-stacks-blue')}>Stacks Drive</span>
           </Link>
-          <Link href="/" className="text-sm font-bold text-slate-500 hover:text-stacks-green ml-2">
+          <Link href="/" className={cn('text-sm font-bold ml-2', dark ? 'text-slate-400 hover:text-volt' : 'text-slate-500 hover:text-stacks-green')}>
             ← Toutes les courses
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            <Link href="/compte" className="text-sm font-bold text-slate-600 hover:text-stacks-green">
+            <Link href="/compte" className={cn('text-sm font-bold', dark ? 'text-slate-300 hover:text-volt' : 'text-slate-600 hover:text-stacks-green')}>
               Mon compte
             </Link>
             <a
               href="/auth/signout"
-              className="text-sm font-bold text-slate-500 hover:text-red-600"
+              className={cn('text-sm font-bold', dark ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600')}
             >
               Déconnexion
             </a>
@@ -45,8 +51,8 @@ export function PageShell({
       <main className="px-4 sm:px-6 py-8 max-w-5xl mx-auto space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">{title}</h1>
-            {subtitle && <p className="text-slate-500 mt-1">{subtitle}</p>}
+            <h1 className={cn('text-3xl font-black tracking-tight', dark ? 'text-white' : 'text-slate-900')}>{title}</h1>
+            {subtitle && <p className={cn('mt-1', dark ? 'text-slate-400' : 'text-slate-500')}>{subtitle}</p>}
           </div>
           {actions}
         </div>
