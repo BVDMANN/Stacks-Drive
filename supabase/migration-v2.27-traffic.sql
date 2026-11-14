@@ -54,8 +54,11 @@ create table if not exists public.traffic_reports (
 );
 
 create index if not exists traffic_reports_active_idx
-  on public.traffic_reports (expires_at desc)
-  where expires_at > now();
+  on public.traffic_reports (expires_at desc);
+-- (La clause « where expires_at > now() » a été retirée le 14/11 :
+-- PostgreSQL refuse now() — non IMMUTABLE — dans un prédicat
+-- d'index partiel (erreur 42P17). Index complet équivalent :
+-- les requêtes filtrent déjà par expires_at.)
 
 create index if not exists traffic_reports_reporter_idx
   on public.traffic_reports (reporter_id, created_at desc);
