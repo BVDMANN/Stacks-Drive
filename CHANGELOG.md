@@ -10,6 +10,63 @@ Légende : **en ligne** = déployé sur https://stacks-drive.vercel.app ;
 **local** = en attente de push et, le cas échéant, d'exécution de la
 migration associée (voir le tableau des migrations dans le README).
 
+## v2.41 — 14/11/2026 (local)
+
+Carte : fond Plan OpenStreetMap clair (filtre nuit retiré le 14/11 ~21h58, décision du propriétaire : « Retire le thème sombre là-dessus »), zoom max 19 en Plan (18 en Satellite) — décision initiale du propriétaire, 14/11 ~21h48 (« OSM + filtre nuit, thème sombre gardé »), révisée ~21h58. Le fond Plan Esri World Street Map est remplacé par les tuiles OpenStreetMap standard (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` — ordre `{z}/{x}/{y}`, inverse de l'ordre ArcGIS `{z}/{y}/{x}`) ; le filtre sombre `map-tiles-dark` est retiré de la couche Plan (carte claire, comme Skatta) ; le fond Satellite reste Esri World Imagery, intact. Attribution Plan : texte exact « © OpenStreetMap contributors » (lien copyright) ; attribution Esri gardée pour le Satellite uniquement — la bascule d'attribution suit le mode. Zoom max désormais par mode : Plan 19 (tuiles OSM z19 réelles partout dans la zone de service, vérifié par curl le 14/11 : grille 3×3 au Centre-ville, 9 tuiles HTTP 200, 4 157 à 10 812 o, 9 md5 distincts, 67 à 256 couleurs ; Akanda, Owendo et Melen HTTP 200 aussi), Satellite 18 (tuile grise « pas de données » au-delà, v2.18) — la carte règle son plafond à chaque bascule (`map.setMaxZoom`) pour que le Satellite ne zoome jamais dans l'agrandissement flou (v2.39). Politique d'usage OSM : attribution obligatoire, tuiles directes OK pour le lancement mais trafic de production lourd déconseillé — prévoir un fournisseur de tuiles ou l'auto-hébergement au lancement (même logique que le serveur OSRM démo de la v2.27). Aucune migration, aucun nouveau cron, `lib/commission.ts` intouchée, les 2 règles vérifiées intactes. ADR 0016.
+
+## v2.40 — 14/11/2026 (local)
+
+Vue admin « En direct » (demande du propriétaire, 14/11 ~21h04) : une page /admin/live, réservée à l'admin, qui montre tout ce qui se passe en ce moment sur une seule page, pensée mobile d'abord (390 px, cartes, tiroirs plein écran). « En ce moment » : compteurs (utilisateurs, chauffeurs vérifiés / en attente / en ligne, courses actives, courses du jour, commission du jour et de la semaine depuis `driver_earnings`), chauffeurs en ligne (statut dérivé Vide / En course / Plein, places libres), passagers avec une course en cours, courses actives. Flux en direct : 30 derniers événements agrégés (inscriptions, demandes, propositions, acceptations, annulations, courses terminées, litiges, tickets, fraude, SOS, règlements, vérifications) — mise à jour par Supabase Realtime (`rides`, `ride_proposals`) avec sondage 15 s en repli (motif v2.24). « Les gens » : recherche (nom / e-mail / téléphone) + filtres (rôle, statut de vérification, en ligne) ; clic sur une personne → fiche complète (profil, historique des courses, gains / dette / points / dépôt côté chauffeur, fidélité côté passager, litiges, annulations, dernière activité visible). Clic sur une course → trace chronologique complète (demande → propositions → départ → arrivée / annulation → note). Honnêteté « qui est là » : aucune présence inventée — un passager « en ce moment » = une course active ; la dernière connexion n'existe pas en base (pas de client service-role, `auth.users` illisible) : la fiche affiche la « dernière activité visible » (dernière course ou dernier événement d'audit). Migration `supabase/migration-v2.40-realtime-admin.sql` à exécuter une seule fois (`profiles`, `disputes`, `ride_cancellations`, `verification_tickets`, `fraud_cases`, `audit_log` dans la publication `supabase_realtime` — sinon ces tables restent en sondage seul) ; sans elle, la page fonctionne. Aucun nouveau cron, `lib/commission.ts` intouchée, les 2 règles vérifiées intactes. ADR 0015.
+
+## v2.39 — 14/11/2026 (local)
+
+Carte : les contours ne se perdent plus en zoomant (bug signalé par
+le propriétaire, 14/11 ~20h15, en testant sur mobile — « tu aurais dû
+y penser »). Observation live (navigateur, 14/11 ~20h23) : en Plan,
+dès le zoom 16 les rues secondaires s'estompent, à 18 le réseau
+secondaire a presque disparu (fond olive uni, 1 seul libellé
+minuscule), à 19-20 il ne reste que 2 à 4 artères aux contours flous ;
+en Satellite, le zoom 20 est pixelisé (tuile native étirée, coutures
+visibles). Cause : le plafond de zoom 20 (v2.18) faisait agrandir les
+tuiles z18 ×2 à z19 et ×4 à z20 — l'agrandissement ne « garde » pas les
+contours, il les détruit. Correctif : **plafond de zoom 20 → 18**,
+dernier zoom RÉEL des deux modes (tuiles natives jusqu'à 18, vérifié
+par curl le 14/11) — le bouton + se grise à 18, on ne peut plus zoomer
+dans le flou. Second correctif, même observation : **feuille dépliée,
+les contrôles de la carte ne disparaissent plus** — Recentrer,
+Plan/Satellite et le compteur « chauffeurs autour de toi » s'effaçaient
+(`opacity-0` + `pointer-events-none`) quand la feuille atteignait 58
+dvh, et le clic sur Recentrer était refusé ; or ces pastilles sont en
+haut de l'écran, jamais recouvertes par la feuille (58 dvh max, par le
+bas) — le fondu ne servait qu'à épurer, au prix de la fonction. Elles
+restent désormais visibles et cliquables en permanence. ADR 0014.
+Points mineurs observés, non corrigés dans ce lot : à zoom 12-14,
+quelques libellés de quartiers sont partiellement masqués par des
+marqueurs chauffeurs / POI ; en Satellite zoom 12, la mosaïque de
+tuiles montre des coutures (teintes différentes, fond Esri). Aucune
+migration, aucun nouveau cron, `lib/commission.ts` intouchée.
+
+## v2.38 — 14/11/2026 (local)
+
+Annulation sans motif + erreurs précises (décision du propriétaire,
+14/11 ~20h20, en testant sur mobile) : on peut désormais annuler une
+course sans se justifier. « Sans motif » est le choix par défaut dans
+la modale d'annulation (un tap sur « Confirmer l'annulation » suffit) ;
+la liste courte reste proposée et la précision libre est masquée quand
+« Sans motif » est choisi. Côté serveur, le nouveau code `sans_motif`
+est accepté (énumération zod dérivée de `CANCEL_REASONS`) et stocké
+tel quel (`reason_code` = 'sans_motif', `cancel_reason` = « Sans
+motif ») — l'historique distingue « pas de motif donné » de « Autre
+raison » ; le message système à l'autre partie dit « sans motif
+précisé ». En cas d'échec de l'annulation, c'est désormais le message
+précis du serveur qui s'affiche dans la modale (ex. « Cette course ne
+peut plus être annulée. ») — plus de générique « Annulation impossible
+pour le moment » qui cache la cause. Appliqué aux trois points
+d'annulation : page de course (`RideActions`), courses planifiées
+(`ScheduledRideActions`) et accueil (`HomeScreen`). ADR 0013. Aucune
+migration (la colonne `reason_code` reste NOT NULL, le code est une
+valeur valide), aucun nouveau cron, `lib/commission.ts` intouchée.
+
 ## v2.37 — 14/11/2026 (local)
 
 Correctif bloquant — la demande de course ne pouvait pas être créée :

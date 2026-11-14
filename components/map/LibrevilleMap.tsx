@@ -213,7 +213,8 @@ interface DriverMarkerEntry {
   lastIconKey: string;
 }
 
-/** Zooms de la carte (v2.18 — correctif « satellite en zoom fort »).
+/** Zooms de la carte (v2.18 — correctif « satellite en zoom fort »,
+ *  v2.39 — plafond 20 → 18, v2.41 — fond Plan OpenStreetMap, zoom 19).
  *  Cause trouvée par curl le 14/11/2026 (tuiles Esri servies en
  *  HTTP 200, JPEG 256×256, Centre-ville 0,3901/9,4544 + Akanda,
  *  Owendo, Melen, Nzeng-Ayong, Aéroport) :
@@ -224,22 +225,50 @@ interface DriverMarkerEntry {
  *    (2 521 o, md5 f27d9de7f8, 123 couleurs, gris 205 — identique
  *    en z19 et z20, au Centre-ville comme à Akanda) : c'est elle que
  *    l'utilisateur voyait (« on ne voit plus rien en zoomant »).
- *    Zoom natif max satellite à Libreville : 18.
- *  - World Street Map (plan) : z19 réelle au Centre-ville seulement
- *    (6 005 o, 2 394 couleurs) ; à Akanda c'est la même tuile grise
- *    « pas de données », à Melen / Nzeng-Ayong une tuile beige
- *    uniforme sans rue. Le zoom 18 est réel partout : natif max
- *    plan retenu : 18 aussi, pour qu'aucun des deux modes n'affiche
- *    de vide au zoom max.
- *  Correctif Leaflet : `maxNativeZoom: 18` sur la couche (au-delà,
- *  Leaflet agrandit les tuiles z18 au lieu de demander des tuiles
- *  z19+ inexistantes) et `maxZoom: 20` sur la carte comme sur la
- *  couche — à z19 les tuiles sont agrandies ×2, à z20 ×4 : les
- *  bâtiments restent visibles, jamais de fond vide. Ne pas remonter
- *  `maxNativeZoom` sans re-vérifier les tuiles par curl d'abord. */
-const MAP_MAX_ZOOM = 20;
+ *    Zoom natif max satellite à Libreville : 18 — INCHANGÉ en v2.41.
+ *  - World Street Map (plan Esri, remplacé en v2.41) : z19 réelle au
+ *    Centre-ville seulement (6 005 o, 2 394 couleurs) ; à Akanda
+ *    c'est la même tuile grise « pas de données », à Melen /
+ *    Nzeng-Ayong une tuile beige uniforme sans rue. Le zoom 18
+ *    était réel partout : natif max plan retenu : 18 aussi, pour
+ *    qu'aucun des deux modes n'affiche de vide au zoom max.
+ *  Correctif Leaflet (v2.18) : `maxNativeZoom: 18` sur la couche
+ *  (au-delà, Leaflet agrandit les tuiles z18 au lieu de demander
+ *  des tuiles z19+ inexistantes) et `maxZoom: 20` sur la carte
+ *  comme sur la couche — à z19 les tuiles sont agrandies ×2, à z20
+ *  ×4 : les bâtiments restent visibles, jamais de fond vide. Ne pas
+ *  remonter `maxNativeZoom` sans re-vérifier les tuiles par curl
+ *  d'abord.
+ *  v2.39 (14/11, observation live sur mobile) : le plafond 20 a été
+ *  ramené à 18 — l'agrandissement ×2/×4 ne « garde » rien : à z19-20
+ *  les contours des rues deviennent flous et mous, le réseau
+ *  secondaire disparaît (Plan : 2 à 4 artères floues, 1 seul libellé
+ *  minuscule ; Satellite : image pixelisée, coutures visibles).
+ *  18 est le dernier zoom RÉEL des deux modes : le bouton + s'y
+ *  grise, l'utilisateur ne peut plus zoomer dans le flou.
+ *  v2.41 (14/11) : le fond Plan passe à OpenStreetMap standard
+ *  (tuiles `tile.openstreetmap.org/{z}/{x}/{y}.png` — ordre
+ *  {z}/{x}/{y}, inverse de l'ordre ArcGIS {z}/{y}/{x}).
+ *  Vérifié par curl le 14/11/2026 (Centre-ville 0,39/9,45,
+ *  tuile z18 137953/130788, tuile z19 275906/261576) : z19 RÉELLE
+ *  partout dans la zone de service — grille 3×3 au Centre-ville :
+ *  9 tuiles HTTP 200, 4 157 à 10 812 o, 9 md5 distincts, 67 à
+ *  256 couleurs chacune ; Akanda (5 428 o, 27 couleurs, vert
+ *  végétal dominant), Owendo (2 177 o, 13 couleurs) et Melen
+ *  (1 408 o, 30 couleurs) : HTTP 200 aussi — les faibles nombres
+ *  de couleurs sont le rendu réel OSM d'une zone peu dense
+ *  (couvert végétal / bâti clairsemé), pas une tuile « pas de
+ *  données » (OSM ne sert pas de tuile d'erreur : il rend les
+ *  données, même clairsemées). Plafond Plan : 19 (natif 19).
+ *  Le plafond est désormais PAR MODE : Plan 19, Satellite 18 —
+ *  la carte règle son `maxZoom` à chaque bascule (`setMaxZoom`
+ *  dans l'effet `basemap`) pour que le Satellite ne zoome jamais
+ *  dans l'agrandissement flou de la v2.39. Le bouton + se grise
+ *  à 19 en Plan, à 18 en Satellite. */
+const PLAN_MAX_ZOOM = 19;
+const SATELLITE_MAX_ZOOM = 18;
 const SATELLITE_MAX_NATIVE_ZOOM = 18;
-const PLAN_MAX_NATIVE_ZOOM = 18;
+const PLAN_MAX_NATIVE_ZOOM = 19;
 export function LibrevilleMap({
   drivers,
   pickup,
@@ -270,7 +299,7 @@ export function LibrevilleMap({
   userLocation?: UserLocationPoint | null;
   focusPoint?: FocusPoint | null;
   onDriverClick?: (driverId: string) => void;
-  /** Fond de carte (v2.13) : 'plan' (Esri World Street Map + filtre
+  /** Fond de carte (v2.13, v2.41) : 'plan' (OpenStreetMap + filtre
    *  sombre) ou 'satellite' (Esri World Imagery, sans filtre). */
   basemap?: 'plan' | 'satellite';
   /** Clic sur un lieu (POI) : ouvre sa mini-carte d'info. */
@@ -335,46 +364,75 @@ export function LibrevilleMap({
         [SERVICE_BOUNDS.north, SERVICE_BOUNDS.east]
       ),
       maxBoundsViscosity: 1.0,
-      // Zoom max 20 (v2.18) : au-delà du natif 18, Leaflet agrandit
-      // les tuiles z18 (voir constantes ci-dessus) — sans ce plafond
-      // explicite, la carte s'arrêtait au maxZoom de la couche (19)
-      // et le satellite demandait des tuiles z19 inexistantes.
-      maxZoom: MAP_MAX_ZOOM,
+      // Zoom max 19 en Plan, 18 en Satellite (v2.41, remplace le 18
+      // unique de la v2.39) : 19 est le dernier zoom réel du fond
+      // Plan OpenStreetMap (tuiles natives jusqu'à 19, vérifié par
+      // curl le 14/11 — voir constantes ci-dessus), 18 celui du
+      // Satellite Esri. Le plafond est PAR MODE : la bascule
+      // Plan/Satellite règle `map.setMaxZoom` (effet `basemap`) —
+      // sans ça, le Satellite zoomerait à 19 dans l'agrandissement
+      // flou des tuiles z18 (bug v2.39). Le bouton + se grise à 19
+      // en Plan, à 18 en Satellite. La carte s'ouvre en Plan :
+      // plafond initial = 19.
+      maxZoom: PLAN_MAX_ZOOM,
       zoomControl: false,
       attributionControl: false,
       scrollWheelZoom: true,
     });
-    // Fond de carte « vivant » (v2.7) : Esri World Street Map — rues,
-    // eau, parcs et noms de rues réels à Libreville. Le fond « World
-    // Dark Gray » précédent était quasi vide : 3 grands axes, aucun
-    // libellé, pas d'eau ni de parcs visibles. La carte reste « Nuit
-    // dorée » grâce au filtre sombre CSS (.map-tiles-dark : inversion
-    // + rotation de teinte) : fond nuit, eau bleu nuit, parcs vert
-    // sombre, grands axes orange, libellés clairs. Gratuites, sans clé
-    // — même fournisseur qu'avant (Esri). CARTO dark_all a été écarté :
-    // il exige désormais une clé API (vérifié par curl 14/11 : tuile
-    // « API KEY REQUIRED ») ; OSM direct est bloqué par la politique
-    // d'usage (403) ; Stadia exige aussi une clé (401). ATTENTION à
-    // l'ordre des paramètres ArcGIS : level/row/col = {z}/{y}/{x} (et
-    // non {z}/{x}/{y}). Tuiles vérifiées par curl (z=13-14, Libreville :
-    // HTTP 200, JPEG 256×256, rues + libellés + eau + parcs, puis
-    // simulation du filtre sombre vérifiée visuellement). Attribution
-    // Esri obligatoire (texte exact du service : « Esri, HERE, Garmin,
-    // (c) OpenStreetMap contributors, and the GIS user community »).
-    // La couche de référence « World Dark Gray » est supprimée : World
-    // Street Map porte déjà ses propres libellés (la doubler
+    // Fond de carte « vivant » (v2.7, fond Plan remplacé en v2.41) :
+    // OpenStreetMap standard — rues, eau, parcs et noms de rues
+    // réels à Libreville. Le fond « World Dark Gray » précédent
+    // était quasi vide : 3 grands axes, aucun libellé, pas d'eau
+    // ni de parcs visibles. Le filtre sombre CSS (`.map-tiles-dark` :
+    // inversion + rotation de teinte) a été RETIRÉ le 14/11 ~21h58,
+    // décision du propriétaire (« Retire le thème sombre là-dessus ») :
+    // la carte Plan est désormais CLAIRE, comme celle de Skatta.
+    // Gratuites, sans clé.
+    // CARTO dark_all a été écarté : il exige désormais une clé API
+    // (vérifié par curl 14/11 : tuile « API KEY REQUIRED ») ;
+    // Stadia exige aussi une clé (401). Le fond Plan Esri World
+    // Street Map a été remplacé en v2.41 (ADR 0016) : ses tuiles
+    // z19 n'étaient réelles qu'au Centre-ville (tuile grise « pas
+    // de données » à Akanda, beige uniforme à Melen / Nzeng-Ayong)
+    // et le filtre sombre lavait ses détails — OSM sert des tuiles
+    // z19 réelles partout dans la zone de service (vérifié par
+    // curl le 14/11, voir constantes en tête de fichier) et garde
+    // des détails nets, sans filtre (le filtre sombre a été retiré
+    // le 14/11 ~21h58, voir ci-dessus). La mention « OSM direct
+    // bloqué par la politique d'usage (403) » de la v2.7 n'est plus
+    // reproduite le 14/11 au soir : curl obtient HTTP 200 sur les
+    // tuiles z18 et z19 (avec ou sans User-Agent explicite — les
+    // requêtes Leaflet partent du navigateur, avec un vrai
+    // User-Agent). Politique d'usage OSM : attribution obligatoire
+    // (texte exact ci-dessous), tuiles directes OK pour le
+    // lancement mais trafic de production lourd déconseillé —
+    // prévoir un fournisseur de tuiles ou l'auto-hébergement au
+    // lancement (même logique que le serveur OSRM démo de la
+    // v2.27, voir ADR 0016). ATTENTION à l'ordre des paramètres
+    // OSM : {z}/{x}/{y} — l'ordre ArcGIS du fond Satellite est
+    // {z}/{y}/{x}, ne pas les confondre. Tuiles vérifiées par curl
+    // (z=18-19, Libreville : HTTP 200, PNG 256×256, rues +
+    // libellés + eau + parcs, puis simulation du filtre sombre
+    // vérifiée visuellement). Attribution OSM obligatoire (texte
+    // exact du service : « © OpenStreetMap contributors »).
+    // La couche de référence « World Dark Gray » est supprimée : le
+    // fond Plan porte déjà ses propres libellés (la doubler
     // surchargerait la carte).
     tileLayerRef.current = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       {
-        // v2.18 : maxZoom 20 + maxNativeZoom 18 — sans maxNativeZoom,
-        // Leaflet demandait des tuiles au zoom affiché, donc des
-        // tuiles z19 inexistantes en satellite (tuile grise vide).
-        maxZoom: MAP_MAX_ZOOM,
+        // v2.41 : maxZoom 19 + maxNativeZoom 19 en Plan — sans
+        // maxNativeZoom, Leaflet demanderait des tuiles au zoom
+        // affiché, donc des tuiles z20 inexistantes (tuile grise
+        // vide) ; sans le plafond 19, il agrandirait les tuiles
+        // z19 et les contours se perdraient (observation live
+        // 14/11, v2.39). Le plafond Satellite reste 18 (voir
+        // l'effet `basemap` : il règle maxZoom/maxNativeZoom
+        // et le maxZoom de la carte à chaque bascule).
+        maxZoom: PLAN_MAX_ZOOM,
         maxNativeZoom: PLAN_MAX_NATIVE_ZOOM,
-        className: 'map-tiles-dark',
         attribution:
-          'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }
     ).addTo(map);
     L.control.attribution({ position: 'topright' }).addTo(map);
@@ -489,10 +547,10 @@ export function LibrevilleMap({
     });
   }, [selectedPoi]);
 
-  // Fond de carte (v2.13) : Plan (Street Map + filtre sombre) ou
-  // Satellite (World Imagery, sans filtre — images gratuites, sans clé,
-  // même fournisseur qu'avant : Esri). Seule la couche de tuiles
-  // change : marqueurs, POI, radar, itinéraire et libellés restent.
+  // Fond de carte (v2.13, v2.41) : Plan (OpenStreetMap + filtre
+  // sombre) ou Satellite (Esri World Imagery, sans filtre — images
+  // gratuites, sans clé). Seule la couche de tuiles change :
+  // marqueurs, POI, radar, itinéraire et libellés restent.
   // Retirer / remettre la couche rafraîchit l'attribution et les tuiles.
   useEffect(() => {
     const map = mapRef.current;
@@ -502,19 +560,24 @@ export function LibrevilleMap({
     layer.setUrl(
       satellite
         ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-        : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
     );
-    // v2.18 : le zoom natif dépend du fond (18 satellite comme plan
-    // à Libreville — voir constantes en tête de fichier). Leaflet
+    // v2.18 + v2.41 : le zoom natif ET le plafond dépendent du fond
+    // (Plan OSM : natif 19, plafond 19 ; Satellite Esri : natif 18,
+    // plafond 18 — voir constantes en tête de fichier). Leaflet
     // relit `options.maxNativeZoom` à chaque demande de tuile, donc
     // la mise à jour ici suffit ; retirer / remettre la couche
-    // force le rechargement des tuiles au bon niveau natif.
+    // force le rechargement des tuiles au bon niveau natif. Le
+    // plafond de la CARTE suit aussi le mode (`setMaxZoom`) : sans
+    // ça, le Satellite pourrait zoomer à 19 et n'afficher que des
+    // tuiles z18 agrandies et floues (bug v2.39) ; en Plan, le
+    // bouton + se grise à 19, en Satellite à 18.
     layer.options.maxNativeZoom = satellite ? SATELLITE_MAX_NATIVE_ZOOM : PLAN_MAX_NATIVE_ZOOM;
-    layer.options.maxZoom = MAP_MAX_ZOOM;
-    layer.options.className = satellite ? '' : 'map-tiles-dark';
+    layer.options.maxZoom = satellite ? SATELLITE_MAX_ZOOM : PLAN_MAX_ZOOM;
+    map.setMaxZoom(satellite ? SATELLITE_MAX_ZOOM : PLAN_MAX_ZOOM);
     layer.options.attribution = satellite
       ? 'Esri, Maxar, Earthstar Geographics, and the GIS User Community'
-      : 'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+      : '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
     layer.remove();
     layer.addTo(map);
     // Contraste des libellés en Satellite : l'image est variée

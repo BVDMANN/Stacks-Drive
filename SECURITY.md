@@ -46,7 +46,7 @@ Règles :
 **Hors périmètre :**
 
 - Les services tiers eux-mêmes (Supabase, Vercel, Resend, OSRM, Esri,
-  Nominatim) : signalez leurs failles à leurs propres programmes.
+  OpenStreetMap, Nominatim) : signalez leurs failles à leurs propres programmes.
 - Le phishing, l'ingénierie sociale et la sécurité des appareils des
   utilisateurs.
 - Les failles qui exigent un accès physique à un appareil ou un compte

@@ -353,9 +353,13 @@ export function HomeScreen({
     if (phase !== 'idle') setSheetH(58);
   }, [phase]);
   const isMini = phase === 'idle' && sheetH <= 20;
-  // Feuille dépliée : les pastilles du haut de la carte s'effacent
-  // (elles glissent vers le haut au lieu de rester figées sur la carte).
-  const sheetExpanded = sheetH >= 58;
+  // v2.39 : les pastilles du haut de la carte (compteur chauffeurs,
+  // Recentrer, Plan/Satellite) ne s'effacent PLUS quand la feuille
+  // se déplie — l'ancien fondu les rendait invisibles et
+  // incliquables alors qu'elles sont dans le haut de l'écran, jamais
+  // recouvertes par la feuille (58 dvh max, par le bas). Sur mobile,
+  // la feuille est dépliée pendant presque toute la commande : c'est
+  // là que l'utilisateur en a le plus besoin.
   // Feuille à pleine hauteur : le chevron de la poignée pointe vers le
   // bas (replier), sinon vers le haut (déplier).
   const atFull = sheetH >= 58;
@@ -1126,8 +1130,9 @@ export function HomeScreen({
     return true;
   }
 
-  /** Annulation (v2.23) : motif obligatoire — la modale s'ouvre
-   *  d'abord, la requête part seulement après confirmation. */
+  /** Annulation (v2.23, motif optionnel depuis v2.38) : « Sans motif »
+   *  est le choix par défaut — la modale s'ouvre d'abord, la requête
+   *  part seulement après confirmation. */
   const [cancelOpen, setCancelOpen] = useState(false);
 
   async function annulerCourse() {
@@ -1137,8 +1142,8 @@ export function HomeScreen({
   async function confirmerAnnulation(
     reasonCode: CancelReasonCode,
     detail: string | null
-  ): Promise<boolean> {
-    if (!rideId) return false;
+  ): Promise<string | null> {
+    if (!rideId) return 'Annulation impossible.';
     setBusy(true);
     const res = await fetch(`/api/rides/${rideId}`, {
       method: 'PATCH',
@@ -1148,11 +1153,12 @@ export function HomeScreen({
     setBusy(false);
     if (!res?.ok) {
       const data = await res?.json().catch(() => null);
-      setError(data?.error ?? 'Annulation impossible pour le moment. Réessaie.');
-      return false;
+      const message = data?.error ?? 'Annulation impossible pour le moment. Réessaie.';
+      setError(message);
+      return message;
     }
     resetToIdle();
-    return true;
+    return null;
   }
 
   function resetToIdle() {
@@ -1247,16 +1253,12 @@ export function HomeScreen({
         />
       )}
 
-      {/* Compteur de chauffeurs autour — passagers seulement. En idle il
-          s'efface quand la feuille se déplie ; pendant la recherche et
-          les propositions, le radar reste visible : « X chauffeurs
+      {/* Compteur de chauffeurs autour — passagers seulement. Il reste
+          visible en permanence (v2.39) : pendant la recherche et les
+          propositions, le radar reste visible : « X chauffeurs
           détectés autour de toi » (v2.11). */}
       {phase !== 'confirmed' && phase !== 'done' && !isChauffeurMode && (
-        <div
-          className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none transition-all duration-500 ${
-            phase === 'idle' && sheetExpanded ? 'opacity-0 -translate-y-2' : 'opacity-100'
-          }`}
-        >
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
           <span className="inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/10 shadow-xl shadow-black/40 rounded-full px-4 py-2 text-xs font-black text-slate-100">
             <span className="w-2 h-2 rounded-full bg-cyan animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
             {phase === 'idle'
@@ -1266,13 +1268,11 @@ export function HomeScreen({
         </div>
       )}
 
-      {/* Bouton « Recentrer » — s'efface quand la feuille se déplie */}
+      {/* Bouton « Recentrer » — toujours visible et cliquable (v2.39) */}
       <button
         type="button"
         onClick={handleRecenter}
-        className={`absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/15 text-white text-xs font-black px-3 py-2 rounded-full shadow-xl shadow-black/40 hover:border-cyan/60 active:scale-95 transition-all duration-500 ${
-          sheetExpanded ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100'
-        }`}
+        className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/15 text-white text-xs font-black px-3 py-2 rounded-full shadow-xl shadow-black/40 hover:border-cyan/60 active:scale-95 transition-all duration-500"
         aria-label={userLocation ? 'Recentrer sur ma position' : 'Recentrer sur Libreville'}
       >
         <Crosshair size={15} className="text-cyan" />
@@ -1280,13 +1280,11 @@ export function HomeScreen({
       </button>
 
       {/* Sélecteur de fond de carte (v2.13) : Plan ou Satellite —
-          sous le bouton Recentrer, même style, il s'efface aussi
-          quand la feuille se déplie. */}
+          sous le bouton Recentrer, même style, toujours visible et
+          cliquable (v2.39). */}
       {!isChauffeurMode && (
         <div
-          className={`absolute top-14 left-3 z-10 inline-flex rounded-full bg-night-900/90 backdrop-blur border border-white/15 shadow-xl shadow-black/40 p-1 transition-all duration-500 ${
-            sheetExpanded ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100'
-          }`}
+          className="absolute top-14 left-3 z-10 inline-flex rounded-full bg-night-900/90 backdrop-blur border border-white/15 shadow-xl shadow-black/40 p-1 transition-all duration-500"
           role="group"
           aria-label="Fond de carte"
         >
@@ -2110,8 +2108,9 @@ export function HomeScreen({
         </button>
       )}
 
-      {/* Annulation avec motif (v2.23) : l'autre partie est prévenue
-          immédiatement, l'annulation est comptée dans la fiabilité. */}
+      {/* Annulation (v2.23, motif optionnel depuis v2.38) : l'autre
+          partie est prévenue immédiatement, l'annulation est comptée
+          dans la fiabilité. */}
       <CancelRideDialog
         open={cancelOpen}
         role="passager"

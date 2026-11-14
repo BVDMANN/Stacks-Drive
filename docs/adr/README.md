@@ -11,7 +11,7 @@ reste, avec le renvoi).
 
 | N° | Décision | Statut |
 |---|---|---|
-| [0001](0001-leaflet-esri.md) | Leaflet vanilla + tuiles Esri, pas MapLibre | Acceptée |
+| [0001](0001-leaflet-esri.md) | Leaflet vanilla + tuiles Esri, pas MapLibre | Remplacée (partiellement — fond Plan : voir [0016](0016-carte-openstreetmap-filtre-nuit.md) ; Leaflet vanilla et fond Satellite Esri inchangés) |
 | [0002](0002-osrm-auto-heberge.md) | OSRM (démo puis auto-hébergé), pas Google Maps | Acceptée |
 | [0003](0003-commission-par-course.md) | Commission par course, pas d'abonnement | Acceptée |
 | [0004](0004-rls-trigger.md) | RLS + trigger anti-escalade, pas juste l'API | Acceptée |
@@ -23,3 +23,7 @@ reste, avec le renvoi).
 | [0010](0010-prix-haversine.md) | Prix sur distance haversine, pas routière | Acceptée |
 | [0011](0011-retrait-points-prise-en-charge.md) | Retrait des points de prise en charge (montants avant trajet) | Acceptée |
 | [0012](0012-tutoriel-non-bloquant.md) | Tutoriel passager non bloquant à l'arrivée (carte d'accueil, sans voile) | Acceptée |
+| [0013](0013-annulation-sans-motif.md) | Annulation sans motif (choix par défaut) + erreur serveur affichée telle quelle | Acceptée |
+| [0014](0014-zoom-max-18-controles-visibles.md) | Plafond de zoom 18 (dernier zoom réel) + contrôles de carte toujours visibles feuille dépliée | Acceptée |
+| [0015](0015-vue-admin-en-direct.md) | Vue admin « En direct » : agrégation serveur + Realtime en déclencheur, pas de table d'événements | Acceptée |
+| [0016](0016-carte-openstreetmap-filtre-nuit.md) | Carte : fond Plan OpenStreetMap + filtre nuit gardé, zoom max 19 en Plan (18 en Satellite) | Acceptée |

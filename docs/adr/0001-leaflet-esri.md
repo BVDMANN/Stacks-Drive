@@ -1,6 +1,6 @@
 # ADR 0001 — Leaflet vanilla + tuiles Esri, pas MapLibre
 
-- Statut : Acceptée
+- Statut : Remplacée (partiellement — fond Plan : voir ADR 0016 ; Leaflet vanilla et fond Satellite Esri inchangés)
 - Date : 14/11/2026 (décision antérieure, documentée en v2.33)
 
 ## Contexte

@@ -104,17 +104,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* 🗺️ CARTE LEAFLET — « Libreville la nuit » (v2.7) : tuiles Esri World Street Map assombries par filtre CSS (gratuites, sans clé) */
-/* 🌙 Fond de carte « nuit » (v2.7) : les tuiles Esri World Street Map
-   (claires, détaillées : rues, eau, parcs, libellés) sont assombries
-   par filtre CSS — inversion + rotation de teinte — pour garder
-   l'identité « Nuit dorée » : fond nuit, eau bleu nuit, parcs vert
-   sombre, grands axes orange, libellés clairs. Le filtre ne touche
-   que la couche de tuiles (les marqueurs vivent dans d'autres
-   panneaux Leaflet) ; il est posé via l'option className du tileLayer. */
-.map-tiles-dark {
-  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.96);
-}
+/* 🗺️ CARTE LEAFLET — fond Plan OpenStreetMap clair depuis la v2.41 (filtre nuit retiré le 14/11 ~21h58, décision du propriétaire : carte claire comme Skatta) */
 .leaflet-container {
   font: inherit;
   background: #0b1020;

@@ -61,7 +61,7 @@ recopiés à la main : ils viennent de `lib/commission.ts` et
 
 ## Limites connues — à refaire sur un vrai appareil après le push
 
-- **Fond de carte gris** : les tuiles Esri ne chargent pas depuis la
+- **Fond de carte gris** : les tuiles OpenStreetMap (fond Plan) ne chargent pas depuis la
   VM (proxy). L'interface, les libellés et les marqueurs sont les
   vrais ; le fond de carte devra être re-capturé sur un vrai
   téléphone si on veut les rues visibles (`passager-01/02/03/06`).

@@ -6,9 +6,9 @@ import { CancelRideDialog } from '@/components/rides/CancelRideDialog';
 import type { CancelReasonCode } from '@/lib/cancellations';
 
 /** Actions d'une course planifiée / expirée (v2.30) dans « Mes
- *  courses » : annuler avant l'envoi (motif obligatoire, comme les
- *  autres annulations), relancer une course expirée tout de suite
- *  (même trajet, mêmes conditions). */
+ *  courses » : annuler avant l'envoi (motif optionnel depuis v2.38,
+ *  comme les autres annulations), relancer une course expirée tout
+ *  de suite (même trajet, mêmes conditions). */
 export function ScheduledRideActions({
   rideId,
   status,
@@ -38,7 +38,9 @@ export function ScheduledRideActions({
     router.refresh();
   }
 
-  async function confirmCancel(reasonCode: CancelReasonCode, detail: string | null): Promise<boolean> {
+  /** Renvoie le message d'erreur précis du serveur, ou null si
+   *  l'annulation a abouti (v2.38). */
+  async function confirmCancel(reasonCode: CancelReasonCode, detail: string | null): Promise<string | null> {
     const res = await fetch(`/api/rides/${rideId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -46,11 +48,12 @@ export function ScheduledRideActions({
     }).catch(() => null);
     if (!res?.ok) {
       const data = await res?.json().catch(() => null);
-      setError(data?.error ?? 'Annulation impossible.');
-      return false;
+      const message = data?.error ?? 'Annulation impossible.';
+      setError(message);
+      return message;
     }
     router.refresh();
-    return true;
+    return null;
   }
 
   return (

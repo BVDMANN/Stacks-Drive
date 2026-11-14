@@ -4,10 +4,14 @@ import { useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { cancelReasonsFor, type CancelReasonCode, type CancelRole } from '@/lib/cancellations';
 
-/** Annulation propre (v2.23) : motif obligatoire dans une liste
- *  courte (selon le rôle), précision libre optionnelle. La
- *  confirmation attend le serveur (barre de chargement, règle 1) :
- *  le bouton montre « Annulation… », il n'est pas juste grisé. */
+/** Annulation propre (v2.23, motif rendu optionnel en v2.38) :
+ *  « Sans motif » est le choix par défaut — on annule en un tap,
+ *  sans se justifier ; la liste courte reste proposée, précision
+ *  libre optionnelle (masquée quand « Sans motif » est choisi).
+ *  La confirmation attend le serveur (barre de chargement, règle 1) :
+ *  le bouton montre « Annulation… », il n'est pas juste grisé.
+ *  En cas d'échec, l'erreur du serveur est affichée telle quelle
+ *  (v2.38) — jamais un message générique qui cache la cause. */
 export function CancelRideDialog({
   open,
   role,
@@ -17,10 +21,12 @@ export function CancelRideDialog({
   open: boolean;
   role: CancelRole;
   onClose: () => void;
-  onConfirm: (reasonCode: CancelReasonCode, detail: string | null) => Promise<boolean>;
+  /** Renvoie le message d'erreur du serveur, ou null si l'annulation
+   *  a abouti — c'est ce message précis qui s'affiche en cas d'échec. */
+  onConfirm: (reasonCode: CancelReasonCode, detail: string | null) => Promise<string | null>;
 }) {
   const reasons = cancelReasonsFor(role);
-  const [reasonCode, setReasonCode] = useState<CancelReasonCode>('autre');
+  const [reasonCode, setReasonCode] = useState<CancelReasonCode>('sans_motif');
   const [detail, setDetail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +37,10 @@ export function CancelRideDialog({
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const ok = await onConfirm(reasonCode, detail.trim() || null);
+    const err = await onConfirm(reasonCode, reasonCode === 'sans_motif' ? null : detail.trim() || null);
     setBusy(false);
-    if (!ok) {
-      setError('Annulation impossible pour le moment. Réessaie.');
+    if (err) {
+      setError(err);
       return;
     }
     onClose();
@@ -58,8 +64,9 @@ export function CancelRideDialog({
             <h3 className="font-black text-lg text-white">Annuler la course ?</h3>
             <p className="text-sm text-slate-400 mt-1">
               {role === 'passager'
-                ? 'Ton chauffeur est prévenu immédiatement, avec ton motif.'
-                : 'Ton passager est prévenu immédiatement, avec ton motif.'}{' '}
+                ? 'Ton chauffeur est prévenu immédiatement'
+                : 'Ton passager est prévenu immédiatement'}
+              {reasonCode === 'sans_motif' ? ', sans motif précisé.' : ', avec ton motif.'}{' '}
               L’annulation est comptée dans ta fiabilité.
             </p>
           </div>
@@ -75,7 +82,7 @@ export function CancelRideDialog({
 
         <fieldset className="space-y-2">
           <legend className="text-xs font-black uppercase tracking-widest text-slate-400">
-            Motif de l’annulation
+            Motif de l’annulation (optionnel)
           </legend>
           {reasons.map((r) => (
             <label
@@ -99,20 +106,22 @@ export function CancelRideDialog({
           ))}
         </fieldset>
 
-        <div className="space-y-1.5">
-          <label htmlFor="cancel-detail" className="text-xs font-black uppercase tracking-widest text-slate-400">
-            Précision (optionnel)
-          </label>
-          <input
-            id="cancel-detail"
-            type="text"
-            maxLength={200}
-            value={detail}
-            onChange={(e) => setDetail(e.target.value)}
-            placeholder="Ex. : je dois partir plus tard"
-            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-sm text-white placeholder:text-slate-500 focus:border-gold focus:outline-none"
-          />
-        </div>
+        {reasonCode !== 'sans_motif' && (
+          <div className="space-y-1.5">
+            <label htmlFor="cancel-detail" className="text-xs font-black uppercase tracking-widest text-slate-400">
+              Précision (optionnel)
+            </label>
+            <input
+              id="cancel-detail"
+              type="text"
+              maxLength={200}
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              placeholder="Ex. : je dois partir plus tard"
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-sm text-white placeholder:text-slate-500 focus:border-gold focus:outline-none"
+            />
+          </div>
+        )}
 
         {error && (
           <p role="alert" className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl p-3">

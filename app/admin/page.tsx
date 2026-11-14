@@ -169,6 +169,14 @@ export default async function AdminPage() {
       title="Administration"
       subtitle="Pilotage de la plateforme Stacks Drive."
       user={{ id: sessionUser.id, email: sessionUser.email }}
+      actions={
+        <Link
+          href="/admin/live"
+          className="inline-flex items-center gap-2 text-sm font-black text-white bg-stacks-green px-4 py-2.5 rounded-full shadow-md hover:bg-green-700"
+        >
+          ● En direct — voir ce qui se passe
+        </Link>
+      }
     >
       {/* Statistiques */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">

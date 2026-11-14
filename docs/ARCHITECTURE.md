@@ -30,7 +30,7 @@
 flowchart TB
     subgraph Client["Navigateur — Next.js (App Router, React 19)"]
         UI["Pages + composants<br/>accueil, tableau de bord chauffeur,<br/>suivi de course, /admin, /compte"]
-        MAP["Carte Leaflet vanilla<br/>tuiles Esri (sans clé)"]
+        MAP["Carte Leaflet vanilla<br/>tuiles OpenStreetMap (Plan) / Esri (Satellite), sans clé"]
         RT["Supabase Realtime<br/>(canaux postgres_changes)"]
         POLL["Sondage HTTP (repli)<br/>5–15 s rapide, 30–60 s lent"]
     end
@@ -104,7 +104,7 @@ plupart des décisions ci-dessous.
 |---|---|---|---|
 | Framework | Next.js 16.2.6, App Router, React 19.2.6, TypeScript 5 | Un seul dépôt pour le front et le back (routes API) : pas de serveur séparé à opérer, déploiement Vercel en un push, SSR pour les pages publiques. TypeScript strict sur tout le métier. | Serveur Express séparé — une pièce de plus à héberger et à sécuriser, sans gain pour ce volume. |
 | Base + Auth | Supabase : Postgres, Auth, Realtime (`@supabase/supabase-js` 2.119.0, `@supabase/ssr` 0.12.7), projet « stacks-drive », région Francfort | Postgres géré + Auth e-mail/mot de passe + RLS au niveau ligne + Realtime sur les mêmes tables : une seule infrastructure pour les données, l'identité et le temps réel. Région Francfort = latence la plus faible pour le Gabon parmi les régions Supabase disponibles, et cadre UE. | Firebase — RLS Postgres et les triggers SQL sont le cœur du modèle de sécurité (voir §5) ; les règles Firestore n'offrent pas l'équivalent des triggers anti-escalade. |
-| Carte | Leaflet 1.9.4 **vanilla** + tuiles Esri World Street Map assombries par filtre CSS | Leaflet est la bibliothèque de cartes la plus légère et la plus éprouvée ; **vanilla, pas react-leaflet** — react-leaflet est incompatible avec React 19 (conflit de peer dependency). Tuiles Esri : gratuites, sans clé, avec rues, eau, parcs et noms de rues à Libreville. | MapLibre — voir ADR 0001. Google Maps — clé payante + facturation au volume, disproportionnée pour Libreville. |
+| Carte | Leaflet 1.9.4 **vanilla** + tuiles OpenStreetMap (fond Plan) assombries par filtre CSS + tuiles Esri World Imagery (fond Satellite) | Leaflet est la bibliothèque de cartes la plus légère et la plus éprouvée ; **vanilla, pas react-leaflet** — react-leaflet est incompatible avec React 19 (conflit de peer dependency). Tuiles OpenStreetMap : gratuites, sans clé, avec rues, eau, parcs et noms de rues à Libreville, réelles jusqu'au zoom 19 (vérifié par curl, v2.41 — voir ADR 0016). Satellite Esri : réel jusqu'au zoom 18 seulement, tuile grise « pas de données » au-delà (v2.18) — plafond par mode. | MapLibre — voir ADR 0001. Google Maps — clé payante + facturation au volume, disproportionnée pour Libreville. |
 | Routage | OSRM (Open Source Routing Machine), serveur démo public `router.project-osrm.org`, sans clé, surchargeable par `OSRM_BASE_URL` | Itinéraires routiers réels (rues, virages) sans compte ni clé ; le prix n'en dépend pas (voir §4.1), donc une panne OSRM ne bloque jamais une course. | Google Maps Directions — voir ADR 0002. |
 | E-mails | Resend 6.38.1 | API simple, plan gratuit suffisant pour les volumes actuels (tickets admin, bienvenue, rapports hebdo) ; envoi via un seul point d'appel (`lib/email.ts`), jamais d'exception levée. | SendGrid / SMTP maison — plus lourd à opérer pour le même besoin. |
 | Hébergement | Vercel (projet « stacks-drive ») | Déploiement par push, crons natifs (2 crons hebdo), HTTPS et prévisualisations sans configuration. | VPS — à réserver à l'auto-hébergement OSRM (voir ADR 0002), pas à l'application. |
@@ -605,7 +605,7 @@ sequenceDiagram
 - **Vérifications locales :** scripts `scripts/verify-*.mjs` (quartiers,
   lots, tutos, règles) — Playwright pour les contrôles visuels.
 - **Coûts :** plans gratuits (Vercel, Supabase, Resend, GitHub Actions,
-  OSRM démo, tuiles Esri) — voir `SETUP.md` § « Coûts ».
+  OSRM démo, tuiles OpenStreetMap / Esri) — voir `SETUP.md` § « Coûts ».
 
 ---
 

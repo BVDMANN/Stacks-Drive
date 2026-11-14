@@ -10,9 +10,11 @@ import type { CancelReasonCode, CancelRole } from '@/lib/cancellations';
  *  Le démarrage passe par le code PIN (composant PinEntry) ; la note
  *  après course se fait dans le formulaire d'avis (FeedbackForm, v2.2).
  *  À la clôture, la popup de célébration s'affiche (gains gardés).
- *  Annulation (v2.23) : motif obligatoire dans une liste courte —
+ *  Annulation (v2.23, motif optionnel depuis v2.38) : « Sans motif »
+ *  est le choix par défaut — on annule en un tap, sans se justifier ;
  *  l'autre partie est prévenue immédiatement, l'annulation est
- *  comptée dans la fiabilité. */
+ *  comptée dans la fiabilité. En cas d'échec, c'est le message précis
+ *  du serveur qui s'affiche (v2.38), jamais un générique. */
 export function RideActions({
   rideId,
   myRole,
@@ -73,7 +75,10 @@ export function RideActions({
     router.refresh();
   }
 
-  async function confirmCancel(reasonCode: CancelReasonCode, detail: string | null): Promise<boolean> {
+  /** Renvoie le message d'erreur précis du serveur, ou null si
+   *  l'annulation a abouti (v2.38 : l'erreur s'affiche telle quelle
+   *  dans la modale, au lieu d'un générique). */
+  async function confirmCancel(reasonCode: CancelReasonCode, detail: string | null): Promise<string | null> {
     const res = await fetch(`/api/rides/${rideId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -81,11 +86,12 @@ export function RideActions({
     }).catch(() => null);
     if (!res?.ok) {
       const data = await res?.json().catch(() => null);
-      setError(data?.error ?? 'Annulation impossible.');
-      return false;
+      const message = data?.error ?? 'Annulation impossible.';
+      setError(message);
+      return message;
     }
     router.refresh();
-    return true;
+    return null;
   }
 
   return (

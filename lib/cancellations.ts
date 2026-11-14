@@ -3,8 +3,10 @@
  *  Avant ce lot, annuler une course était un simple bouton : aucun
  *  motif, aucune notification à l'autre partie, aucun historique
  *  exploitable. Désormais :
- *    - motif obligatoire, choisi dans une liste courte (selon le rôle
- *      de celui qui annule) + précision libre optionnelle ;
+ *    - motif OPTIONNEL (v2.38) : « Sans motif » est le choix par
+ *      défaut — on peut annuler en un tap, sans se justifier ; la
+ *      liste courte reste proposée (selon le rôle) + précision libre
+ *      optionnelle (masquée quand « Sans motif » est choisi) ;
  *    - notification immédiate à l'autre partie : message système dans
  *      la messagerie de course (lue toutes les 3 s côté client quand
  *      la course est acceptée) + journal d'audit ;
@@ -31,6 +33,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type CancelRole = 'passager' | 'chauffeur';
 
 export type CancelReasonCode =
+  | 'sans_motif'
   | 'changement_programme'
   | 'attente_trop_longue'
   | 'chauffeur_introuvable'
@@ -49,6 +52,11 @@ export interface CancelReason {
 }
 
 export const CANCEL_REASONS: CancelReason[] = [
+  // v2.38 : « Sans motif » en tête, choix par défaut — annuler ne
+  // demande plus de se justifier. Stocké tel quel (`reason_code` =
+  // 'sans_motif', `cancel_reason` = « Sans motif ») : l'historique
+  // distingue « pas de motif donné » de « Autre raison ».
+  { code: 'sans_motif', label: 'Sans motif', roles: ['passager', 'chauffeur'] },
   { code: 'changement_programme', label: 'Changement de programme', roles: ['passager'] },
   { code: 'attente_trop_longue', label: 'Attente trop longue', roles: ['passager'] },
   { code: 'chauffeur_introuvable', label: 'Chauffeur introuvable / ne répond pas', roles: ['passager'] },
@@ -165,12 +173,18 @@ export async function recordCancellation(
   if (!input.hasCounterpart || !input.chatWasOpen) return;
   const who = input.cancelledByRole === 'passager' ? 'Le passager' : 'Le chauffeur';
   const detail = (input.reasonDetail ?? '').trim();
+  // v2.38 : sans motif, le message le dit plainement — pas de
+  // « Motif : Sans motif » qui sonne comme un formulaire.
+  const body =
+    input.reasonCode === 'sans_motif'
+      ? `❌ Course annulée par ${who === 'Le passager' ? 'le passager' : 'le chauffeur'}, sans motif précisé.`
+      : `❌ Course annulée par ${who === 'Le passager' ? 'le passager' : 'le chauffeur'} — ${label}${detail ? ` : ${detail.slice(0, 200)}` : ''}.`;
   try {
     await supabase.from('ride_messages').insert({
       ride_id: input.rideId,
       sender_id: input.cancelledByUserId,
       sender_role: input.cancelledByRole,
-      body: `❌ Course annulée par ${who === 'Le passager' ? 'le passager' : 'le chauffeur'} — ${label}${detail ? ` : ${detail.slice(0, 200)}` : ''}.`,
+      body,
     });
   } catch {
     // Messagerie absente ou fermée : l'audit garde la trace.
