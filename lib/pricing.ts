@@ -19,7 +19,18 @@ export interface FareEstimate {
   vehiclePreference: VehiclePreference;
   /** Explication courte affichée sous le prix (« Tarif fixe · ~4 km · ~12 min »). */
   breakdown: string;
+  /** Supplément route non bitumée inclus dans le prix (0 sinon). */
+  unpavedSupplement: number;
 }
+
+/** Supplément route non bitumée (v2.6) : forfait fixe ajouté au tarif
+ *  quand le passager demande la continuité jusqu'à un quartier à accès
+ *  difficile — et que le chauffeur l'accepte. Décision de Randy le
+ *  14/11/2026 : 800 FCFA. Le supplément fait partie du tarif total :
+ *  la commission (5 % puis 8 %) s'applique sur le total, supplément
+ *  compris — voir splitFare (lib/commission.ts), qui découpe le prix
+ *  figé de la course sans distinguer ses composantes. */
+export const UNPAVED_ROAD_SUPPLEMENT = 800;
 
 /** Tarifs fixes connus pour les trajets les plus courants — cohérents avec
  *  les anciennes courses démo. Clé symétrique « A|B » (aller = retour).
@@ -61,12 +72,16 @@ export function distanceBetween(a: Neighborhood, b: Neighborhood): number {
  *  serveur à la création de la demande (jamais depuis le client) et
  *  figé à l'acceptation de la proposition. Formule hors overrides :
  *  base × 0,76 (baisse de 24 % décidée par Randy, v2.3), planchers
- *  550 FCFA en Solo et 400 FCFA en Groupe. */
+ *  550 FCFA en Solo et 400 FCFA en Groupe. Route non bitumée (v2.6) :
+ *  si `unpavedRoad` est vrai, le supplément forfaitaire
+ *  UNPAVED_ROAD_SUPPLEMENT s'ajoute APRÈS tout le reste (remise moto
+ *  comprise) : c'est un forfait par course, jamais remisé. */
 export function estimateFare(
   pickup: Neighborhood,
   destination: Neighborhood,
   rideType: RideType,
-  vehiclePreference: VehiclePreference = 'tous'
+  vehiclePreference: VehiclePreference = 'tous',
+  options: { unpavedRoad?: boolean } = {}
 ): FareEstimate {
   const distanceKm = distanceBetween(pickup, destination);
   const durationMin = Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
@@ -93,10 +108,14 @@ export function estimateFare(
     price = Math.max(price, 400);
   }
 
+  // Supplément route non bitumée : forfait, ajouté tel quel au tarif.
+  const unpavedSupplement = options.unpavedRoad ? UNPAVED_ROAD_SUPPLEMENT : 0;
+  price += unpavedSupplement;
+
   const breakdown = `Tarif fixe · ~${Math.max(1, Math.round(distanceKm))} km · ~${durationMin} min${
     pref === 'moto' ? ' · Moto' : ''
-  }`;
-  return { price, distanceKm, durationMin, rideType, vehiclePreference: pref, breakdown };
+  }${unpavedSupplement > 0 ? ` · +${unpavedSupplement} FCFA route non bitumée` : ''}`;
+  return { price, distanceKm, durationMin, rideType, vehiclePreference: pref, breakdown, unpavedSupplement };
 }
 
 /** Temps d'arrivée estimé du chauffeur le plus proche, en minutes,

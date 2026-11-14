@@ -301,6 +301,30 @@ export default async function CoursePage({ params }: Ctx) {
                 </div>
               )}
 
+              {/* Route non bitumée (v2.6) : point de dépôt effectif. */}
+              {ride.dropOffPoint && ride.unpavedAccepted === false && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                  <p className="font-black text-amber-800 text-sm flex items-center gap-1.5">
+                    <MapPin size={15} /> Point de dépôt
+                  </p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    La course s’arrête à <strong>{ride.dropOffPoint}</strong> — la route non
+                    bitumée vers {ride.destination} n’a pas été prise, le supplément a été retiré.
+                  </p>
+                </div>
+              )}
+              {ride.dropOffPoint && ride.unpavedAccepted === true && (
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+                  <p className="font-black text-green-800 text-sm flex items-center gap-1.5">
+                    <MapPin size={15} /> Route non bitumée acceptée
+                  </p>
+                  <p className="text-sm text-green-700 mt-1">
+                    Le chauffeur continue jusqu’à <strong>{ride.destination}</strong> — supplément
+                    de 800 FCFA inclus dans le prix.
+                  </p>
+                </div>
+              )}
+
               <p className="text-xs text-slate-400 flex items-center gap-1.5">
                 <ShieldCheck size={14} className="text-stacks-green" />
                 Prix garanti · Commission Stacks Drive 5 % au lancement

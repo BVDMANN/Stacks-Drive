@@ -333,6 +333,17 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
           <p className="font-black text-slate-900 text-lg">
             {activeRide.pickup} → {activeRide.destination}
           </p>
+          {/* Route non bitumée (v2.6) : où s'arrête vraiment la course. */}
+          {activeRide.dropOffPoint && activeRide.unpavedAccepted === false && (
+            <p className="text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              Arrêt au point de dépôt : {activeRide.dropOffPoint} — route non bitumée non prise.
+            </p>
+          )}
+          {activeRide.dropOffPoint && activeRide.unpavedAccepted === true && (
+            <p className="text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+              Route non bitumée acceptée : tu continues jusqu’à {activeRide.destination}.
+            </p>
+          )}
           {(() => {
             const est =
               activeRide.distanceKm !== null && activeRide.durationMin !== null

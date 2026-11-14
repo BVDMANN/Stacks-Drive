@@ -58,6 +58,15 @@ export interface Ride {
   seats: number;
   /** Prix fixe estimé à la demande (FCFA) — calculé côté serveur. */
   estimatedPrice: number;
+  /** Route non bitumée (v2.6) : le passager a demandé la continuité
+   *  jusqu'à un quartier à accès difficile (+ supplément). */
+  unpavedRequested: boolean;
+  /** Point de dépôt quand la destination est à accès difficile : la
+   *  course s'y arrête par défaut (null = destination normale). */
+  dropOffPoint: string | null;
+  /** Route non bitumée acceptée par le chauffeur (figé à l'acceptation).
+   *  Null tant que la course n'est pas acceptée. */
+  unpavedAccepted: boolean | null;
   /** Prix proposé par le chauffeur et accepté (FCFA) — figé à l'acceptation. */
   proposedPrice: number | null;
   /** Premier arrêt / point de prise en charge proposé par le chauffeur. */
@@ -109,6 +118,9 @@ export interface RideProposal {
   driverId: string;
   /** Prix proposé par le chauffeur pour cette course (FCFA). */
   proposedPrice: number;
+  /** Route non bitumée (v2.6) : le chauffeur prend la piste jusqu'à la
+   *  destination (true) ou s'arrête au point de dépôt (false). */
+  unpavedAccepted: boolean;
   /** Places restantes dans son véhicule. */
   seatsLeft: number;
   /** Premier arrêt / point de prise en charge proposé. */

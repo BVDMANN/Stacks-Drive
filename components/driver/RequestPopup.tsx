@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { Clock, MapPin, Route, Users, X } from 'lucide-react';
 import type { Ride } from '@/types';
 import { formatFcfa } from '@/lib/commission';
-import { estimateFare } from '@/lib/pricing';
+import { UNPAVED_ROAD_SUPPLEMENT, estimateFare } from '@/lib/pricing';
 import { timeAgo } from '@/lib/dates';
-import type { Neighborhood } from '@/lib/neighborhoods';
+import { dropOffPointFor, isDifficultAccess, type Neighborhood } from '@/lib/neighborhoods';
 
 /** Pop-up reçue par le chauffeur en ligne quand une demande match son
  *  périmètre : détails de la demande + proposition (prix, places,
@@ -27,6 +27,20 @@ export function RequestPopup({
   const [firstStop, setFirstStop] = useState(ride.pickup);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Route non bitumée (v2.6) : la destination est-elle à accès
+  // difficile ? Le passager a-t-il demandé la piste ? Par défaut, la
+  // case suit la demande du passager — le chauffeur reste libre de
+  // la décocher (la course s'arrête alors au point de dépôt et le
+  // supplément est retiré du prix).
+  const destDifficult = isDifficultAccess(ride.destination as Neighborhood);
+  const dropOff = destDifficult ? dropOffPointFor(ride.destination as Neighborhood) : null;
+  const [takeUnpaved, setTakeUnpaved] = useState(ride.unpavedRequested);
+
+  function toggleUnpaved(checked: boolean) {
+    setTakeUnpaved(checked);
+    setPrice((p) => p + (checked ? UNPAVED_ROAD_SUPPLEMENT : -UNPAVED_ROAD_SUPPLEMENT));
+  }
 
   // Trajet estimé (v2.2) : le chauffeur voit la distance et la durée
   // avant de proposer son prix.
@@ -49,6 +63,7 @@ export function RequestPopup({
         proposedPrice: price,
         seatsLeft,
         firstStop: firstStop.trim(),
+        unpavedAccepted: destDifficult ? takeUnpaved : false,
       }),
     });
     const data = await res.json().catch(() => null);
@@ -111,6 +126,39 @@ export function RequestPopup({
           <Route size={15} className="text-stacks-green shrink-0" />
           ~{Math.max(1, Math.round(tripEstimate.distanceKm))} km · ~{tripEstimate.durationMin} min de trajet
         </p>
+
+        {/* Route non bitumée (v2.6) : destination à accès difficile.
+            Le passager a demandé la piste ou non ; le chauffeur choisit
+            librement — refuser = arrêt au point de dépôt, supplément
+            retiré (le prix ci-dessous s'ajuste de 800 FCFA). */}
+        {destDifficult && dropOff && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-2.5">
+            <p className="text-sm font-bold text-amber-800 leading-snug">
+              Accès difficile : la route bitumée s’arrête à {dropOff}.
+              {ride.unpavedRequested
+                ? ` Le passager demande la piste jusqu’à ${ride.destination} (+${formatFcfa(UNPAVED_ROAD_SUPPLEMENT)} inclus dans l’estimation).`
+                : ` Le passager n’a pas demandé la piste : la course s’arrête à ${dropOff}.`}
+            </p>
+            {ride.unpavedRequested && (
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={takeUnpaved}
+                  onChange={(e) => toggleUnpaved(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-[#15803d]"
+                />
+                <span className="text-sm text-slate-700 leading-snug">
+                  <span className="font-black text-slate-900">
+                    Je prends la route non bitumée jusqu’à {ride.destination} (+{formatFcfa(UNPAVED_ROAD_SUPPLEMENT)})
+                  </span>
+                  <span className="block text-xs text-slate-500 mt-0.5">
+                    Si tu décoches, la course s’arrête à {dropOff} et le supplément est retiré du prix.
+                  </span>
+                </span>
+              </label>
+            )}
+          </div>
+        )}
 
         <form onSubmit={submit} className="space-y-4">
           {error && (

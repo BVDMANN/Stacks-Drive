@@ -13,6 +13,8 @@ export function ProposalCard({
   etaMin,
   secondsLeft,
   busy,
+  dropOffPoint,
+  destinationLabel,
   onAccept,
   onDecline,
 }: {
@@ -21,6 +23,10 @@ export function ProposalCard({
   etaMin: number | null;
   secondsLeft: number;
   busy: boolean;
+  /** Point de dépôt quand la destination est à accès difficile (v2.6).
+   *  Null = destination normale, rien à afficher. */
+  dropOffPoint?: string | null;
+  destinationLabel?: string;
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;
 }) {
@@ -88,6 +94,17 @@ export function ProposalCard({
           <p className="inline-flex items-center gap-1">
             <MapPin size={13} /> 1er arrêt : {proposal.firstStop}
           </p>
+          {/* Route non bitumée (v2.6) : le chauffeur dit clairement s'il
+              prend la piste jusqu'à la destination ou s'il s'arrête au
+              point de dépôt (supplément retiré). */}
+          {dropOffPoint && (
+            <p className="inline-flex items-center gap-1 text-gold">
+              <MapPin size={13} />
+              {proposal.unpavedAccepted
+                ? `Route non bitumée acceptée jusqu’à ${destinationLabel ?? 'la destination'}`
+                : `S’arrête au point de dépôt : ${dropOffPoint}`}
+            </p>
+          )}
         </div>
       </div>
 

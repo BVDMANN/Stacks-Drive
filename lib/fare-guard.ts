@@ -48,13 +48,18 @@ export function isFareInBounds(amount: number): boolean {
 
 /** Revalide un prix proposé par un chauffeur contre la matrice tarifaire.
  *  Le chauffeur propose son prix, mais il ne peut pas s'éloigner du
- *  tarif de référence (sinon : trop-perçu ou erreur de saisie). */
+ *  tarif de référence (sinon : trop-perçu ou erreur de saisie).
+ *  Route non bitumée (v2.6) : la référence inclut le supplément SEULEMENT
+ *  si le chauffeur prend la route non bitumée — un chauffeur qui refuse
+ *  la piste propose le tarif de base (sans supplément) et doit être
+ *  validé contre la base, sinon sa proposition serait rejetée à tort. */
 export function validateProposedPrice(
   pickup: Neighborhood,
   destination: Neighborhood,
   rideType: RideType,
   vehiclePreference: VehiclePreference,
-  proposedPrice: number
+  proposedPrice: number,
+  options: { unpavedRoad?: boolean } = {}
 ): FareCheck {
   if (!Number.isFinite(proposedPrice) || proposedPrice <= 0) {
     return { ok: false, message: 'Prix invalide : le montant doit être supérieur à 0 FCFA.' };
@@ -65,7 +70,7 @@ export function validateProposedPrice(
       message: `Prix impossible : une course à Libreville coûte entre ${FARE_MIN_FCFA} et ${FARE_MAX_FCFA} FCFA. Vérifie le montant et réessaie.`,
     };
   }
-  const estimate = estimateFare(pickup, destination, rideType, vehiclePreference);
+  const estimate = estimateFare(pickup, destination, rideType, vehiclePreference, options);
   const low = Math.floor(estimate.price * PRICE_TOLERANCE_LOW);
   const high = Math.ceil(estimate.price * PRICE_TOLERANCE_HIGH);
   if (proposedPrice < low || proposedPrice > high) {
@@ -79,15 +84,18 @@ export function validateProposedPrice(
 }
 
 /** Revalide le tarif figé à l'acceptation (le passager accepte) : on
- *  recalcule depuis la matrice et on compare au prix proposé. */
+ *  recalcule depuis la matrice et on compare au prix proposé. La
+ *  référence reprend le choix route non bitumée de la proposition
+ *  acceptée — sinon un prix avec supplément serait rejeté. */
 export function validateAcceptedPrice(
   pickup: Neighborhood,
   destination: Neighborhood,
   rideType: RideType,
   vehiclePreference: VehiclePreference,
-  proposedPrice: number
+  proposedPrice: number,
+  options: { unpavedRoad?: boolean } = {}
 ): FareCheck {
-  return validateProposedPrice(pickup, destination, rideType, vehiclePreference, proposedPrice);
+  return validateProposedPrice(pickup, destination, rideType, vehiclePreference, proposedPrice, options);
 }
 
 /** Vérifie qu'une découpe tarif / commission est cohérente : la

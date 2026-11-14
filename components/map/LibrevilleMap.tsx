@@ -3,7 +3,8 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { LIBREVILLE_CENTER } from '@/lib/neighborhoods';
+import { LIBREVILLE_CENTER, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_LABEL_OFFSET, NEIGHBORHOOD_LABEL_TIER, type Neighborhood } from '@/lib/neighborhoods';
+import { POIS, POI_CATEGORY_LABELS, type PoiCategory } from '@/lib/pois';
 
 export interface MapDriver {
   id: string;
@@ -37,9 +38,26 @@ export interface FocusPoint {
   nonce: number;
 }
 
-const CAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`;
+/** Glyphs « Nuit dorée » (v2.5) : trait sombre #070B16 sur pastille or.
+ *  La moto a son propre glyph (lucide « bike ») — visible d'un coup
+ *  d'œil, contrairement à l'ancienne voiture blanche unique. */
+const CAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#070B16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`;
+
+const MOTO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#070B16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="6" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>`;
 
 const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#FFD60A" stroke="#FFD60A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="#0B1020"/></svg>`;
+
+/** Pictogrammes des points d'intérêt (v2.6) — traits fins, couleur or
+ *  héritée du CSS (.map-poi-icon). Un pictogramme par catégorie. */
+const POI_SVG: Record<PoiCategory, string> = {
+  supermarche: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>`,
+  marche: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 2 3 4H3l3-4Z" fill="none"/><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+  station: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="15" y1="22" y2="22"/><line x1="4" x2="14" y1="9" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/></svg>`,
+  pharmacie: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v2c0 1.1.9 2 2 2h5v5c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2v-5h5a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2h-2z"/></svg>`,
+  hotel: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>`,
+  sante: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>`,
+  lieu: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>`,
+};
 
 /** Dérive lente des chauffeurs démo : ils « roulent » autour de leur
  *  quartier (orbite sinusoïdale, ~150 m d'amplitude) pour donner une
@@ -64,9 +82,13 @@ function demoDrift(
 }
 
 function driverIcon(d: MapDriver, isAssigned: boolean, isSelected: boolean) {
+  const isMoto = d.vehicleType === 'Moto';
+  // Badge note (★ 4.8) : hors du glyph, il ne tourne pas avec le cap.
+  const badge =
+    d.rating != null ? `<span class="map-driver-badge">★ ${d.rating.toFixed(1)}</span>` : '';
   return L.divIcon({
     className: 'map-driver-icon',
-    html: `<div class="map-driver-marker${isAssigned ? ' assigned' : ''}${isSelected ? ' selected' : ''}">${CAR_SVG}</div>`,
+    html: `<div class="map-driver-marker${isMoto ? ' moto' : ''}${isAssigned ? ' assigned' : ''}${isSelected ? ' selected' : ''}"><span class="map-driver-glyph">${isMoto ? MOTO_SVG : CAR_SVG}</span>${badge}</div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
   });
@@ -159,6 +181,73 @@ export function LibrevilleMap({
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     routeLayersRef.current = L.layerGroup().addTo(map);
     driverLayerRef.current = L.layerGroup().addTo(map);
+    // Libellés de quartiers (v2.5) : permanents, discrets, non
+    // interactifs, sous les marqueurs chauffeurs (zIndexOffset négatif).
+    // Tier 1 dès le zoom 11, tier 2 seulement à partir du zoom 14 —
+    // aux zooms bas, les petits quartiers sont masqués pour ne pas
+    // surcharger la carte. 'Autre' n'est pas un lieu : pas de libellé.
+    const labelMajor = L.layerGroup().addTo(map);
+    const labelMinor = L.layerGroup();
+    (Object.keys(NEIGHBORHOOD_COORDS) as Neighborhood[]).forEach((n) => {
+      if (n === 'Autre') return;
+      const c = NEIGHBORHOOD_COORDS[n];
+      const o = NEIGHBORHOOD_LABEL_OFFSET[n];
+      const icon = L.divIcon({
+        className: 'map-neighborhood-icon',
+        html: o
+          ? `<div class="map-neighborhood-label" style="transform: translate(calc(-50% + ${o.x}px), calc(-50% + ${o.y}px))">${n}</div>`
+          : `<div class="map-neighborhood-label">${n}</div>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      });
+      L.marker([c.lat, c.lng], {
+        icon,
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: -500,
+      }).addTo(NEIGHBORHOOD_LABEL_TIER[n] === 1 ? labelMajor : labelMinor);
+    });
+    // Points d'intérêt (v2.6) : magasins, marchés, stations, pharmacies,
+    // hôtels, santé, lieux publics — pictogramme de catégorie + petit
+    // libellé, discrets, non cliquables, sous les marqueurs chauffeurs.
+    // (Créée avant updateLabels : la fonction est appelée aussitôt.)
+    const poiLayer = L.layerGroup();
+    POIS.forEach((poi) => {
+      const icon = L.divIcon({
+        className: 'map-poi-icon',
+        html: `<div class="map-poi-marker"><span class="map-poi-glyph">${POI_SVG[poi.category]}</span><span class="map-poi-label">${poi.name}</span></div>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      });
+      L.marker([poi.lat, poi.lng], {
+        icon,
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: -400,
+      })
+        .bindTooltip(`${poi.name} · ${POI_CATEGORY_LABELS[poi.category]} · près de ${poi.neighborhood}`, {
+          direction: 'top',
+          offset: [0, -14],
+          className: 'map-tooltip',
+        })
+        .addTo(poiLayer);
+    });
+    const updateLabels = () => {
+      const z = map.getZoom();
+      if (z >= 11) labelMajor.addTo(map);
+      else map.removeLayer(labelMajor);
+      if (z >= 14) labelMinor.addTo(map);
+      else map.removeLayer(labelMinor);
+      // Points d'intérêt (v2.6) : à partir du zoom 13 seulement, pour
+      // ne pas surcharger la vue d'ensemble ; libellés seulement à
+      // partir du zoom 15 (à 13-14, pictogrammes seuls : les libellés
+      // du Centre-ville se chevauchaient).
+      if (z >= 13) poiLayer.addTo(map);
+      else map.removeLayer(poiLayer);
+      map.getContainer().classList.toggle('map-poi-labels-on', z >= 15);
+    };
+    map.on('zoomend', updateLabels);
+    updateLabels();
     mapRef.current = map;
     return () => {
       map.remove();
@@ -334,7 +423,8 @@ export function LibrevilleMap({
             entry.speed
           );
           entry.marker.setLatLng([lat, lng]);
-          const el = entry.marker.getElement()?.querySelector('svg') as HTMLElement | null;
+          // Rotation du glyph seul (le badge ★ reste droit).
+          const el = entry.marker.getElement()?.querySelector('.map-driver-glyph') as HTMLElement | null;
           if (el) el.style.transform = `rotate(${heading.toFixed(0)}deg)`;
         });
       }

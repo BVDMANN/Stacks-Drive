@@ -152,21 +152,25 @@ html {
 .map-driver-icon,
 .map-pickup-icon,
 .map-dest-icon,
-.map-user-icon {
+.map-user-icon,
+.map-neighborhood-icon {
   background: transparent;
   border: none;
 }
 
-/* 🚗 Marqueur chauffeur v2.1 : disque nuit, halo orange braise, pastille
-   cyan « en ligne », voiture blanche. Le halo pulse doucement. */
+/* 🚗 Marqueur chauffeur v2.5 « Nuit dorée » : pastille or, glyph sombre,
+   anneau cyan discret qui pulse = en ligne. La moto a son propre glyph.
+   Le badge ★ (note) reste fixe pendant que le glyph tourne avec le cap.
+   Sélectionné : bordure blanche + anneau cyan fort. Assigné : rebond
+   + pastille ✓ sombre en bas à droite. */
 .map-driver-marker {
   width: 44px;
   height: 44px;
   border-radius: 9999px;
-  background: #12182b;
-  border: 2px solid #FFC700;
+  background: linear-gradient(145deg, #ffd60a 0%, #ffc700 55%, #f0b400 100%);
+  border: 2px solid #070b16;
   box-shadow:
-    0 0 0 4px rgba(255, 199, 0, 0.18),
+    0 0 0 3px rgba(34, 211, 238, 0.35),
     0 6px 16px rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
@@ -175,43 +179,125 @@ html {
   transition: transform 0.2s ease;
   animation: driver-halo 2.6s ease-in-out infinite;
 }
-.map-driver-marker::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 10px;
-  height: 10px;
-  border-radius: 9999px;
-  background: #22D3EE;
-  border: 2px solid #12182b;
-  box-shadow: 0 0 6px rgba(34, 211, 238, 0.9);
-}
-.map-driver-marker svg {
+.map-driver-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: transform 0.3s linear;
   will-change: transform;
 }
+.map-driver-badge {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  border-radius: 9999px;
+  background: #070b16;
+  border: 1px solid rgba(255, 199, 0, 0.65);
+  color: #ffd60a;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.5;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
 @keyframes driver-halo {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 199, 0, 0.22), 0 6px 16px rgba(0, 0, 0, 0.55); }
-  50% { box-shadow: 0 0 0 7px rgba(255, 199, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.55); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.38), 0 6px 16px rgba(0, 0, 0, 0.55); }
+  50% { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0.1), 0 6px 16px rgba(0, 0, 0, 0.55); }
 }
 .map-driver-marker.selected {
-  transform: scale(1.15);
-  background: #FFC700;
-  border-color: #ffd60a;
+  transform: scale(1.18);
+  border-color: #ffffff;
+  box-shadow:
+    0 0 0 4px rgba(34, 211, 238, 0.65),
+    0 0 18px rgba(34, 211, 238, 0.45),
+    0 6px 16px rgba(0, 0, 0, 0.55);
   animation: none;
 }
 .map-driver-marker.assigned {
-  background: #ffd60a;
-  border-color: #0b1020;
+  border-color: #ffffff;
   animation: driver-bounce 1.6s ease-in-out infinite;
 }
 .map-driver-marker.assigned::after {
-  background: #FFC700;
+  content: '✓';
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #070b16;
+  color: #ffd60a;
+  border: 2px solid #ffd60a;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
 }
 @keyframes driver-bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
+}
+
+/* 🏘️ Libellés de quartiers (v2.5) : petites capitales discrètes,
+   semi-transparentes, centrées sur le centre du quartier, jamais
+   cliquables (pointer-events: none) et sous les marqueurs. */
+.map-neighborhood-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(244, 246, 255, 0.55);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+/* 🏪 Points d'intérêt (v2.6) : pastille sombre discrète avec
+   pictogramme or + petit libellé blanc, centrée sur le lieu, jamais
+   cliquable (pointer-events: none) et sous les marqueurs chauffeurs. */
+.map-poi-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.map-poi-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  background: rgba(7, 11, 22, 0.88);
+  border: 1.5px solid rgba(255, 199, 0, 0.75);
+  color: #ffc700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+.map-poi-label {
+  display: none;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(244, 246, 255, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.9);
+}
+/* Libellés POI visibles seulement à partir du zoom 15 (classe posée
+   sur le conteneur Leaflet) : à 13-14, pictogrammes seuls. */
+.map-poi-labels-on .map-poi-label {
+  display: block;
 }
 
 /* 📍 Point de départ : pastille orange braise pulsante */

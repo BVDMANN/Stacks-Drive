@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import {
   Bike,
   Car,
+  ChevronDown,
   ChevronUp,
   Clock,
   Crosshair,
@@ -30,10 +31,12 @@ import {
   NEIGHBORHOODS,
   NEIGHBORHOOD_COORDS,
   PAYMENT_LABELS,
+  dropOffPointFor,
+  isDifficultAccess,
   type Neighborhood,
   type PaymentMethod,
 } from '@/lib/neighborhoods';
-import { estimateFare, etaMinutes, type RideType, type VehiclePreference } from '@/lib/pricing';
+import { UNPAVED_ROAD_SUPPLEMENT, estimateFare, etaMinutes, type RideType, type VehiclePreference } from '@/lib/pricing';
 import { haversineKm, nearestNeighborhood } from '@/lib/geo';
 import {
   geoErrorMessage,
@@ -70,10 +73,12 @@ const FIXED_FARES: { pickup: Neighborhood; destination: Neighborhood; label: str
 
 const SELECTABLE = NEIGHBORHOODS.filter((n) => n !== 'Autre');
 
-/** Hauteurs de la feuille (dvh) : mini (poignée + titre), réduite,
- *  mi-hauteur, pleine. Le cran mini (12) n'existe qu'en phase idle :
- *  glisser la feuille vers le bas l'y range et libère la carte. */
-const SHEET_SNAPS = [12, 30, 58, 88];
+/** Hauteurs de la feuille (dvh), façon Uber / Bolt / Yango : trois crans
+ *  nets — mini (15 : poignée + titre, la carte est quasi entièrement
+ *  visible), aperçu (30) et pleine (58). Le cran mini n'existe qu'en
+ *  phase idle : glisser la feuille vers le bas l'y range et libère la
+ *  carte. Pas de cran 88 : la pleine hauteur suffit, même en course. */
+const SHEET_SNAPS = [15, 30, 58];
 
 interface Draft {
   pickup: Neighborhood | '';
@@ -165,6 +170,10 @@ export function HomeScreen({
   const [vehiclePref, setVehiclePref] = useState<VehiclePreference>('tous');
   const [seats, setSeats] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('especes');
+  // Route non bitumée (v2.6) : le passager demande la continuité
+  // jusqu'à un quartier à accès difficile (+ supplément). Remis à zéro
+  // à chaque changement de destination.
+  const [unpavedRoad, setUnpavedRoad] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [rideId, setRideId] = useState<string | null>(null);
   const [proposals, setProposals] = useState<RideProposal[]>([]);
@@ -202,6 +211,33 @@ export function HomeScreen({
   // Feuille dépliée : les pastilles du haut de la carte s'effacent
   // (elles glissent vers le haut au lieu de rester figées sur la carte).
   const sheetExpanded = sheetH >= 58;
+  // Feuille à pleine hauteur : le chevron de la poignée pointe vers le
+  // bas (replier), sinon vers le haut (déplier).
+  const atFull = sheetH >= 58;
+
+  // Crans autorisés selon la phase : en idle les trois, sinon aperçu et
+  // pleine seulement (la feuille reste utilisable pendant une course).
+  function allowedSnaps() {
+    return phase === 'idle' ? SHEET_SNAPS : SHEET_SNAPS.filter((s) => s >= 30);
+  }
+  // Bascule entre crans, dans l'ordre : mini → aperçu → pleine → mini
+  // (idle) ou aperçu ↔ pleine (recherche / course). Utilisée par le tap
+  // sur la poignée et par le bouton chevron — jamais de saut direct.
+  function cycleSheet() {
+    const snaps = allowedSnaps();
+    setSheetH((h) => {
+      let idx = 0;
+      let bestDist = Infinity;
+      snaps.forEach((s, i) => {
+        const d = Math.abs(h - s);
+        if (d < bestDist) {
+          bestDist = d;
+          idx = i;
+        }
+      });
+      return snaps[(idx + 1) % snaps.length];
+    });
+  }
 
   // Restaurer le brouillon après connexion.
   useEffect(() => {
@@ -218,26 +254,37 @@ export function HomeScreen({
   }, []);
 
   const validTrip = pickup !== '' && destination !== '' && pickup !== destination;
+  // Destination à accès difficile ? La course s'arrête par défaut au
+  // point de dépôt, sauf si le passager coche la route non bitumée.
+  const destDifficult = destination !== '' && isDifficultAccess(destination as Neighborhood);
+  const destDropOff =
+    destination !== '' ? dropOffPointFor(destination as Neighborhood) : null;
   const estimate = useMemo(
     () =>
       validTrip
-        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, rideType, vehiclePref)
+        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, rideType, vehiclePref, {
+            unpavedRoad,
+          })
         : null,
-    [pickup, destination, rideType, vehiclePref, validTrip]
+    [pickup, destination, rideType, vehiclePref, unpavedRoad, validTrip]
   );
   const estimateSolo = useMemo(
     () =>
       validTrip
-        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, 'solo', vehiclePref)
+        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, 'solo', vehiclePref, {
+            unpavedRoad,
+          })
         : null,
-    [pickup, destination, vehiclePref, validTrip]
+    [pickup, destination, vehiclePref, unpavedRoad, validTrip]
   );
   const estimateGroupe = useMemo(
     () =>
       validTrip
-        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, 'groupe', 'tous')
+        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, 'groupe', 'tous', {
+            unpavedRoad,
+          })
         : null,
-    [pickup, destination, validTrip]
+    [pickup, destination, unpavedRoad, validTrip]
   );
 
   // Tous les chauffeurs en ligne : réels + démos. La carte et le compteur
@@ -435,6 +482,13 @@ export function HomeScreen({
     setGeoLabel(null);
   }
 
+  // Choix de la destination : la demande de route non bitumée repart
+  // de zéro (elle ne vaut que pour le quartier choisi).
+  function handleDestinationChange(value: Neighborhood | '') {
+    setDestination(value);
+    setUnpavedRoad(false);
+  }
+
   // Bouton « Recentrer » sur la carte : sur moi si localisé, sinon Libreville.
   function handleRecenter() {
     focusNonceRef.current += 1;
@@ -474,14 +528,14 @@ export function HomeScreen({
     setIsDragging(false);
     if (!drag) return;
     if (!drag.moved) {
-      // Simple tap sur la poignée : mini → mi-hauteur, pleine → réduite,
-      // réduite/mi-hauteur → mi-hauteur.
-      setSheetH((h) => (h <= 20 ? 58 : h > 45 ? 30 : 58));
+      // Simple tap sur la poignée : bascule au cran suivant (mini →
+      // aperçu → pleine → mini en idle ; aperçu ↔ pleine sinon).
+      cycleSheet();
       return;
     }
     // Glisser : on s'arrête au cran le plus proche. Hors phase idle, le
     // cran mini n'existe pas : le minimum est 30.
-    const snaps = phase === 'idle' ? SHEET_SNAPS : SHEET_SNAPS.filter((s) => s >= 30);
+    const snaps = allowedSnaps();
     setSheetH((h) => {
       let best = snaps[0];
       let bestDist = Infinity;
@@ -519,6 +573,7 @@ export function HomeScreen({
         vehiclePreference: vehiclePref,
         seats: rideType === 'groupe' ? seats : 1,
         paymentMethod,
+        unpavedRoad,
       }),
     });
     const data = await res.json().catch(() => null);
@@ -656,18 +711,40 @@ export function HomeScreen({
         }}
       >
         <div className="sheet-glass sheet-up h-full overflow-y-auto overscroll-contain rounded-t-[28px] sm:rounded-[28px] shadow-2xl shadow-black/60">
-          {/* Poignée draggable */}
-          <button
-            type="button"
-            className="sheet-handle touch-none w-full pt-2.5 pb-1.5 flex justify-center"
-            onPointerDown={onHandlePointerDown}
-            onPointerMove={onHandlePointerMove}
-            onPointerUp={onHandlePointerUp}
-            onPointerCancel={onHandlePointerUp}
-            aria-label="Glisser pour agrandir ou réduire la feuille"
-          >
-            <span className="sheet-handle-bar w-10 h-1.5 rounded-full bg-white/30" />
-          </button>
+          {/* Poignée draggable + bouton chevron (façon Uber) : la poignée
+              se glisse au doigt, le chevron — toujours visible, à droite
+              de la poignée — replie / déplie la feuille cran par cran.
+              Les deux sont des boutons frères (jamais imbriqués) pour que
+              le tap sur le chevron ne déclenche pas un glisser. */}
+          <div className="relative">
+            <button
+              type="button"
+              className="sheet-handle touch-none w-full pt-2.5 pb-1.5 flex justify-center"
+              onPointerDown={onHandlePointerDown}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+              onPointerCancel={onHandlePointerUp}
+              aria-label="Glisser pour agrandir ou réduire la feuille"
+            >
+              <span className="sheet-handle-bar w-10 h-1.5 rounded-full bg-white/30" />
+            </button>
+            {/* Chevron masqué en mini : la ligne mini a déjà son
+                propre chevron, sinon deux chevrons se superposent. */}
+            {!isMini && (
+            <button
+              type="button"
+              onClick={cycleSheet}
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-night-800/90 backdrop-blur border border-white/15 shadow-lg shadow-black/40 hover:border-cyan/60 active:scale-90 transition-all"
+              aria-label={atFull ? 'Replier la feuille' : 'Déplier la feuille'}
+            >
+              {atFull ? (
+                <ChevronDown size={18} className="text-cyan" />
+              ) : (
+                <ChevronUp size={18} className="text-cyan" />
+              )}
+            </button>
+            )}
+          </div>
 
           {/* Cran mini : poignée + titre seulement — la carte est libérée.
               Tap sur la barre = rouvrir ; la poignée reste draggable. */}
@@ -758,7 +835,7 @@ export function HomeScreen({
                     </span>
                     <select
                       value={destination}
-                      onChange={(e) => setDestination(e.target.value as Neighborhood | '')}
+                      onChange={(e) => handleDestinationChange(e.target.value as Neighborhood | '')}
                       className="w-full bg-transparent font-bold text-white focus:outline-none py-0.5"
                       aria-label="Destination"
                     >
@@ -769,6 +846,36 @@ export function HomeScreen({
                     </select>
                   </span>
                 </label>
+                {/* Accès difficile (v2.6) : la route bitumée s'arrête au
+                    point de dépôt — le passager choisit d'y descendre ou
+                    de demander la piste (+ supplément). Le chauffeur
+                    reste libre d'accepter ou non la piste. */}
+                {destDifficult && destDropOff && (
+                  <div className="bg-gold/10 border border-gold/40 rounded-2xl p-3.5 space-y-2.5">
+                    <p className="text-sm font-bold text-gold flex items-start gap-1.5">
+                      <MapPin size={15} className="shrink-0 mt-0.5" />
+                      Accès difficile : la route bitumée s’arrête à {destDropOff}. La course
+                      s’y termine par défaut.
+                    </p>
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={unpavedRoad}
+                        onChange={(e) => setUnpavedRoad(e.target.checked)}
+                        className="mt-0.5 h-5 w-5 shrink-0 accent-[#FFC700]"
+                      />
+                      <span className="text-sm text-slate-200 leading-snug">
+                        <span className="font-black text-white">
+                          Continuer sur route non bitumée (+{formatFcfa(UNPAVED_ROAD_SUPPLEMENT)})
+                        </span>
+                        <span className="block text-xs text-slate-400 mt-0.5">
+                          Le chauffeur peut accepter ou refuser la piste : s’il refuse, tu
+                          descends au point de dépôt ({destDropOff}) et le supplément est retiré.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                )}
                 {pickup !== '' && destination !== '' && pickup === destination && (
                   <p className="text-xs font-bold text-red-300">
                     Le départ et la destination doivent être différents.
@@ -789,6 +896,7 @@ export function HomeScreen({
                       onClick={() => {
                         setPickup(f.pickup);
                         setDestination(f.destination);
+                        setUnpavedRoad(false);
                         setPickupExact(null);
                         setGeoLabel(null);
                         setRideType('groupe');
@@ -1049,6 +1157,8 @@ export function HomeScreen({
                       etaMin={etaForProposal(p)}
                       secondsLeft={p.secondsLeft ?? 0}
                       busy={busyProposalId !== null}
+                      dropOffPoint={destDifficult ? destDropOff : null}
+                      destinationLabel={destination}
                       onAccept={accepter}
                       onDecline={refuser}
                     />
@@ -1087,6 +1197,16 @@ export function HomeScreen({
                   {acceptedRide.pickup} → {acceptedRide.destination} ·{' '}
                   {acceptedRide.rideType === 'groupe' ? 'Groupe' : 'Solo'}
                   {acceptedRide.firstStop ? ` · 1er arrêt : ${acceptedRide.firstStop}` : ''}
+                  {acceptedRide.dropOffPoint && acceptedRide.unpavedAccepted === false && (
+                    <span className="block text-gold font-bold">
+                      Arrêt au point de dépôt : {acceptedRide.dropOffPoint} (route non bitumée non prise)
+                    </span>
+                  )}
+                  {acceptedRide.dropOffPoint && acceptedRide.unpavedAccepted === true && (
+                    <span className="block text-slate-400">
+                      Route non bitumée acceptée jusqu’à {acceptedRide.destination}
+                    </span>
+                  )}
                 </p>
               </div>
               <DriverCard
@@ -1133,6 +1253,22 @@ export function HomeScreen({
           )}
         </div>
       </div>
+
+      {/* Bouton flottant « remonter la feuille » — visible uniquement en
+          cran mini (phase idle) : il flotte juste au-dessus de la feuille
+          repliée, à droite, pour rouvrir le formulaire sans viser la
+          fine barre du bas. Or « Nuit dorée », chevron cyan. */}
+      {isMini && (
+        <button
+          type="button"
+          onClick={() => setSheetH(58)}
+          className="absolute right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-or text-night-950 shadow-2xl shadow-black/50 hover:bg-or-light active:scale-90 transition-all"
+          style={{ bottom: `calc(${sheetH}dvh + 14px)` }}
+          aria-label="Remonter la feuille de demande"
+        >
+          <ChevronUp size={22} />
+        </button>
+      )}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { isSupabaseConfigured } from '@/lib/supabase/config';
 import {
   NEIGHBORHOODS,
   PAYMENT_METHODS,
+  dropOffPointFor,
+  isDifficultAccess,
   type Neighborhood,
 } from '@/lib/neighborhoods';
 import { estimateFare } from '@/lib/pricing';
@@ -23,9 +25,15 @@ const RequestSchema = z
     vehiclePreference: z.enum(['voiture', 'moto', 'tous']).default('tous'),
     seats: z.number().int().min(1).max(4).default(1),
     paymentMethod: z.enum(PAYMENT_METHODS).default('especes'),
+    /** Route non bitumée (v2.6) : le passager demande la continuité
+     *  jusqu'à un quartier à accès difficile (+ supplément). */
+    unpavedRoad: z.boolean().default(false),
   })
   .refine((v) => v.pickup !== v.destination, {
     message: 'Le départ et la destination doivent être différents.',
+  })
+  .refine((v) => !v.unpavedRoad || isDifficultAccess(v.destination), {
+    message: 'La route non bitumée ne concerne que les quartiers à accès difficile.',
   })
   .refine((v) => (v.rideType === 'solo' ? v.seats === 1 : true), {
     message: 'Une course Solo ne prend qu’un seul passager.',
@@ -81,7 +89,13 @@ export async function POST(request: NextRequest) {
     );
   }
   const v = parsed.data;
-  const estimate = estimateFare(v.pickup, v.destination, v.rideType, v.vehiclePreference);
+  const estimate = estimateFare(v.pickup, v.destination, v.rideType, v.vehiclePreference, {
+    unpavedRoad: v.unpavedRoad,
+  });
+  // Point de dépôt (v2.6) : si la destination est à accès difficile, la
+  // course s'arrête par défaut là — sauf si le chauffeur accepte la
+  // piste (choix figé à l'acceptation).
+  const dropOff = isDifficultAccess(v.destination) ? dropOffPointFor(v.destination) : null;
 
   // Garde-fou tarifaire (v2.2) : le tarif estimé doit être dans les
   // bornes — un tarif hors bornes = anomalie, on bloque et on journalise.
@@ -99,25 +113,40 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: ride, error } = await supabase
+  const insertPayload: Record<string, unknown> = {
+    passenger_id: user.id,
+    pickup: v.pickup,
+    destination: v.destination,
+    ride_type: v.rideType,
+    vehicle_preference: v.vehiclePreference,
+    seats: v.seats,
+    estimated_price: estimate.price,
+    payment_method: v.paymentMethod,
+    message: '',
+    status: 'recherche',
+    unpaved_requested: v.unpavedRoad,
+    drop_off_point: dropOff,
+  };
+  let { data: ride, error } = await supabase
     .from('rides')
-    .insert({
-      passenger_id: user.id,
-      pickup: v.pickup,
-      destination: v.destination,
-      ride_type: v.rideType,
-      vehicle_preference: v.vehiclePreference,
-      seats: v.seats,
-      estimated_price: estimate.price,
-      payment_method: v.paymentMethod,
-      message: '',
-      status: 'recherche',
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
 
-  if (error) {
-    console.error('[api/rides]', error.message);
+  // Migration v2.6 pas encore appliquée : on crée la demande sans les
+  // champs v2.6 (le tarif estimé, lui, inclut déjà le supplément).
+  if (error && error.code === '42703') {
+    delete insertPayload.unpaved_requested;
+    delete insertPayload.drop_off_point;
+    ({ data: ride, error } = await supabase
+      .from('rides')
+      .insert(insertPayload)
+      .select('id')
+      .single());
+  }
+
+  if (error || !ride) {
+    console.error('[api/rides]', error?.message);
     return NextResponse.json(
       { error: 'Demande impossible pour le moment. Réessaie.' },
       { status: 500 }
@@ -130,6 +159,8 @@ export async function POST(request: NextRequest) {
     destination: v.destination,
     rideType: v.rideType,
     estimatedPrice: estimate.price,
+    unpavedRequested: v.unpavedRoad,
+    dropOffPoint: dropOff,
   });
   return NextResponse.json(
     { ok: true, rideId: ride.id, estimatedPrice: estimate.price },

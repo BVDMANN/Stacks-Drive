@@ -7,13 +7,16 @@ import { validateProposedPrice } from '@/lib/fare-guard';
 import { getDriverOwed } from '@/lib/earnings';
 import { DEBT_CAP_FCFA } from '@/lib/gamification';
 import { logAudit } from '@/lib/audit';
-import type { Neighborhood } from '@/lib/neighborhoods';
+import { isDifficultAccess, type Neighborhood } from '@/lib/neighborhoods';
 
 const ProposeSchema = z.object({
   rideId: z.string().uuid(),
   proposedPrice: z.number().int().min(100, 'Prix minimum : 100 FCFA.').max(100000),
   seatsLeft: z.number().int().min(1, 'Au moins 1 place.').max(9),
   firstStop: z.string().trim().min(2, 'Indique le premier arrêt.').max(120),
+  /** Route non bitumée (v2.6) : le chauffeur prend la piste jusqu'à la
+   *  destination (true) ou s'arrête au point de dépôt (false). */
+  unpavedAccepted: z.boolean().default(false),
 });
 
 /** POST /api/proposals — le chauffeur en ligne propose un prix, des places
@@ -66,7 +69,9 @@ export async function POST(request: NextRequest) {
 
   const { data: ride } = await supabase
     .from('rides')
-    .select('id, passenger_id, status, ride_type, seats, created_at, pickup, destination, vehicle_preference')
+    // select('*') : résilient si la migration v2.6 n'est pas encore
+    // appliquée (unpaved_requested / drop_off_point absents → undefined).
+    .select('*')
     .eq('id', v.rideId)
     .single();
   if (!ride || !['recherche', 'propositions'].includes(ride.status)) {
@@ -97,12 +102,19 @@ export async function POST(request: NextRequest) {
   // Garde-fou tarifaire (v2.2) : le prix proposé est revalidé côté
   // serveur contre la matrice — un trop-perçu est refusé, journalisé,
   // et expliqué au chauffeur. Jamais de course créée avec un prix fou.
+  // Route non bitumée (v2.6) : la référence inclut le supplément
+  // SEULEMENT si le chauffeur prend la piste — et seulement si la
+  // destination est vraiment à accès difficile (sinon un chauffeur
+  // pourrait gonfler son prix de 800 FCFA sur un trajet normal).
+  const takesUnpaved =
+    v.unpavedAccepted && isDifficultAccess(ride.destination as Neighborhood);
   const fareCheck = validateProposedPrice(
     ride.pickup as Neighborhood,
     ride.destination as Neighborhood,
     ride.ride_type as 'solo' | 'groupe',
     ride.vehicle_preference as 'voiture' | 'moto' | 'tous',
-    v.proposedPrice
+    v.proposedPrice,
+    { unpavedRoad: takesUnpaved }
   );
   if (!fareCheck.ok) {
     await logAudit(supabase, 'price_rejected', {
@@ -110,6 +122,7 @@ export async function POST(request: NextRequest) {
       rideId: v.rideId,
       proposedPrice: v.proposedPrice,
       referencePrice: fareCheck.referencePrice ?? null,
+      unpavedAccepted: takesUnpaved,
     });
     return NextResponse.json({ error: fareCheck.message }, { status: 400 });
   }
@@ -127,28 +140,42 @@ export async function POST(request: NextRequest) {
   }
 
   const expiresAt = new Date(Date.now() + 60 * 1000).toISOString();
-  const { data: proposal, error } = await supabase
+  const proposalPayload: Record<string, unknown> = {
+    ride_id: v.rideId,
+    driver_id: user.id,
+    proposed_price: v.proposedPrice,
+    seats_left: v.seatsLeft,
+    first_stop: v.firstStop,
+    status: 'pending',
+    expires_at: expiresAt,
+    unpaved_accepted: takesUnpaved,
+  };
+  let { data: proposal, error } = await supabase
     .from('ride_proposals')
-    .insert({
-      ride_id: v.rideId,
-      driver_id: user.id,
-      proposed_price: v.proposedPrice,
-      seats_left: v.seatsLeft,
-      first_stop: v.firstStop,
-      status: 'pending',
-      expires_at: expiresAt,
-    })
+    .insert(proposalPayload)
     .select('id')
     .single();
 
-  if (error) {
-    if (error.code === '23505') {
+  // Migration v2.6 pas encore appliquée : on enregistre la proposition
+  // sans le champ v2.6 (le prix, lui, a déjà été validé avec le bon
+  // référentiel — avec ou sans supplément).
+  if (error && error.code === '42703') {
+    delete proposalPayload.unpaved_accepted;
+    ({ data: proposal, error } = await supabase
+      .from('ride_proposals')
+      .insert(proposalPayload)
+      .select('id')
+      .single());
+  }
+
+  if (error || !proposal) {
+    if (error?.code === '23505') {
       return NextResponse.json(
         { error: 'Tu as déjà proposé sur cette demande.' },
         { status: 409 }
       );
     }
-    console.error('[api/proposals]', error.message);
+    console.error('[api/proposals]', error?.message ?? 'Proposition sans id.');
     return NextResponse.json(
       { error: 'Proposition impossible pour le moment.' },
       { status: 500 }

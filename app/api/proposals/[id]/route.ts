@@ -42,7 +42,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
   const { data: proposal } = await supabase
     .from('ride_proposals')
-    .select('id, ride_id, driver_id, proposed_price, seats_left, first_stop, status, expires_at')
+    // select('*') : résilient si la migration v2.6 n'est pas encore
+    // appliquée (unpaved_accepted absent → undefined → false).
+    .select('*')
     .eq('id', id)
     .single();
   if (!proposal) {
@@ -51,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
   const { data: ride } = await supabase
     .from('rides')
-    .select('id, passenger_id, status, pickup, destination, ride_type, vehicle_preference')
+    .select('*')
     .eq('id', proposal.ride_id)
     .single();
   if (!ride || ride.passenger_id !== user.id) {
@@ -105,12 +107,17 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
   // Garde-fou tarifaire (v2.2) : on recalcule le tarif depuis la matrice
   // et on refuse toute acceptation dont le prix ne correspond pas.
+  // Route non bitumée (v2.6) : la référence reprend le choix du
+  // chauffeur dans sa proposition — un prix avec supplément n'est
+  // valable que s'il a accepté la piste.
+  const unpavedAccepted = proposal.unpaved_accepted ?? false;
   const fareCheck = validateAcceptedPrice(
     ride.pickup as Neighborhood,
     ride.destination as Neighborhood,
     ride.ride_type as 'solo' | 'groupe',
     ride.vehicle_preference as 'voiture' | 'moto' | 'tous',
-    price
+    price,
+    { unpavedRoad: unpavedAccepted }
   );
   if (!fareCheck.ok) {
     await logAudit(supabase, 'price_rejected', {
@@ -118,6 +125,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       rideId: ride.id,
       proposedPrice: price,
       referencePrice: fareCheck.referencePrice ?? null,
+      unpavedAccepted,
     });
     return NextResponse.json({ error: fareCheck.message }, { status: 400 });
   }
@@ -208,6 +216,15 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     );
   }
 
+  // Route non bitumée (v2.6) : on fige le choix du chauffeur sur la
+  // course. Mise à jour séparée et silencieuse : si la migration v2.6
+  // n'est pas encore appliquée, l'acceptation reste valable (le prix
+  // figé, lui, inclut ou non le supplément selon le choix).
+  await supabase
+    .from('rides')
+    .update({ unpaved_accepted: unpavedAccepted })
+    .eq('id', ride.id);
+
   // Les autres propositions en attente sont refusées.
   await supabase
     .from('ride_proposals')
@@ -224,6 +241,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     tier,
     isDoubleRide,
     loyaltyFree,
+    unpavedAccepted,
   });
   if (isDoubleRide) {
     await logAudit(supabase, 'double_ride_awarded', {

@@ -57,6 +57,11 @@ export interface RideRow {
   vehicle_preference: 'voiture' | 'moto' | 'tous';
   seats: number;
   estimated_price: number;
+  /** v2.6 — route non bitumée : demande du passager, point de dépôt,
+   *  choix du chauffeur (figé à l'acceptation). */
+  unpaved_requested: boolean | null;
+  drop_off_point: string | null;
+  unpaved_accepted: boolean | null;
   proposed_price: number | null;
   first_stop: string | null;
   payment_method: PaymentMethod;
@@ -95,6 +100,9 @@ export interface RideProposalRow {
   ride_id: string;
   driver_id: string;
   proposed_price: number;
+  /** v2.6 — le chauffeur prend la route non bitumée (true) ou s'arrête
+   *  au point de dépôt (false). */
+  unpaved_accepted: boolean | null;
   seats_left: number;
   first_stop: string;
   status: ProposalStatus;
@@ -117,6 +125,9 @@ export function mapRideRow(row: RideRow): Ride {
     vehiclePreference: row.vehicle_preference,
     seats: row.seats,
     estimatedPrice: row.estimated_price,
+    unpavedRequested: row.unpaved_requested ?? false,
+    dropOffPoint: row.drop_off_point ?? null,
+    unpavedAccepted: row.unpaved_accepted ?? null,
     proposedPrice: row.proposed_price,
     firstStop: row.first_stop,
     paymentMethod: row.payment_method,
@@ -177,6 +188,7 @@ export function mapProposalRow(row: RideProposalRow): RideProposal {
     rideId: row.ride_id,
     driverId: row.driver_id,
     proposedPrice: row.proposed_price,
+    unpavedAccepted: row.unpaved_accepted ?? false,
     seatsLeft: row.seats_left,
     firstStop: row.first_stop,
     status: row.status,
