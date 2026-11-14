@@ -94,12 +94,34 @@ export default function CguPage() {
             <strong>5 % au lancement (3 mois), puis 8 %</strong>, avec un{' '}
             <strong>plafond garanti de 10 %</strong>. La découpe du tarif
             (part du chauffeur / frais de plateforme) est affichée avant
-            l’acceptation et figée dans la course.
+            l’acceptation et figée dans la course. Quand la course inclut
+            un supplément pour route non bitumée (article 6), la
+            commission est calculée sur le total, supplément compris.
           </p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">6. Paiement, commission et dépôt de garantie</h2>
+          <h2 className="text-lg font-black text-white">6. Quartiers à accès difficile — routes non bitumées</h2>
+          <p>
+            Certains quartiers de Libreville ne sont pas desservis par une
+            route bitumée. Pour une destination située dans un tel quartier,
+            la course s’arrête par défaut à un{' '}
+            <strong>point de dépôt</strong> situé sur route bitumée, indiqué
+            au passager avant la commande. Le passager peut demander que le
+            chauffeur continue jusqu’à la destination sur route non
+            bitumée, moyennant un{' '}
+            <strong>supplément forfaitaire de 800 FCFA</strong> ajouté au
+            prix de la course. Le chauffeur est{' '}
+            <strong>libre d’accepter ou de refuser</strong> de prendre la
+            route non bitumée : s’il refuse, la course s’arrête au point
+            de dépôt et le supplément est retiré du prix. La commission de
+            Stacks Drive est calculée sur le total de la course,
+            supplément compris.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-lg font-black text-white">7. Paiement, commission et dépôt de garantie</h2>
           <p>
             Le passager paie le chauffeur <strong>directement</strong>, en
             espèces ou par transfert Mobile Money (Airtel Money, Moov Money)
@@ -107,7 +129,8 @@ export default function CguPage() {
             la demande. Stacks Drive ne collecte pas l’argent des passagers
             et ne détient aucun fonds de course : la plateforme ne fait que
             compter. La commission prévue à l’article 5 est calculée en silence sur chaque
-            course acceptée, sans rien déduire pendant la course. Le chauffeur
+            course acceptée, sur le total de la course, supplément route
+            non bitumée compris, sans rien déduire pendant la course. Le chauffeur
             règle le total de ses commissions <strong>une fois par
             semaine</strong>, en un seul transfert Mobile Money vers le numéro
             de Stacks Drive affiché dans son tableau de bord, qui indique
@@ -122,7 +145,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">7. Comportement, sécurité et signalement</h2>
+          <h2 className="text-lg font-black text-white">8. Comportement, sécurité et signalement</h2>
           <p>
             Passagers et chauffeurs s’engagent à se comporter avec respect, à
             ne pas discriminer, et à ne pas utiliser la plateforme à des fins
@@ -138,7 +161,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">8. Responsabilité</h2>
+          <h2 className="text-lg font-black text-white">9. Responsabilité</h2>
           <p>
             Stacks Drive met en relation passagers et chauffeurs mais
             n’intervient pas dans l’exécution des trajets, les paiements
@@ -153,7 +176,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">9. Données personnelles et cookies</h2>
+          <h2 className="text-lg font-black text-white">10. Données personnelles et cookies</h2>
           <p>
             Le traitement des données personnelles est décrit dans notre{' '}
             <Link href="/confidentialite" className="text-cyan font-bold hover:underline">
@@ -168,7 +191,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">10. Suspension et suppression de compte</h2>
+          <h2 className="text-lg font-black text-white">11. Suspension et suppression de compte</h2>
           <p>
             L’utilisateur peut supprimer son compte à tout moment depuis son
             compte ou en écrivant au support ; ses données sont alors
@@ -180,7 +203,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">11. Modifications et droit applicable</h2>
+          <h2 className="text-lg font-black text-white">12. Modifications et droit applicable</h2>
           <p>
             Stacks Drive peut modifier les présentes conditions ; les
             utilisateurs en sont informés sur la plateforme, et la poursuite
@@ -193,7 +216,7 @@ export default function CguPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-black text-white">12. Contact</h2>
+          <h2 className="text-lg font-black text-white">13. Contact</h2>
           <p>
             Pour toute question :{' '}
             <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">

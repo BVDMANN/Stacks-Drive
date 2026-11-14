@@ -68,14 +68,16 @@ chauffeurs ») résout aussi les tickets ouverts du chauffeur.
 
 ### 4. E-mails (`lib/email.ts`, Resend)
 
-Actif seulement si `RESEND_API_KEY` est définie. Destinataire :
-`ADMIN_EMAIL` (défaut : boulinguirandy76@gmail.com). Objet :
+La clé `RESEND_API_KEY` est configurée dans Vercel (Production) : les
+e-mails de tickets partent. Destinataire : `ADMIN_EMAIL` (défaut :
+boulinguirandy76@gmail.com). Objet :
 `[Stacks Drive] Ticket vérification — <urgence> — <nom chauffeur>`.
 Corps : explication, compte rendu des contrôles, niveau d'urgence, lien
 vers /admin. Expéditeur par défaut : `onboarding@resend.dev` (plan
 gratuit — ne peut écrire qu'à l'e-mail du propriétaire du compte
-Resend). Sans clé : log serveur + bandeau dans /admin. Voir SETUP.md
-(section v2.4) pour la création du compte — **c'est Randy qui le crée**.
+Resend). Sans clé (en local) : log serveur + bandeau dans /admin. Voir
+SETUP.md (§1) pour les variables d'environnement — **c'est Randy qui a
+créé le compte Resend**.
 
 ### 5. Deux petites automatisations (même release)
 
@@ -112,9 +114,7 @@ reste synchronisé par le trigger `sync_verified_flag` (v2).
    habile pourrait forger une charge utile cohérente en appelant
    l'API directement. Mitigations : images stockées (bucket privé),
    contrôles stockés et visibles par l'admin, doublons vérifiés côté
-   serveur, journal d'audit. Durcissement futur : OCR 100 % serveur
-   (worker Tesseract côté API) ou service payant de vérification
-   d'identité.
+   serveur, journal d'audit.
 3. **OCR imparfait sur photos de mauvaise qualité.** CNI/passeport
    froissés, reflets, faible lumière → confiance basse → ticket (c'est
    le comportement voulu, pas un bug). La MRZ (chiffres de contrôle)
@@ -151,18 +151,4 @@ règlement), `.env.example`, `SETUP.md`, `package.json`
 (`tesseract.js` v7, `resend` v6).
 
 Non touchés : `lib/commission.ts`, `lib/pricing.ts`,
-`lib/fare-guard.ts`, `supabase/migration-v2.3.sql` (ni poussée, ni
-exécutée), le manifeste v2.3, le record GitHub.
-
-## À tester avec Randy (après push + migration)
-
-1. Compte chauffeur de test : selfie net + CNI lisible → « Compte
-   vérifié ! », mise en ligne immédiate.
-2. Pièce expirée → refus auto + motif ; renvoi possible.
-3. Pièce floue → ticket dans /admin + e-mail (si Resend configuré).
-4. Résolution d'un ticket (approuver / refuser / refaire) → profil +
-   ticket + audit à jour.
-5. Rappel de règlement sur un chauffeur avec un dû vieux de plus de
-   7 jours.
-6. Vérifier qu'un chauffeur ne peut pas s'auto-vérifier sans passer
-   par la route (tentative d'UPDATE direct rejetée par le trigger).
+`lib/fare-guard.ts`.

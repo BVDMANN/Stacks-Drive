@@ -60,7 +60,7 @@ export default async function MentionsLegalesPage() {
             Les chauffeurs affichés sur la carte au lancement sont des{' '}
             <strong>profils de démonstration fictifs</strong> destinés à
             présenter la plateforme ; ils ne correspondent à aucun chauffeur
-            réel et seront retirés avant le lancement commercial. Les demandes
+            réel. Les demandes
             et propositions des chauffeurs réels le sont sous leur seule
             responsabilité. Stacks Drive ne garantit ni l’exactitude des
             annonces, ni la réalisation d’un trajet.
