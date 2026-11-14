@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
  *  puis il est figé à l'acceptation). */
 export function ProposalCard({
   proposal,
+  rideType,
   estimatePrice,
   estimateBreakdown,
   etaMin,
@@ -24,6 +25,9 @@ export function ProposalCard({
   onCounter,
 }: {
   proposal: RideProposal;
+  /** Type de course de la demande : en Solo le véhicule est entier,
+   *  en Groupe le chauffeur indique ses places restantes. */
+  rideType?: 'solo' | 'groupe';
   estimatePrice: number;
   /** Décomposition de l'estimation indicative (« 500 FCFA prise en
    *  charge + 4,8 km × 210 FCFA/km ») — affichée sous le prix pour que
@@ -139,7 +143,15 @@ export function ProposalCard({
         </div>
         <div className="text-right text-xs font-bold text-slate-300 space-y-0.5">
           <p className="inline-flex items-center gap-1">
-            <Users size={13} /> {proposal.seatsLeft} place{proposal.seatsLeft > 1 ? 's' : ''} restante{proposal.seatsLeft > 1 ? 's' : ''}
+            {rideType === 'solo' ? (
+              <>
+                <Car size={13} /> Véhicule entier
+              </>
+            ) : (
+              <>
+                <Users size={13} /> {proposal.seatsLeft} place{proposal.seatsLeft > 1 ? 's' : ''} restante{proposal.seatsLeft > 1 ? 's' : ''}
+              </>
+            )}
           </p>
           <p className="inline-flex items-center gap-1">
             <MapPin size={13} /> 1er arrêt : {proposal.firstStop}

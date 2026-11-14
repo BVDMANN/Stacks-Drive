@@ -147,7 +147,7 @@ export default async function SuiviPage({ params }: Ctx) {
               {ride.pickup} → {ride.destination}
             </p>
             <p className="text-sm text-slate-600">
-              {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} passager${ride.seats > 1 ? 's' : ''}` : 'Solo · course privée'}
+              {ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'}
               {ride.firstStop ? ` · 1er arrêt : ${ride.firstStop}` : ''}
             </p>
             <p className="text-sm text-slate-600">

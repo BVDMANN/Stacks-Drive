@@ -13,8 +13,10 @@ import {
   Crosshair,
   Loader2,
   LocateFixed,
+  Map as MapIcon,
   MapPin,
   Navigation,
+  Satellite as SatelliteIcon,
   ShieldCheck,
   User,
   Users,
@@ -26,6 +28,8 @@ import type { SessionProfile } from '@/lib/supabase/server';
 import { ProposalCard } from './ProposalCard';
 import { DriverCard } from './DriverCard';
 import { DriverHome } from '@/components/driver/DriverHome';
+import { ToastStack, useToastStack } from '@/components/shared/Toast';
+import { detectProposalEvents, driverFirstName, type ProposalSnapshot } from '@/lib/proposal-events';
 import {
   LIBREVILLE_CENTER,
   NEIGHBORHOODS,
@@ -45,6 +49,8 @@ import {
   type GeoErrorKind,
 } from '@/lib/geolocation';
 import { formatFcfa } from '@/lib/commission';
+import type { Poi } from '@/lib/pois';
+import { PoiInfoCard, type PoiOrigin } from './PoiInfoCard';
 import { cn } from '@/lib/utils';
 import type { FocusPoint } from '@/components/map/LibrevilleMap';
 
@@ -88,7 +94,6 @@ interface Draft {
   destination: Neighborhood | '';
   rideType: RideType;
   vehiclePreference: VehiclePreference;
-  seats: number;
   paymentMethod: PaymentMethod;
   /** Prix proposé par le passager à la demande (v2.11, optionnel). */
   offeredPrice: number | null;
@@ -185,7 +190,6 @@ export function HomeScreen({
   const [destination, setDestination] = useState<Neighborhood | ''>('');
   const [rideType, setRideType] = useState<RideType>('groupe');
   const [vehiclePref, setVehiclePref] = useState<VehiclePreference>('tous');
-  const [seats, setSeats] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('especes');
   // Prix proposé directement par le passager (v2.11, optionnel) : les
   // chauffeurs le voient et peuvent l'accepter ou contre-proposer. Vide
@@ -206,6 +210,31 @@ export function HomeScreen({
   const [now, setNow] = useState(() => Date.now());
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  // Lieu sélectionné sur la carte (v2.13) : sa mini-carte d'info.
+  const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null);
+  // Fond de carte (v2.13) : Plan ou Satellite — choix mémorisé.
+  const [basemap, setBasemap] = useState<'plan' | 'satellite'>('plan');
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem('stacks-drive-basemap') === 'satellite') setBasemap('satellite');
+    } catch {
+      // Stockage indisponible : on reste en Plan.
+    }
+  }, []);
+  function handleBasemap(value: 'plan' | 'satellite') {
+    setBasemap(value);
+    try {
+      window.localStorage.setItem('stacks-drive-basemap', value);
+    } catch {
+      // Stockage indisponible : le choix ne sera pas mémorisé.
+    }
+  }
+
+  // Notifications pop-up de négociation (v2.12) : le passager est
+  // alerté quand une proposition arrive, quand le chauffeur change son
+  // prix, et quand le prix est accepté (figé). Auto-fermeture ~6 s.
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToastStack();
+  const proposalSnapshotRef = useRef<ProposalSnapshot>(new Map());
 
   // --- Géolocalisation du départ (« Me localiser ») ---
   const [locating, setLocating] = useState(false);
@@ -217,7 +246,10 @@ export function HomeScreen({
   const focusNonceRef = useRef(0);
 
   // --- Feuille draggable ---
-  const [sheetH, setSheetH] = useState(SHEET_SNAPS[1]);
+  // Arrivée (v2.14, standard « Google Maps ») : la feuille démarre au
+  // cran mini (15 dvh, poignée + titre seulement) pour ne pas masquer
+  // la carte — un tap sur la barre l'ouvre en grand (58 dvh).
+  const [sheetH, setSheetH] = useState(SHEET_SNAPS[0]);
   // Pendant un glisser, pas de transition (la feuille suit le doigt 1:1) ;
   // au relâcher / au tap, la hauteur glisse vers le cran (ressort).
   const [isDragging, setIsDragging] = useState(false);
@@ -268,7 +300,6 @@ export function HomeScreen({
       setDestination(d.destination);
       setRideType(d.rideType);
       setVehiclePref(d.vehiclePreference);
-      setSeats(d.seats);
       setPaymentMethod(d.paymentMethod);
       setOfferedPrice(d.offeredPrice !== null && d.offeredPrice !== undefined ? String(d.offeredPrice) : '');
       window.localStorage.removeItem(DRAFT_KEY);
@@ -349,6 +380,17 @@ export function HomeScreen({
     : null;
   const destCoords = destination !== '' ? NEIGHBORHOOD_COORDS[destination as Neighborhood] : null;
 
+  // Point de départ de l'estimation d'un lieu (v2.13) : ta position
+  // si tu es géolocalisé, sinon ton départ sélectionné, sinon le
+  // centre de Libreville.
+  const poiOrigin: PoiOrigin = useMemo(() => {
+    if (userLocation)
+      return { lat: userLocation.lat, lng: userLocation.lng, label: userLocation.label, kind: 'user' as const };
+    if (pickupCoords && pickup)
+      return { lat: pickupCoords.lat, lng: pickupCoords.lng, label: pickup, kind: 'pickup' as const };
+    return { lat: LIBREVILLE_CENTER.lat, lng: LIBREVILLE_CENTER.lng, label: 'Centre-ville', kind: 'center' as const };
+  }, [userLocation, pickupCoords, pickup]);
+
   // ETA du chauffeur le plus proche du point de départ.
   const nearestEta = useMemo(() => {
     if (!pickupCoords || matchableDrivers.length === 0) return null;
@@ -383,6 +425,12 @@ export function HomeScreen({
   }, [phase]);
 
   // Sondage des propositions (toutes les 5 s pendant la recherche).
+  // Notifications pop-up de négociation (v2.12) : chaque changement
+  // détecté par rapport au sondage précédent déclenche un toast —
+  // nouvelle proposition, nouveau prix du chauffeur, prix accepté.
+  // Quand le chauffeur accepte la contre-proposition du passager, la
+  // course est confirmée : on charge la course et on passe en phase
+  // « confirmed » (sinon l'écran resterait sur « Recherche »).
   useEffect(() => {
     if (!rideId || (phase !== 'searching' && phase !== 'proposals')) return;
     let cancelled = false;
@@ -393,6 +441,41 @@ export function HomeScreen({
         if (cancelled || !data?.ok) return;
         const list = (data.proposals ?? []) as RideProposal[];
         setProposals(list);
+        const { events, snapshot } = detectProposalEvents(proposalSnapshotRef.current, list);
+        proposalSnapshotRef.current = snapshot;
+        for (const ev of events) {
+          if (cancelled) break;
+          if (ev.kind === 'new') {
+            pushToast({
+              id: `new-${ev.proposal.id}`,
+              title: `Nouvelle proposition : ${formatFcfa(ev.proposal.proposedPrice)}`,
+              message: `${driverFirstName(ev.proposal)} propose ce prix pour ta course.`,
+              variant: 'offer',
+            });
+          } else if (ev.kind === 'repriced') {
+            pushToast({
+              id: `repriced-${ev.proposal.id}-${ev.proposal.proposedPrice}`,
+              title: `Nouveau prix proposé : ${formatFcfa(ev.proposal.proposedPrice)}`,
+              message: `${driverFirstName(ev.proposal)} a modifié son prix — à toi de choisir.`,
+              variant: 'info',
+            });
+          } else if (ev.kind === 'accepted') {
+            const price = ev.proposal.counterPrice ?? ev.proposal.proposedPrice;
+            pushToast({
+              id: `accepted-${ev.proposal.id}`,
+              title: `Prix accepté : ${formatFcfa(price)} — prix figé`,
+              message: `C'est le prix de ta course, il ne bougera plus.`,
+              variant: 'success',
+            });
+            const rideRes = await fetch(`/api/rides/${rideId}`);
+            const rideData = await rideRes.json().catch(() => null);
+            if (!cancelled && rideData?.ok) {
+              setAcceptedRide(rideData.ride as Ride);
+              setAcceptedDriver((rideData.driver as DriverProfile | null) ?? null);
+              setPhase('confirmed');
+            }
+          }
+        }
         if (list.some((p) => p.status === 'pending')) setPhase('proposals');
       } catch {
         // Réseau instable : on réessaie au prochain tour.
@@ -404,7 +487,7 @@ export function HomeScreen({
       cancelled = true;
       window.clearInterval(t);
     };
-  }, [rideId, phase]);
+  }, [rideId, phase, pushToast]);
 
   // Suivi de la course confirmée (toutes les 10 s).
   useEffect(() => {
@@ -478,7 +561,6 @@ export function HomeScreen({
       destination,
       rideType,
       vehiclePreference: vehiclePref,
-      seats,
       paymentMethod,
       offeredPrice: offeredPrice.trim() === '' ? null : Number(offeredPrice),
     };
@@ -534,6 +616,17 @@ export function HomeScreen({
   function handleDestinationChange(value: Neighborhood | '') {
     setDestination(value);
     setUnpavedRoad(false);
+  }
+
+  // « Y aller » (v2.13) : le lieu devient la destination (son
+  // quartier le plus proche), la carte se recentre dessus et la
+  // feuille s'ouvre pour commander.
+  function goToPoi(poi: Poi) {
+    handleDestinationChange(poi.neighborhood);
+    setSelectedPoi(null);
+    focusNonceRef.current += 1;
+    setFocusPoint({ lat: poi.lat, lng: poi.lng, zoom: 14, nonce: focusNonceRef.current });
+    setSheetH(58);
   }
 
   // Bouton « Recentrer » sur la carte : sur moi si localisé, sinon Libreville.
@@ -599,6 +692,7 @@ export function HomeScreen({
 
   async function commander() {
     setError(null);
+    setSelectedPoi(null);
     if (!validTrip || !estimate) return;
     // Prix proposé par le passager (v2.11, optionnel) : entre 400 et
     // 50 000 FCFA, comme les bornes du garde-fou serveur.
@@ -626,7 +720,7 @@ export function HomeScreen({
         destination,
         rideType,
         vehiclePreference: vehiclePref,
-        seats: rideType === 'groupe' ? seats : 1,
+        seats: 1, // Groupe : 1 place. Solo : véhicule entier — pas de nombre de passagers.
         paymentMethod,
         unpavedRoad,
         offeredPrice: offered,
@@ -640,6 +734,7 @@ export function HomeScreen({
     }
     setRideId(data.rideId as string);
     setProposals([]);
+    proposalSnapshotRef.current = new Map();
     setSearchStartedAt(Date.now());
     setNow(Date.now());
     setPhase('searching');
@@ -719,6 +814,7 @@ export function HomeScreen({
     setPhase('idle');
     setRideId(null);
     setProposals([]);
+    proposalSnapshotRef.current = new Map();
     setAcceptedRide(null);
     setAcceptedDriver(null);
     setSearchStartedAt(null);
@@ -749,7 +845,38 @@ export function HomeScreen({
         userLocation={userLocation}
         focusPoint={focusPoint}
         onDriverClick={(id) => setSelectedDriverId(id)}
+        basemap={basemap}
+        onPoiClick={
+          isChauffeurMode
+            ? undefined
+            : (poi) => {
+                setSelectedPoi(poi);
+                // La mini-carte d'info doit être entièrement lisible :
+                // si la feuille est dépliée, elle la masquerait — on
+                // revient au cran mini (en phase idle seulement : pendant
+                // une recherche ou une course, la feuille reste en place).
+                if (phase === 'idle') setSheetH(SHEET_SNAPS[0]);
+              }
+        }
+        onMapClick={() => setSelectedPoi(null)}
+        selectedPoi={selectedPoi}
       />
+
+      {/* Notifications pop-up de négociation (v2.12) : propositions,
+          nouveaux prix, prix accepté — en haut de l'écran, au-dessus
+          de la carte et de la feuille. */}
+      <ToastStack toasts={toasts} onClose={dismissToast} />
+
+      {/* Mini-carte d'info d'un lieu (v2.13) : nom, catégorie,
+          distance, estimation Solo/Groupe, bouton « Y aller ». */}
+      {selectedPoi && !isChauffeurMode && (
+        <PoiInfoCard
+          poi={selectedPoi}
+          origin={poiOrigin}
+          onClose={() => setSelectedPoi(null)}
+          onGoTo={goToPoi}
+        />
+      )}
 
       {/* Compteur de chauffeurs autour — passagers seulement. En idle il
           s'efface quand la feuille se déplie ; pendant la recherche et
@@ -782,6 +909,39 @@ export function HomeScreen({
         <Crosshair size={15} className="text-cyan" />
         {userLocation ? 'Moi' : 'Libreville'}
       </button>
+
+      {/* Sélecteur de fond de carte (v2.13) : Plan ou Satellite —
+          sous le bouton Recentrer, même style, il s'efface aussi
+          quand la feuille se déplie. */}
+      {!isChauffeurMode && (
+        <div
+          className={`absolute top-14 left-3 z-10 inline-flex rounded-full bg-night-900/90 backdrop-blur border border-white/15 shadow-xl shadow-black/40 p-1 transition-all duration-500 ${
+            sheetExpanded ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100'
+          }`}
+          role="group"
+          aria-label="Fond de carte"
+        >
+          {(
+            [
+              { value: 'plan', label: 'Plan', icon: MapIcon },
+              { value: 'satellite', label: 'Satellite', icon: SatelliteIcon },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => handleBasemap(m.value)}
+              aria-pressed={basemap === m.value}
+              className={cn(
+                'inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black transition-all active:scale-95',
+                basemap === m.value ? 'bg-gold text-night-900' : 'text-slate-300 hover:text-white'
+              )}
+            >
+              <m.icon size={13} /> {m.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Feuille du bas — draggable : glisse avec un ressort quand on
           relâche ou qu'on tape (pas de saut direct au cran). */}
@@ -1017,7 +1177,7 @@ export function HomeScreen({
                       <Users size={17} /> Groupe
                     </span>
                     <span className="block text-xs text-slate-400 mt-1 leading-snug">
-                      Partagée, comme le taxi — prix divisé par passager, arrêts dans l’ordre.
+                      Partagée, comme le taxi — 1 place, prix par passager, arrêts dans l’ordre.
                     </span>
                     <span className="block font-black text-lg text-white mt-2">
                       {estimating ? (
@@ -1049,7 +1209,7 @@ export function HomeScreen({
                       <User size={17} /> Solo
                     </span>
                     <span className="block text-xs text-slate-400 mt-1 leading-snug">
-                      Privée et directe, sans arrêt — pour toi seul ou ton petit groupe.
+                      Privée et directe, sans arrêt — le véhicule est entièrement à toi.
                     </span>
                     <span className="block font-black text-lg text-white mt-2">
                       {estimating ? (
@@ -1101,32 +1261,6 @@ export function HomeScreen({
                     </button>
                   );
                 })}
-                {rideType === 'groupe' && (
-                  <span className="inline-flex items-center gap-1 ml-1">
-                    <span className="text-xs font-bold text-slate-400">Passagers :</span>
-                    <span className="inline-flex items-center rounded-full bg-white/5 border border-white/10">
-                      <button
-                        type="button"
-                        aria-label="Moins de passagers"
-                        disabled={seats <= 1}
-                        onClick={() => setSeats((s) => Math.max(1, s - 1))}
-                        className="w-7 h-7 font-black text-slate-200 disabled:opacity-40"
-                      >
-                        −
-                      </button>
-                      <span className="w-6 text-center text-sm font-black text-white">{seats}</span>
-                      <button
-                        type="button"
-                        aria-label="Plus de passagers"
-                        disabled={seats >= 4}
-                        onClick={() => setSeats((s) => Math.min(4, s + 1))}
-                        className="w-7 h-7 font-black text-slate-200 disabled:opacity-40"
-                      >
-                        +
-                      </button>
-                    </span>
-                  </span>
-                )}
               </div>
 
               <label className="flex items-center gap-3">
@@ -1220,6 +1354,8 @@ export function HomeScreen({
                 {' · '}
                 <Link href="/cgu" className="underline hover:text-cyan">CGU</Link>
                 {' · '}
+                <Link href="/mentions-legales" className="underline hover:text-cyan">Mentions légales</Link>
+                {' · '}
                 <Link href="/cookies" className="underline hover:text-cyan">Cookies</Link>
                 {' · '}
                 <span>© OpenStreetMap · Esri</span>
@@ -1277,6 +1413,7 @@ export function HomeScreen({
                     <ProposalCard
                       key={p.id}
                       proposal={p}
+                      rideType={rideType}
                       estimatePrice={estimate?.price ?? p.proposedPrice}
                       estimateBreakdown={estimate?.breakdown}
                       etaMin={etaForProposal(p)}

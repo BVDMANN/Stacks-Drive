@@ -46,8 +46,8 @@ const RequestSchema = z
   .refine((v) => !v.unpavedRoad || isDifficultAccess(v.destination), {
     message: 'La route non bitumée ne concerne que les quartiers à accès difficile.',
   })
-  .refine((v) => (v.rideType === 'solo' ? v.seats === 1 : true), {
-    message: 'Une course Solo ne prend qu’un seul passager.',
+  .refine((v) => v.seats === 1, {
+    message: 'Groupe : 1 place. Solo : le véhicule est entièrement libre — pas de nombre de passagers.',
   })
   .refine((v) => !(v.rideType === 'groupe' && v.vehiclePreference === 'moto'), {
     message: 'La moto ne prend qu’un passager : choisis Solo pour la moto.',

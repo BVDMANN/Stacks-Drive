@@ -14,11 +14,16 @@ import { dropOffPointFor, isDifficultAccess, type Neighborhood } from '@/lib/nei
 export function RequestPopup({
   ride,
   passenger,
+  driverSeats,
   onClose,
   onProposed,
 }: {
   ride: Ride;
   passenger: { name: string | null; phone: string | null } | null;
+  /** Places dans le véhicule du chauffeur (son profil) : en Solo,
+   *  le véhicule est entièrement libre, donc toutes ses places sont
+   *  disponibles. Null = inconnu (repli : 1). */
+  driverSeats?: number | null;
   onClose: () => void;
   onProposed: (rideId: string) => void;
 }) {
@@ -26,7 +31,13 @@ export function RequestPopup({
   // s'il en a mis un (v2.11), sinon l'estimation indicative — jamais
   // un prix imposé : le chauffeur propose librement son prix.
   const [price, setPrice] = useState(ride.offeredPrice ?? ride.estimatedPrice);
-  const [seatsLeft, setSeatsLeft] = useState(Math.max(ride.seats, 1));
+  // Places restantes dans son véhicule : en Groupe, le chauffeur
+  // déclare combien de places libres il propose (1 minimum — le
+  // passager en prend une) ; en Solo, le véhicule est entièrement
+  // libre, donc toutes les places du véhicule sont disponibles.
+  const [seatsLeft, setSeatsLeft] = useState(
+    ride.rideType === 'solo' ? Math.min(9, Math.max(driverSeats ?? 1, 1)) : 1
+  );
   const [firstStop, setFirstStop] = useState(ride.pickup);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -96,7 +107,7 @@ export function RequestPopup({
             </h3>
             <p className="text-sm text-slate-500 mt-1">
               {passenger?.name ?? 'Passager'} · {passenger?.phone ?? ''} ·{' '}
-              {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} passager${ride.seats > 1 ? 's' : ''}` : 'Solo · 1 passager'}
+              {ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'}
               {' '}· {ride.paymentMethod === 'especes' ? 'Espèces' : ride.paymentMethod === 'airtel' ? 'Airtel Money' : 'Moov Money'}
             </p>
           </div>
@@ -194,22 +205,24 @@ export function RequestPopup({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label htmlFor="seats-left" className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
-                <Users size={12} /> Places restantes
-              </label>
-              <input
-                id="seats-left"
-                type="number"
-                min={ride.seats}
-                max={9}
-                required
-                value={seatsLeft}
-                onChange={(e) => setSeatsLeft(Number(e.target.value))}
-                className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-black focus:border-stacks-green focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1.5">
+            {ride.rideType === 'groupe' && (
+              <div className="space-y-1.5">
+                <label htmlFor="seats-left" className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
+                  <Users size={12} /> Places restantes
+                </label>
+                <input
+                  id="seats-left"
+                  type="number"
+                  min={1}
+                  max={9}
+                  required
+                  value={seatsLeft}
+                  onChange={(e) => setSeatsLeft(Number(e.target.value))}
+                  className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-black focus:border-stacks-green focus:outline-none"
+                />
+              </div>
+            )}
+            <div className={ride.rideType === 'solo' ? 'col-span-2 space-y-1.5' : 'space-y-1.5'}>
               <label htmlFor="first-stop" className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
                 <MapPin size={12} /> Premier arrêt
               </label>

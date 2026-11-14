@@ -9,6 +9,8 @@ import { RequestPopup } from './RequestPopup';
 import { PinEntry } from './PinEntry';
 import { CelebrationPopup, type CelebrationData } from './CelebrationPopup';
 import { DriverEarnings } from './DriverEarnings';
+import { ToastStack, useToastStack } from '@/components/shared/Toast';
+import { detectProposalEvents, type ProposalSnapshot } from '@/lib/proposal-events';
 import { VerificationStatusBadge } from '@/components/shared/StatusBadge';
 import { NEIGHBORHOODS, PAYMENT_LABELS, type Neighborhood } from '@/lib/neighborhoods';
 import { formatFcfa } from '@/lib/commission';
@@ -54,6 +56,12 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
   const [repriceValues, setRepriceValues] = useState<Record<string, string>>({});
   const [proposalBusy, setProposalBusy] = useState<string | null>(null);
 
+  // Notifications pop-up de négociation (v2.12) : le chauffeur est
+  // alerté quand un passager contre-propose et quand son prix est
+  // accepté (figé). Auto-fermeture ~6 s.
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToastStack();
+  const myProposalsSnapshotRef = useRef<ProposalSnapshot>(new Map());
+
   const verified = profile.is_verified;
   const verificationStatus = (profile.verification_status ?? 'non_verifie') as string;
 
@@ -97,6 +105,50 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
         const list = (propData.proposals ?? []) as MyProposal[];
         setMyProposals(list);
         list.forEach((p) => proposedRef.current.add(p.rideId));
+        // Notifications pop-up de négociation (v2.12) : contre-proposition
+        // du passager (avec actions Accepter / Répondre) et prix accepté.
+        // Les événements « new » / « repriced » concernent le passager
+        // (c'est lui qui reçoit mes propositions), pas le chauffeur.
+        const { events, snapshot } = detectProposalEvents(myProposalsSnapshotRef.current, list);
+        myProposalsSnapshotRef.current = snapshot;
+        for (const ev of events) {
+          if (ev.kind === 'counter') {
+            const price = ev.proposal.counterPrice as number;
+            pushToast({
+              id: `counter-${ev.proposal.id}-${price}`,
+              title: `Contre-proposition : ${formatFcfa(price)}`,
+              message: ev.proposal.ride
+                ? `${ev.proposal.ride.pickup} → ${ev.proposal.ride.destination} — le passager propose ce prix.`
+                : 'Le passager propose ce prix.',
+              variant: 'offer',
+              actions: [
+                {
+                  label: `Accepter ${formatFcfa(price)}`,
+                  primary: true,
+                  onClick: () => acceptCounter(ev.proposal.id),
+                },
+                {
+                  label: 'Répondre',
+                  onClick: () => {
+                    const el = document.getElementById(`proposal-${ev.proposal.id}`);
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    (el?.querySelector('input[type="number"]') as HTMLInputElement | null)?.focus();
+                  },
+                },
+              ],
+            });
+          } else if (ev.kind === 'accepted') {
+            const price = ev.proposal.counterPrice ?? ev.proposal.proposedPrice;
+            pushToast({
+              id: `accepted-${ev.proposal.id}`,
+              title: `Prix accepté : ${formatFcfa(price)} — prix figé`,
+              message: ev.proposal.ride
+                ? `${ev.proposal.ride.pickup} → ${ev.proposal.ride.destination} — va récupérer ton passager.`
+                : 'Va récupérer ton passager.',
+              variant: 'success',
+            });
+          }
+        }
       }
       const ridesData = await ridesRes.json();
       if (ridesData?.ok) {
@@ -111,7 +163,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
     } catch {
       // Réessaie au prochain tour.
     }
-  }, []);
+  }, [pushToast]);
 
   useEffect(() => {
     fetchMine();
@@ -260,6 +312,9 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
 
   return (
     <div className="space-y-6">
+      {/* Notifications pop-up de négociation (v2.12). */}
+      <ToastStack toasts={toasts} onClose={dismissToast} />
+
       {error && (
         <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
           {error}
@@ -423,7 +478,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             );
           })()}
           <p className="text-sm text-slate-500">
-            {activeRide.rideType === 'groupe' ? `Groupe · ${activeRide.seats} passager${activeRide.seats > 1 ? 's' : ''}` : 'Solo'} ·{' '}
+            {activeRide.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'} ·{' '}
             {formatFcfa(activeRide.proposedPrice ?? activeRide.estimatedPrice)}
             {activeRide.loyaltyFree ? ' · course offerte (fidélité — tu touches tout le tarif)' : ` · dont ${formatFcfa(activeRide.driverShare)} pour toi`}
             {activeRide.firstStop ? ` · 1er arrêt : ${activeRide.firstStop}` : ''}
@@ -480,7 +535,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
                     </p>
                     <p className="text-sm text-slate-500">
                       {passenger?.name ?? 'Passager'} · {passenger?.phone ?? ''} ·{' '}
-                      {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} pass.` : 'Solo'} ·{' '}
+                      {ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'} ·{' '}
                       estimation {formatFcfa(ride.estimatedPrice)} · {timeAgo(ride.createdAt)}
                       {ride.offeredPrice !== null && (
                         <> · le passager propose <strong className="text-stacks-green">{formatFcfa(ride.offeredPrice)}</strong></>
@@ -514,14 +569,18 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
               const secondsLeft = Math.max(0, Math.round((new Date(p.expiresAt).getTime() - now) / 1000));
               const hasCounter = p.status === 'pending' && p.counterPrice !== null && secondsLeft > 0;
               return (
-                <li key={p.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+                <li
+                  key={p.id}
+                  id={`proposal-${p.id}`}
+                  className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3 scroll-mt-24"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-black text-slate-900">
                         {p.ride ? `${p.ride.pickup} → ${p.ride.destination}` : 'Course'}
                       </p>
                       <p className="text-sm text-slate-500">
-                        {formatFcfa(p.proposedPrice)} · {p.seatsLeft} place{p.seatsLeft > 1 ? 's' : ''} · 1er arrêt : {p.firstStop}
+                        {formatFcfa(p.proposedPrice)} · {p.ride?.rideType === 'solo' ? 'véhicule entier' : `${p.seatsLeft} place${p.seatsLeft > 1 ? 's' : ''}`} · 1er arrêt : {p.firstStop}
                       </p>
                     </div>
                     <span className="text-xs font-black px-3 py-1.5 rounded-full bg-slate-100 text-slate-700">
@@ -604,8 +663,8 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
                 r.vehiclePreference === 'moto'
                   ? 'Moto'
                   : r.rideType === 'groupe'
-                    ? `Groupe · ${r.seats} pass.`
-                    : 'Solo';
+                    ? 'Groupe · 1 place'
+                    : 'Solo · véhicule entier';
               return (
                 <li key={r.id} className="py-3 space-y-1">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -638,6 +697,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
         <RequestPopup
           ride={popupRide.ride}
           passenger={popupRide.passenger}
+          driverSeats={profile.seats}
           onClose={() => setPopupRide(null)}
           onProposed={(rideId) => {
             proposedRef.current.add(rideId);

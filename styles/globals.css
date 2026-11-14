@@ -302,9 +302,11 @@ html {
   box-shadow: 0 0 5px rgba(255, 199, 0, 0.9);
 }
 
-/* 🏪 Points d'intérêt (v2.6) : pastille sombre discrète avec
-   pictogramme or + petit libellé blanc, centrée sur le lieu, jamais
-   cliquable (pointer-events: none) et sous les marqueurs chauffeurs. */
+/* 🏪 Points d'intérêt (v2.6, cliquables depuis la v2.13) : pastille
+   sombre discrète avec pictogramme or + petit libellé blanc, centrée
+   sur le lieu, sous les marqueurs chauffeurs. Cliquable : la zone de
+   toucher fait 44 px (glyph 24 px + halo invisible ::before) pour le
+   doigt sur mobile — le libellé reste hors de la zone de toucher. */
 .map-poi-marker {
   position: absolute;
   left: 0;
@@ -314,8 +316,25 @@ html {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   white-space: nowrap;
+}
+/* Zone de toucher élargie (44 px, centrée sur le glyph) : le tap
+   sur mobile n'a pas besoin de viser le petit pictogramme. */
+.map-poi-marker::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+}
+/* Lieu sélectionné (v2.13) : anneau or + halo autour du pictogramme. */
+.map-poi-marker.selected .map-poi-glyph {
+  border-color: #ffd60a;
+  box-shadow: 0 0 0 3px rgba(255, 199, 0, 0.35), 0 0 16px rgba(255, 199, 0, 0.85);
 }
 .map-poi-glyph {
   display: flex;
@@ -352,6 +371,32 @@ html {
 .map-poi-marker.cat-hotel .map-poi-glyph { color: #c084fc; border-color: rgba(192, 132, 252, 0.75); }
 .map-poi-marker.cat-sante .map-poi-glyph { color: #f87171; border-color: rgba(248, 113, 113, 0.75); }
 .map-poi-marker.cat-lieu .map-poi-glyph { color: #94a3b8; border-color: rgba(148, 163, 184, 0.75); }
+.map-poi-marker.cat-aeroport .map-poi-glyph { color: #38bdf8; border-color: rgba(56, 189, 248, 0.75); }
+.map-poi-marker.cat-port .map-poi-glyph { color: #2dd4bf; border-color: rgba(45, 212, 191, 0.75); }
+.map-poi-marker.cat-stade .map-poi-glyph { color: #fbbf24; border-color: rgba(251, 191, 36, 0.75); }
+.map-poi-marker.cat-musee .map-poi-glyph { color: #e879f9; border-color: rgba(232, 121, 249, 0.75); }
+.map-poi-marker.cat-plage .map-poi-glyph { color: #fde047; border-color: rgba(253, 224, 71, 0.75); }
+.map-poi-marker.cat-gare .map-poi-glyph { color: #a5b4fc; border-color: rgba(165, 180, 252, 0.75); }
+
+/* 🛰️ Vue Satellite (v2.13) : l'image est variée (sable, végétation,
+   toits) — les libellés de quartiers et de POI prennent un fond
+   sombre semi-transparent et une ombre plus forte pour rester
+   lisibles, et les pastilles POI sont un peu plus opaques. */
+.map-satellite .map-neighborhood-label {
+  background: rgba(7, 11, 22, 0.6);
+  padding: 1px 6px;
+  border-radius: 6px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 1);
+}
+.map-satellite .map-poi-label {
+  background: rgba(7, 11, 22, 0.6);
+  padding: 1px 5px;
+  border-radius: 5px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 1);
+}
+.map-satellite .map-poi-glyph {
+  background: rgba(7, 11, 22, 0.95);
+}
 
 /* 📍 Point de départ : pastille orange braise pulsante */
 .map-pickup-marker {
@@ -505,6 +550,15 @@ html {
 }
 .search-dot:nth-child(2) { animation-delay: 0.15s; }
 .search-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* 🔔 Notifications pop-up de négociation (v2.12) : entrée glissée */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-in {
+  animation: toast-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
 
 /* 🔢 Compte à rebours proposition : chiffre qui pulse quand il reste peu de temps */
 @keyframes countdown-urgent {

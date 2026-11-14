@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Car,
   Flame,
@@ -14,13 +15,15 @@ import {
 } from 'lucide-react';
 import type { SessionProfile } from '@/lib/supabase/server';
 import type { DriverEarningsSummary } from '@/lib/earnings';
-import type { Ride } from '@/types';
+import type { Ride, RideProposal } from '@/types';
 import { NEIGHBORHOODS, type Neighborhood } from '@/lib/neighborhoods';
 import { POINTS_REDEEM_TARGET } from '@/lib/gamification';
 import { formatFcfa } from '@/lib/commission';
 import { timeAgo } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { RequestPopup } from './RequestPopup';
+import { ToastStack, useToastStack } from '@/components/shared/Toast';
+import { detectProposalEvents, type ProposalSnapshot } from '@/lib/proposal-events';
 
 interface IncomingRide {
   ride: Ride;
@@ -42,6 +45,7 @@ const SELECTABLE = NEIGHBORHOODS.filter((n) => n !== 'Autre');
  *  (selfie + pièce d'identité obligatoires), même nudge de quête
  *  quand on se déconnecte presque à temps. */
 export function DriverHome({ profile }: { profile: SessionProfile }) {
+  const router = useRouter();
   const [isOnline, setIsOnline] = useState(profile.is_online);
   const [area, setArea] = useState<Neighborhood | ''>(
     (profile.current_area as Neighborhood | '') ?? ''
@@ -55,6 +59,12 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
   const [offlineConfirm, setOfflineConfirm] = useState<{ remaining: number; bonus: number } | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
   const proposedRef = useRef<Set<string>>(new Set());
+
+  // Notifications pop-up de négociation (v2.12) : le chauffeur est
+  // alerté quand un passager contre-propose et quand son prix est
+  // accepté (figé). Auto-fermeture ~6 s.
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToastStack();
+  const myProposalsSnapshotRef = useRef<ProposalSnapshot>(new Map());
 
   const verified = profile.is_verified;
   const verificationStatus = (profile.verification_status ?? 'non_verifie') as string;
@@ -111,6 +121,85 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
     const t = window.setInterval(fetchIncoming, 10000);
     return () => window.clearInterval(t);
   }, [isOnline, verified, fetchIncoming]);
+
+  /** Sondage de mes propositions (v2.12, toutes les 15 s, en ligne
+   *  seulement) : détecte les contre-propositions des passagers et les
+   *  acceptations — le chauffeur est alerté par une pop-up, avec
+   *  « Accepter » directement dedans. */
+  const fetchMyProposals = useCallback(async () => {
+    try {
+      const res = await fetch('/api/proposals?scope=mine');
+      const data = await res.json();
+      if (!data?.ok) return;
+      const list = (data.proposals ?? []) as (RideProposal & {
+        ride?: { pickup: string; destination: string } | null;
+      })[];
+      const { events, snapshot } = detectProposalEvents(myProposalsSnapshotRef.current, list);
+      myProposalsSnapshotRef.current = snapshot;
+      for (const ev of events) {
+        if (ev.kind === 'counter') {
+          const price = ev.proposal.counterPrice as number;
+          const ride = ev.proposal.ride;
+          pushToast({
+            id: `counter-${ev.proposal.id}-${price}`,
+            title: `Contre-proposition : ${formatFcfa(price)}`,
+            message: ride
+              ? `${ride.pickup} → ${ride.destination} — le passager propose ce prix.`
+              : 'Le passager propose ce prix.',
+            variant: 'offer',
+            actions: [
+              {
+                label: `Accepter ${formatFcfa(price)}`,
+                primary: true,
+                onClick: () => acceptCounterFromToast(ev.proposal.id),
+              },
+              { label: 'Voir', onClick: () => router.push('/tableau-de-bord') },
+            ],
+          });
+        } else if (ev.kind === 'accepted') {
+          const price = ev.proposal.counterPrice ?? ev.proposal.proposedPrice;
+          const ride = ev.proposal.ride;
+          pushToast({
+            id: `accepted-${ev.proposal.id}`,
+            title: `Prix accepté : ${formatFcfa(price)} — prix figé`,
+            message: ride
+              ? `${ride.pickup} → ${ride.destination} — va récupérer ton passager.`
+              : 'Va récupérer ton passager.',
+            variant: 'success',
+          });
+        }
+      }
+    } catch {
+      // Réessaie au prochain tour.
+    }
+  }, [pushToast, router]);
+
+  /** Accepter une contre-proposition directement depuis le toast (v2.12). */
+  async function acceptCounterFromToast(proposalId: string) {
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'accept_counter' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error ?? 'Acceptation impossible.');
+        return;
+      }
+      fetchMyProposals();
+      fetchIncoming();
+    } catch {
+      setError('Acceptation impossible pour le moment.');
+    }
+  }
+
+  useEffect(() => {
+    if (!isOnline || !verified) return;
+    fetchMyProposals();
+    const t = window.setInterval(fetchMyProposals, 15000);
+    return () => window.clearInterval(t);
+  }, [isOnline, verified, fetchMyProposals]);
 
   async function toggleOnline(next: boolean) {
     if (!verified) {
@@ -171,6 +260,9 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
 
   return (
     <div className="p-4 sm:p-5 pt-1 space-y-4">
+      {/* Notifications pop-up de négociation (v2.12). */}
+      <ToastStack toasts={toasts} onClose={dismissToast} />
+
       {/* Statut */}
       <div>
         <h1 className="text-xl font-black text-white leading-tight">
@@ -341,7 +433,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
                     {i.ride.pickup} → {i.ride.destination}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
-                    {i.ride.rideType === 'groupe' ? 'Groupe' : 'Solo'} · {i.ride.seats} place{i.ride.seats > 1 ? 's' : ''} ·{' '}
+                    {i.ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'} ·{' '}
                     estimation {formatFcfa(i.ride.estimatedPrice)} · {timeAgo(i.ride.createdAt)}
                     {i.ride.offeredPrice !== null ? ` · le passager propose ${formatFcfa(i.ride.offeredPrice)}` : ''}
                     {i.passenger?.name ? ` · ${i.passenger.name}` : ''}
@@ -369,6 +461,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         <RequestPopup
           ride={popupRide.ride}
           passenger={popupRide.passenger}
+          driverSeats={profile.seats}
           onClose={() => setPopupRide(null)}
           onProposed={(rideId) => {
             proposedRef.current.add(rideId);

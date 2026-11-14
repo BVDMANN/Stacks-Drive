@@ -90,54 +90,58 @@ export const NEIGHBORHOODS = [
 export type Neighborhood = (typeof NEIGHBORHOODS)[number];
 
 /** Coordonnées approximatives (lat/lng) du centre de chaque quartier. */
+// Coordonnées vérifiées (v2.14) : géocodeur (Mapcarta/OSM), listes
+// officielles des arrondissements, JO / L'Union, grille DGI. Les
+// positions incertaines restent sur leur repère connu le plus proche
+// (voir le rapport v2.14) : ne pas les déplacer sans source.
 export const NEIGHBORHOOD_COORDS: Record<Neighborhood, { lat: number; lng: number }> = {
   'Centre-ville': { lat: 0.3901, lng: 9.4544 },
-  Glass: { lat: 0.4033, lng: 9.442 },
+  Glass: { lat: 0.398, lng: 9.441 },
   'Nzeng-Ayong': { lat: 0.43, lng: 9.47 },
-  Charbonnages: { lat: 0.415, lng: 9.43 },
+  Charbonnages: { lat: 0.436, lng: 9.446 },
   Owendo: { lat: 0.34, lng: 9.5 },
-  Akanda: { lat: 0.45, lng: 9.49 },
+  Akanda: { lat: 0.5, lng: 9.47 },
   'Aéroport Léon-Mba': { lat: 0.458, lng: 9.412 },
   Likouala: { lat: 0.38, lng: 9.47 },
-  Louis: { lat: 0.41, lng: 9.45 },
-  Sablière: { lat: 0.42, lng: 9.48 },
-  Alibandeng: { lat: 0.38, lng: 9.49 },
-  Kinguele: { lat: 0.37, lng: 9.44 },
+  Louis: { lat: 0.411, lng: 9.443 },
+  Sablière: { lat: 0.474, lng: 9.402 },
+  Alibandeng: { lat: 0.456, lng: 9.428 },
+  Kinguele: { lat: 0.375, lng: 9.46 },
   Nkembo: { lat: 0.44, lng: 9.45 },
   Akébé: { lat: 0.405, lng: 9.46 },
   'Plein Ciel': { lat: 0.43, lng: 9.44 },
   'Batterie IV': { lat: 0.395, lng: 9.43 },
   'Mont-Bouët': { lat: 0.395, lng: 9.47 },
-  Okala: { lat: 0.41, lng: 9.49 },
-  Damas: { lat: 0.36, lng: 9.47 },
+  Okala: { lat: 0.495, lng: 9.42 },
+  Damas: { lat: 0.428, lng: 9.465 },
   // Nord (Akanda / côte).
   Angondjé: { lat: 0.515, lng: 9.445 },
   'Cap Esterias': { lat: 0.615, lng: 9.345 },
   'Santa Clara': { lat: 0.575, lng: 9.37 },
   Malibé: { lat: 0.555, lng: 9.385 },
-  Ondogo: { lat: 0.47, lng: 9.45 },
+  Ondogo: { lat: 0.445, lng: 9.455 },
   // Est / nord-est.
   Acaé: { lat: 0.445, lng: 9.49 },
   Mindoubé: { lat: 0.465, lng: 9.5 },
-  Lalala: { lat: 0.435, lng: 9.495 },
-  'La Peyrie': { lat: 0.435, lng: 9.455 },
-  Awendjé: { lat: 0.42, lng: 9.455 },
+  Lalala: { lat: 0.428, lng: 9.482 },
+  'La Peyrie': { lat: 0.4, lng: 9.464 },
+  Awendjé: { lat: 0.389, lng: 9.473 },
   'Gros-Bouquet': { lat: 0.425, lng: 9.44 },
   Oloumi: { lat: 0.405, lng: 9.435 },
-  'Belle-Vue': { lat: 0.425, lng: 9.465 },
-  'Plaine-Orety': { lat: 0.44, lng: 9.435 },
+  'Belle-Vue': { lat: 0.394, lng: 9.478 },
+  'Plaine-Orety': { lat: 0.408, lng: 9.447 },
   'Camp de Gaulle': { lat: 0.445, lng: 9.43 },
   Ambowe: { lat: 0.445, lng: 9.42 },
   // Axe N1 vers Ntoum.
   PK5: { lat: 0.44, lng: 9.51 },
   PK8: { lat: 0.45, lng: 9.53 },
   PK12: { lat: 0.46, lng: 9.56 },
-  Melen: { lat: 0.455, lng: 9.545 },
+  Melen: { lat: 0.458, lng: 9.552 },
   Bikélé: { lat: 0.47, lng: 9.58 },
   Essassa: { lat: 0.475, lng: 9.6 },
   // Sud / Owendo.
-  Ozangué: { lat: 0.365, lng: 9.5 },
-  Sotega: { lat: 0.335, lng: 9.49 },
+  Ozangué: { lat: 0.38, lng: 9.487 },
+  Sotega: { lat: 0.383, lng: 9.45 },
   'Diba-Diba': { lat: 0.325, lng: 9.485 },
   Alenakiri: { lat: 0.33, lng: 9.51 },
   Sogara: { lat: 0.345, lng: 9.515 },
@@ -149,8 +153,8 @@ export const NEIGHBORHOOD_COORDS: Record<Neighborhood, { lat: number; lng: numbe
   'Gué-Gué': { lat: 0.415, lng: 9.438 },
   'Trois Quartiers': { lat: 0.418, lng: 9.442 },
   Sorbonne: { lat: 0.398, lng: 9.458 },
-  'Venez-Voir': { lat: 0.408, lng: 9.472 },
-  'Sainte-Marie': { lat: 0.394, lng: 9.462 },
+  'Venez-Voir': { lat: 0.402, lng: 9.468 },
+  'Sainte-Marie': { lat: 0.395, lng: 9.455 },
   Tahiti: { lat: 0.45, lng: 9.42 },
   // Nord (Akanda / côte) (v2.8).
   'Cité de la Démocratie': { lat: 0.485, lng: 9.45 },
@@ -173,11 +177,15 @@ export const NEIGHBORHOOD_COORDS: Record<Neighborhood, { lat: number; lng: numbe
 };
 
 /** Niveau d'affichage du libellé de quartier sur la carte (v2.5, 3 tiers
- *  depuis la v2.8).
- *  Tier 1 = grands quartiers, visibles dès le zoom 11 (vue par défaut
- *  = zoom 12) ; tier 2 = quartiers moyens, visibles seulement à partir
- *  du zoom 13 ; tier 3 = quartiers petits ou éloignés, visibles
- *  seulement à partir du zoom 14, pour ne pas surcharger la carte.
+ *  depuis la v2.8, resserrés en v2.14 — standard « arrivée Google
+ *  Maps » : carte propre, lisible, aérée).
+ *  Tier 1 (12) = grands quartiers, visibles dès le zoom 11 (vue par
+ *  défaut = zoom 12) : Centre-ville, Glass, Nzeng-Ayong, Aéroport,
+ *  Owendo, Akanda, Louis, Charbonnages, Lalala, Sotega, Ambowe,
+ *  Angondjé — bien espacés, jamais deux libellés collés.
+ *  Tier 2 (18) = quartiers moyens, visibles seulement à partir du
+ *  zoom 13 (30 libellés au total) ; tier 3 (39) = quartiers petits ou
+ *  éloignés, visibles seulement à partir du zoom 14 (69 libellés).
  *  'Autre' n'a pas de libellé (ce n'est pas un lieu). */
 export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
   'Centre-ville': 1,
@@ -187,74 +195,74 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
   Owendo: 1,
   Akanda: 1,
   'Aéroport Léon-Mba': 1,
-  Likouala: 1,
+  Likouala: 3,
   Louis: 1,
-  Sablière: 1,
-  Alibandeng: 1,
-  Kinguele: 1,
-  Nkembo: 1,
-  Akébé: 1,
-  'Plein Ciel': 1,
-  'Batterie IV': 1,
-  'Mont-Bouët': 1,
-  Okala: 1,
-  Damas: 1,
+  Sablière: 3,
+  Alibandeng: 3,
+  Kinguele: 3,
+  Nkembo: 2,
+  Akébé: 2,
+  'Plein Ciel': 2,
+  'Batterie IV': 3,
+  'Mont-Bouët': 2,
+  Okala: 2,
+  Damas: 3,
   Angondjé: 1,
   'Cap Esterias': 3,
   'Santa Clara': 3,
   Malibé: 3,
-  Ondogo: 2,
-  Acaé: 1,
-  Mindoubé: 1,
+  Ondogo: 3,
+  Acaé: 2,
+  Mindoubé: 2,
   Lalala: 1,
   'La Peyrie': 2,
-  Awendjé: 2,
-  'Gros-Bouquet': 2,
+  Awendjé: 3,
+  'Gros-Bouquet': 3,
   Oloumi: 2,
-  'Belle-Vue': 2,
-  'Plaine-Orety': 2,
-  'Camp de Gaulle': 2,
-  Ambowe: 2,
-  PK5: 1,
-  PK8: 1,
+  'Belle-Vue': 3,
+  'Plaine-Orety': 3,
+  'Camp de Gaulle': 3,
+  Ambowe: 1,
+  PK5: 3,
+  PK8: 3,
   PK12: 2,
   Melen: 2,
   Bikélé: 2,
-  Essassa: 2,
+  Essassa: 3,
   Ozangué: 2,
-  Sotega: 2,
-  'Diba-Diba': 2,
-  Alenakiri: 2,
-  Sogara: 2,
-  Akournam: 2,
-  Igoumié: 2,
+  Sotega: 1,
+  'Diba-Diba': 3,
+  Alenakiri: 3,
+  Sogara: 3,
+  Akournam: 3,
+  Igoumié: 3,
   // Centre / côte (v2.8).
-  'Petit Paris': 1,
-  Cocotiers: 1,
-  'Gué-Gué': 1,
-  'Trois Quartiers': 2,
-  Sorbonne: 2,
-  'Venez-Voir': 2,
-  'Sainte-Marie': 2,
-  Tahiti: 2,
+  'Petit Paris': 2,
+  Cocotiers: 3,
+  'Gué-Gué': 2,
+  'Trois Quartiers': 3,
+  Sorbonne: 3,
+  'Venez-Voir': 3,
+  'Sainte-Marie': 3,
+  Tahiti: 3,
   // Nord (Akanda / côte) (v2.8).
   'Cité de la Démocratie': 2,
   Avorbam: 2,
   Barracuda: 3,
   'Cap Caravane': 3,
   // Axe N1 vers Ntoum (v2.8).
-  PK6: 2,
-  PK9: 2,
+  PK6: 3,
+  PK9: 3,
   PK11: 3,
-  Sibang: 2,
-  Montalier: 2,
-  Bambouchine: 2,
+  Sibang: 3,
+  Montalier: 3,
+  Bambouchine: 3,
   Bizango: 3,
-  Nkok: 2,
+  Nkok: 3,
   Nkoltang: 3,
   // Sud / Owendo (v2.8).
   Nomba: 2,
-  Autre: 2,
+  Autre: 3,
 };
 
 /** Décalage d'affichage du libellé uniquement (pixels, jamais les
@@ -266,10 +274,18 @@ export const NEIGHBORHOOD_LABEL_OFFSET: Partial<
   Likouala: { x: -20, y: 0 },
   Alibandeng: { x: 20, y: 0 },
   // v2.8 : libellés qui se toucheraient sinon au zoom 12-13.
-  Cocotiers: { x: -30, y: -14 },
+  Cocotiers: { x: -75, y: -14 },
   'Gué-Gué': { x: -45, y: -16 },
   'Sainte-Marie': { x: -10, y: 14 },
   Bambouchine: { x: 0, y: -14 },
+  // v2.14 : libellés voisins qui se toucheraient sinon.
+  Lalala: { x: 48, y: 6 },
+  'Aéroport Léon-Mba': { x: -40, y: 0 },
+  Sotega: { x: -55, y: 30 },
+  'Petit Paris': { x: 45, y: 25 },
+  Nkembo: { x: 50, y: -12 },
+  Avorbam: { x: -30, y: 0 },
+  Bikélé: { x: 40, y: 0 },
 };
 
 /** Accès routier des quartiers (v2.6) — PROPOSITION À FAIRE VALIDER
@@ -325,7 +341,7 @@ export const ROAD_ACCESS: Record<Neighborhood, RoadAccess> = {
   PK5: 'bitume',
   PK8: 'bitume',
   PK12: 'bitume',
-  Melen: 'difficile',
+  Melen: 'bitume',
   Bikélé: 'bitume',
   Essassa: 'difficile',
   Ozangué: 'bitume',
@@ -354,7 +370,7 @@ export const ROAD_ACCESS: Record<Neighborhood, RoadAccess> = {
   // Axe N1 (v2.8, corrigé) : la route bitumée va jusqu'à PK12
   // (rond-point PK12 / Melen) — tous les PK jusqu'à PK12 inclus
   // sont normaux. Au-delà de PK12 seulement, l'accès devient
-  // difficile — même logique que Melen / Essassa (v2.6).
+  // difficile — même logique qu'Essassa (v2.6).
   PK6: 'bitume',
   PK9: 'bitume',
   PK11: 'bitume',
@@ -377,14 +393,13 @@ export const DROP_OFF_POINT: Partial<Record<Neighborhood, Neighborhood>> = {
   // Axe N1 : la route bitumée s'arrête à PK12 (rond-point PK12 /
   // Melen) — tous les PK jusqu'à PK12 inclus sont bitumés et
   // normaux. Les quartiers au-delà sont desservis par des pistes.
-  Melen: 'PK12',
   Essassa: 'PK12',
   // Côte nord : la route bitumée s'arrête à Angondjé.
   'Cap Esterias': 'Angondjé',
   'Santa Clara': 'Angondjé',
   Malibé: 'Angondjé',
-  // Ondogo : accès par Akanda.
-  Ondogo: 'Akanda',
+  // Ondogo : accès par Nzeng-Ayong (6e arrondissement, Libreville).
+  Ondogo: 'Nzeng-Ayong',
   // Sud d'Owendo (zone portuaire / industrielle) : repli sur Owendo.
   Alenakiri: 'Owendo',
   Sogara: 'Owendo',

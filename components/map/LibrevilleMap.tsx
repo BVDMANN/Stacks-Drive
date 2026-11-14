@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LIBREVILLE_CENTER, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_LABEL_OFFSET, NEIGHBORHOOD_LABEL_TIER, type Neighborhood } from '@/lib/neighborhoods';
-import { POIS, POI_CATEGORY_LABELS, type PoiCategory } from '@/lib/pois';
+import { POIS, POI_CATEGORY_LABELS, type Poi, type PoiCategory } from '@/lib/pois';
 
 export interface MapDriver {
   id: string;
@@ -57,6 +57,12 @@ const POI_SVG: Record<PoiCategory, string> = {
   hotel: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>`,
   sante: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg>`,
   lieu: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>`,
+  aeroport: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>`,
+  port: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" x2="12" y1="22" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>`,
+  stade: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`,
+  musee: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+  plage: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
+  gare: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="13" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg>`,
 };
 
 /** Dérive lente des chauffeurs démo : ils « roulent » autour de leur
@@ -127,6 +133,10 @@ export function LibrevilleMap({
   userLocation,
   focusPoint,
   onDriverClick,
+  basemap,
+  onPoiClick,
+  onMapClick,
+  selectedPoi,
   className,
 }: {
   drivers: MapDriver[];
@@ -139,6 +149,16 @@ export function LibrevilleMap({
   userLocation?: UserLocationPoint | null;
   focusPoint?: FocusPoint | null;
   onDriverClick?: (driverId: string) => void;
+  /** Fond de carte (v2.13) : 'plan' (Esri World Street Map + filtre
+   *  sombre) ou 'satellite' (Esri World Imagery, sans filtre). */
+  basemap?: 'plan' | 'satellite';
+  /** Clic sur un lieu (POI) : ouvre sa mini-carte d'info. */
+  onPoiClick?: (poi: Poi) => void;
+  /** Clic sur le fond de carte (pas sur un marqueur) : sert à fermer
+   *  la mini-carte d'info d'un lieu. */
+  onMapClick?: () => void;
+  /** Lieu sélectionné : son pictogramme est mis en surbrillance. */
+  selectedPoi?: Poi | null;
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -149,6 +169,12 @@ export function LibrevilleMap({
   const radarRef = useRef<{ circle: L.Circle; timer: ReturnType<typeof setInterval> } | null>(null);
   const onDriverClickRef = useRef(onDriverClick);
   onDriverClickRef.current = onDriverClick;
+  const onPoiClickRef = useRef(onPoiClick);
+  onPoiClickRef.current = onPoiClick;
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const poiMarkersRef = useRef<Map<string, L.Marker>>(new Map());
 
   // Création de la carte (une seule fois).
   useEffect(() => {
@@ -180,12 +206,15 @@ export function LibrevilleMap({
     // La couche de référence « World Dark Gray » est supprimée : World
     // Street Map porte déjà ses propres libellés (la doubler
     // surchargerait la carte).
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      className: 'map-tiles-dark',
-      attribution:
-        'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
+    tileLayerRef.current = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        className: 'map-tiles-dark',
+        attribution:
+          'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }
+    ).addTo(map);
     L.control.attribution({ position: 'topright' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     routeLayersRef.current = L.layerGroup().addTo(map);
@@ -219,10 +248,12 @@ export function LibrevilleMap({
         zIndexOffset: -500,
       }).addTo(tier === 1 ? labelMajor : tier === 2 ? labelMid : labelMinor);
     });
-    // Points d'intérêt (v2.6) : magasins, marchés, stations, pharmacies,
-    // hôtels, santé, lieux publics — pictogramme de catégorie + petit
-    // libellé, discrets, non cliquables, sous les marqueurs chauffeurs.
-    // (Créée avant updateLabels : la fonction est appelée aussitôt.)
+    // Points d'intérêt (v2.6, cliquables depuis la v2.13) : pictogramme
+    // de catégorie + petit libellé, sous les marqueurs chauffeurs. Le
+    // clic ouvre la mini-carte d'info du lieu (nom, distance,
+    // estimation, « Y aller ») ; il ne se propage pas au fond de carte
+    // (sinon la carte se refermerait aussitôt). Le survol garde
+    // l'infobulle nom · catégorie · quartier.
     const poiLayer = L.layerGroup();
     POIS.forEach((poi) => {
       const icon = L.divIcon({
@@ -231,18 +262,22 @@ export function LibrevilleMap({
         iconSize: [0, 0],
         iconAnchor: [0, 0],
       });
-      L.marker([poi.lat, poi.lng], {
+      const marker = L.marker([poi.lat, poi.lng], {
         icon,
-        interactive: false,
         keyboard: false,
         zIndexOffset: -400,
-      })
-        .bindTooltip(`${poi.name} · ${POI_CATEGORY_LABELS[poi.category]} · près de ${poi.neighborhood}`, {
-          direction: 'top',
-          offset: [0, -14],
-          className: 'map-tooltip',
-        })
-        .addTo(poiLayer);
+      });
+      marker.bindTooltip(`${poi.name} · ${POI_CATEGORY_LABELS[poi.category]} · près de ${poi.neighborhood}`, {
+        direction: 'top',
+        offset: [0, -14],
+        className: 'map-tooltip',
+      });
+      marker.on('click', (e) => {
+        L.DomEvent.stopPropagation(e.originalEvent);
+        onPoiClickRef.current?.(poi);
+      });
+      marker.addTo(poiLayer);
+      poiMarkersRef.current.set(poi.name, marker);
     });
     const updateLabels = () => {
       const z = map.getZoom();
@@ -252,23 +287,68 @@ export function LibrevilleMap({
       else map.removeLayer(labelMid);
       if (z >= 14) labelMinor.addTo(map);
       else map.removeLayer(labelMinor);
-      // Points d'intérêt (v2.6) : à partir du zoom 13 seulement, pour
-      // ne pas surcharger la vue d'ensemble ; libellés seulement à
-      // partir du zoom 15 (à 13-14, pictogrammes seuls : les libellés
-      // du Centre-ville se chevauchaient).
-      if (z >= 13) poiLayer.addTo(map);
+      // Points d'intérêt (v2.6, seuil relevé en v2.14) : à partir
+      // du zoom 14 seulement — standard « arrivée Google Maps » : à
+      // l'arrivée (zoom 12) et en vue d'ensemble (zoom 13), la carte
+      // ne montre que les quartiers ; les lieux apparaissent en
+      // zoomant. Libellés seulement à partir du zoom 15 (à 14,
+      // pictogrammes seuls : les libellés du Centre-ville se
+      // chevauchaient).
+      if (z >= 14) poiLayer.addTo(map);
       else map.removeLayer(poiLayer);
       map.getContainer().classList.toggle('map-poi-labels-on', z >= 15);
     };
     map.on('zoomend', updateLabels);
+    // Clic sur le fond de carte (pas sur un marqueur) : ferme la
+    // mini-carte d'info d'un lieu. Le clic sur un POI ne passe pas
+    // ici (stopPropagation dans son gestionnaire).
+    map.on('click', () => onMapClickRef.current?.());
     updateLabels();
     mapRef.current = map;
     return () => {
       map.remove();
       mapRef.current = null;
       driverMarkersRef.current.clear();
+      poiMarkersRef.current.clear();
     };
   }, []);
+
+  // Lieu sélectionné (v2.13) : anneau or autour de son pictogramme.
+  useEffect(() => {
+    poiMarkersRef.current.forEach((marker, name) => {
+      marker
+        .getElement()
+        ?.querySelector('.map-poi-marker')
+        ?.classList.toggle('selected', selectedPoi?.name === name);
+    });
+  }, [selectedPoi]);
+
+  // Fond de carte (v2.13) : Plan (Street Map + filtre sombre) ou
+  // Satellite (World Imagery, sans filtre — images gratuites, sans clé,
+  // même fournisseur qu'avant : Esri). Seule la couche de tuiles
+  // change : marqueurs, POI, radar, itinéraire et libellés restent.
+  // Retirer / remettre la couche rafraîchit l'attribution et les tuiles.
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = tileLayerRef.current;
+    if (!map || !layer) return;
+    const satellite = basemap === 'satellite';
+    layer.setUrl(
+      satellite
+        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+    );
+    layer.options.className = satellite ? '' : 'map-tiles-dark';
+    layer.options.attribution = satellite
+      ? 'Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+      : 'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    layer.remove();
+    layer.addTo(map);
+    // Contraste des libellés en Satellite : l'image est variée
+    // (sable, végétation, toits), les libellés ont besoin d'un halo
+    // plus fort (classe sur le conteneur, voir globals.css).
+    map.getContainer().classList.toggle('map-satellite', satellite);
+  }, [basemap]);
 
   // Itinéraire + départ + destination + « Vous êtes ici ».
   useEffect(() => {

@@ -77,7 +77,7 @@ export default async function MesCoursesPage() {
                           {ride.pickup} → {ride.destination}
                         </Link>
                         <p className="text-sm text-slate-500 mt-0.5">
-                          {date} · {time} · {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} pass.` : 'Solo'} ·{' '}
+                          {date} · {time} · {ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'} ·{' '}
                           Paiement : {PAYMENT_LABELS[ride.paymentMethod]}
                           {ride.driverId ? ` · Chauffeur : ${drivers.get(ride.driverId) ?? ''}` : ''}
                         </p>
@@ -123,7 +123,7 @@ export default async function MesCoursesPage() {
                           {ride.pickup} → {ride.destination}
                         </Link>
                         <p className="text-sm text-slate-500 mt-0.5">
-                          {date} · {time} · {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} pass.` : 'Solo'}
+                          {date} · {time} · {ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'}
                           {ride.driverId ? ` · Chauffeur : ${drivers.get(ride.driverId) ?? ''}` : ''}
                           {ride.ratingDriver ? ` · Ta note : ${ride.ratingDriver}/5` : ''}
                         </p>

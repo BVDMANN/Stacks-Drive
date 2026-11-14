@@ -134,7 +134,7 @@ export default async function CoursePage({ params }: Ctx) {
             </h1>
             <p className="text-sm text-slate-500 mt-1">
               Demandée {date} · {time} ({timeAgo(ride.createdAt)}) ·{' '}
-              {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} passager${ride.seats > 1 ? 's' : ''}` : 'Solo'}
+              {ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'}
             </p>
           </div>
           <RideStatusBadge status={ride.status} />
@@ -292,7 +292,7 @@ export default async function CoursePage({ params }: Ctx) {
                 <div className="bg-slate-50 rounded-2xl p-3">
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">Passagers</p>
                   <p className="font-black text-stacks-navy mt-1 flex items-center gap-1">
-                    <Users size={16} /> {ride.seats}
+                    <Users size={16} /> {ride.rideType === 'groupe' ? '1 place' : 'Véhicule entier'}
                   </p>
                   <p className="text-xs text-slate-400">
                     {ride.rideType === 'groupe' ? 'course partagée' : 'course privée'}

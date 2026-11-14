@@ -89,6 +89,57 @@ export function estimateTrip(
   return { distanceKm, durationMin };
 }
 
+/** Estimation indicative du prix d'un trajet à partir d'une distance
+ *  en km (v2.13) — même modèle que `estimateFare`, mais pour deux
+ *  points GPS quelconques (pas forcément des quartiers) : c'est ce
+ *  qu'utilise la mini-carte d'info d'un lieu (POI). Le prix final
+ *  reste négocié entre le passager et le chauffeur et figé à
+ *  l'acceptation — jamais de surge. */
+export function estimateFareForDistance(
+  distanceKm: number,
+  rideType: RideType,
+  vehiclePreference: VehiclePreference = 'tous',
+  options: { isAirport?: boolean; unpavedRoad?: boolean } = {}
+): FareEstimate {
+  const durationMin = Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
+  const pref: VehiclePreference =
+    rideType === 'groupe' && vehiclePreference === 'moto' ? 'voiture' : vehiclePreference;
+  const kmFr = distanceKm.toFixed(1).replace('.', ',');
+  let price: number;
+  let breakdown: string;
+  if (rideType === 'solo') {
+    price = round50(
+      BASE_FARE_SOLO + PER_KM_SOLO * distanceKm + (options.isAirport ? AIRPORT_SUPPLEMENT_SOLO : 0)
+    );
+    if (pref === 'moto') price = round50(price * 0.6);
+    const floored = price < MIN_FARE_SOLO;
+    price = Math.max(price, MIN_FARE_SOLO);
+    breakdown =
+      `${BASE_FARE_SOLO} FCFA prise en charge + ${kmFr} km × ${PER_KM_SOLO} FCFA/km` +
+      (options.isAirport ? ` + ${AIRPORT_SUPPLEMENT_SOLO} FCFA aéroport` : '') +
+      (pref === 'moto' ? ' · Moto ×0,6' : '') +
+      (floored ? ` · minimum ${MIN_FARE_SOLO} FCFA` : '');
+  } else {
+    price = round50(
+      BASE_FARE_GROUPE + PER_KM_GROUPE * distanceKm + (options.isAirport ? AIRPORT_SUPPLEMENT_GROUPE : 0)
+    );
+    const floored = price < MIN_FARE_GROUPE;
+    price = Math.max(price, MIN_FARE_GROUPE);
+    breakdown =
+      `${BASE_FARE_GROUPE} FCFA prise en charge + ${kmFr} km × ${PER_KM_GROUPE} FCFA/km` +
+      (options.isAirport ? ` + ${AIRPORT_SUPPLEMENT_GROUPE} FCFA aéroport` : '') +
+      (floored ? ` · minimum ${MIN_FARE_GROUPE} FCFA` : '');
+  }
+
+  // Supplément route non bitumée : forfait, ajouté tel quel à l'estimation.
+  const unpavedSupplement = options.unpavedRoad ? UNPAVED_ROAD_SUPPLEMENT : 0;
+  price += unpavedSupplement;
+
+  breakdown += ` · ~${durationMin} min` + (pref === 'moto' ? ' · Moto' : '');
+  if (unpavedSupplement > 0) breakdown += ` · +${unpavedSupplement} FCFA route non bitumée`;
+  return { price, distanceKm, durationMin, rideType, vehiclePreference: pref, breakdown, unpavedSupplement };
+}
+
 /** Estimation indicative du prix d'un trajet. Calculée côté serveur à
  *  la création de la demande (jamais depuis le client) et affichée au
  *  passager comme un repère — ce n'est PAS le prix de la course. Le
@@ -108,45 +159,11 @@ export function estimateFare(
   vehiclePreference: VehiclePreference = 'tous',
   options: { unpavedRoad?: boolean } = {}
 ): FareEstimate {
-  const { distanceKm, durationMin } = estimateTrip(pickup, destination);
-  const isAirport = pickup === AIRPORT || destination === AIRPORT;
-  const pref: VehiclePreference =
-    rideType === 'groupe' && vehiclePreference === 'moto' ? 'voiture' : vehiclePreference;
-
-  const kmFr = distanceKm.toFixed(1).replace('.', ',');
-  let price: number;
-  let breakdown: string;
-  if (rideType === 'solo') {
-    price = round50(
-      BASE_FARE_SOLO + PER_KM_SOLO * distanceKm + (isAirport ? AIRPORT_SUPPLEMENT_SOLO : 0)
-    );
-    if (pref === 'moto') price = round50(price * 0.6);
-    const floored = price < MIN_FARE_SOLO;
-    price = Math.max(price, MIN_FARE_SOLO);
-    breakdown =
-      `${BASE_FARE_SOLO} FCFA prise en charge + ${kmFr} km × ${PER_KM_SOLO} FCFA/km` +
-      (isAirport ? ` + ${AIRPORT_SUPPLEMENT_SOLO} FCFA aéroport` : '') +
-      (pref === 'moto' ? ' · Moto ×0,6' : '') +
-      (floored ? ` · minimum ${MIN_FARE_SOLO} FCFA` : '');
-  } else {
-    price = round50(
-      BASE_FARE_GROUPE + PER_KM_GROUPE * distanceKm + (isAirport ? AIRPORT_SUPPLEMENT_GROUPE : 0)
-    );
-    const floored = price < MIN_FARE_GROUPE;
-    price = Math.max(price, MIN_FARE_GROUPE);
-    breakdown =
-      `${BASE_FARE_GROUPE} FCFA prise en charge + ${kmFr} km × ${PER_KM_GROUPE} FCFA/km` +
-      (isAirport ? ` + ${AIRPORT_SUPPLEMENT_GROUPE} FCFA aéroport` : '') +
-      (floored ? ` · minimum ${MIN_FARE_GROUPE} FCFA` : '');
-  }
-
-  // Supplément route non bitumée : forfait, ajouté tel quel à l'estimation.
-  const unpavedSupplement = options.unpavedRoad ? UNPAVED_ROAD_SUPPLEMENT : 0;
-  price += unpavedSupplement;
-
-  breakdown += ` · ~${durationMin} min` + (pref === 'moto' ? ' · Moto' : '');
-  if (unpavedSupplement > 0) breakdown += ` · +${unpavedSupplement} FCFA route non bitumée`;
-  return { price, distanceKm, durationMin, rideType, vehiclePreference: pref, breakdown, unpavedSupplement };
+  const { distanceKm } = estimateTrip(pickup, destination);
+  return estimateFareForDistance(distanceKm, rideType, vehiclePreference, {
+    isAirport: pickup === AIRPORT || destination === AIRPORT,
+    unpavedRoad: options.unpavedRoad,
+  });
 }
 
 /** Temps d'arrivée estimé du chauffeur le plus proche, en minutes,

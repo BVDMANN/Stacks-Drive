@@ -76,8 +76,8 @@ export default async function ComptePage() {
                   ride.vehiclePreference === 'moto'
                     ? 'Moto'
                     : ride.rideType === 'groupe'
-                      ? `Groupe · ${ride.seats} pass.`
-                      : 'Solo';
+                      ? 'Groupe · 1 place'
+                      : 'Solo · véhicule entier';
                 return (
                   <li key={ride.id} className="py-3 space-y-1">
                     <div className="flex flex-wrap items-center justify-between gap-3">

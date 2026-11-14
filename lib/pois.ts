@@ -20,7 +20,13 @@ export type PoiCategory =
   | 'pharmacie'
   | 'hotel'
   | 'sante'
-  | 'lieu';
+  | 'lieu'
+  | 'aeroport'
+  | 'port'
+  | 'stade'
+  | 'musee'
+  | 'plage'
+  | 'gare';
 
 export const POI_CATEGORY_LABELS: Record<PoiCategory, string> = {
   supermarche: 'Supermarché',
@@ -30,6 +36,31 @@ export const POI_CATEGORY_LABELS: Record<PoiCategory, string> = {
   hotel: 'Hôtel',
   sante: 'Santé',
   lieu: 'Lieu public',
+  aeroport: 'Aéroport',
+  port: 'Port',
+  stade: 'Stade',
+  musee: 'Musée',
+  plage: 'Plage',
+  gare: 'Gare',
+};
+
+/** Couleur d'accent par catégorie (v2.7, tons assourdis « Nuit dorée »)
+ *  — même valeurs que le CSS (.map-poi-marker.cat-*) : la mini-carte
+ *  d'info du lieu utilise la même couleur que son pictogramme. */
+export const POI_CATEGORY_COLORS: Record<PoiCategory, string> = {
+  supermarche: '#ffc700',
+  marche: '#34d399',
+  station: '#fb923c',
+  pharmacie: '#22d3ee',
+  hotel: '#c084fc',
+  sante: '#f87171',
+  lieu: '#94a3b8',
+  aeroport: '#38bdf8',
+  port: '#2dd4bf',
+  stade: '#fbbf24',
+  musee: '#e879f9',
+  plage: '#fde047',
+  gare: '#a5b4fc',
 };
 
 export interface Poi {
@@ -85,17 +116,17 @@ export const POIS: Poi[] = [
   { name: 'CHU Mère-Enfant Jeanne Ebori', category: 'sante', neighborhood: 'Owendo', lat: 0.345, lng: 9.5 },
 
   // --- Lieux publics ---
-  { name: 'Stade de l’Amitié', category: 'lieu', neighborhood: 'Angondjé', lat: 0.518, lng: 9.447 },
+  { name: 'Stade de l’Amitié', category: 'stade', neighborhood: 'Angondjé', lat: 0.518, lng: 9.447 },
   { name: 'Université Omar Bongo', category: 'lieu', neighborhood: 'Lalala', lat: 0.425, lng: 9.465 },
   { name: 'Cathédrale Sainte-Marie', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.392, lng: 9.451 },
-  { name: 'Gare d’Owendo', category: 'lieu', neighborhood: 'Owendo', lat: 0.33, lng: 9.505 },
-  { name: 'Aéroport international Léon-Mba', category: 'lieu', neighborhood: 'Aéroport Léon-Mba', lat: 0.458, lng: 9.412 },
-  { name: 'Port d’Owendo', category: 'lieu', neighborhood: 'Owendo', lat: 0.335, lng: 9.505 },
-  { name: 'Port de Libreville', category: 'lieu', neighborhood: 'Petit Paris', lat: 0.386, lng: 9.447 },
-  { name: 'Stade Omar Bongo', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.397, lng: 9.452 },
-  { name: 'Musée National du Gabon', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.392, lng: 9.45 },
-  { name: 'Plage de la Sablière', category: 'lieu', neighborhood: 'Sablière', lat: 0.419, lng: 9.468 },
-  { name: 'Plage d’Angondjé', category: 'lieu', neighborhood: 'Angondjé', lat: 0.517, lng: 9.44 },
-  { name: 'Gare Routière', category: 'lieu', neighborhood: 'Petit Paris', lat: 0.385, lng: 9.451 },
+  { name: 'Gare d’Owendo', category: 'gare', neighborhood: 'Owendo', lat: 0.33, lng: 9.505 },
+  { name: 'Aéroport international Léon-Mba', category: 'aeroport', neighborhood: 'Aéroport Léon-Mba', lat: 0.458, lng: 9.412 },
+  { name: 'Port d’Owendo', category: 'port', neighborhood: 'Owendo', lat: 0.335, lng: 9.505 },
+  { name: 'Port de Libreville', category: 'port', neighborhood: 'Petit Paris', lat: 0.386, lng: 9.447 },
+  { name: 'Stade Omar Bongo', category: 'stade', neighborhood: 'Centre-ville', lat: 0.397, lng: 9.452 },
+  { name: 'Musée National du Gabon', category: 'musee', neighborhood: 'Centre-ville', lat: 0.392, lng: 9.45 },
+  { name: 'Plage de la Sablière', category: 'plage', neighborhood: 'Sablière', lat: 0.474, lng: 9.402 },
+  { name: 'Plage d’Angondjé', category: 'plage', neighborhood: 'Angondjé', lat: 0.517, lng: 9.44 },
+  { name: 'Gare Routière', category: 'gare', neighborhood: 'Petit Paris', lat: 0.385, lng: 9.451 },
   { name: 'Jardin Botanique', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.394, lng: 9.446 },
 ];
