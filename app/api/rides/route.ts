@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (error || !ride) {
-    console.error('[api/rides]', error?.message);
+    console.error('[api/rides]', error?.code, error?.message);
     return NextResponse.json(
       { error: 'Demande impossible pour le moment. Réessaie.' },
       { status: 500 }

@@ -21,3 +21,5 @@ reste, avec le renvoi).
 | [0008](0008-verification-automatisee-tickets.md) | Vérification automatisée + tickets admin | Acceptée |
 | [0009](0009-perimetre-5km.md) | Périmètre dispatch 5 km puis 25 km | Acceptée |
 | [0010](0010-prix-haversine.md) | Prix sur distance haversine, pas routière | Acceptée |
+| [0011](0011-retrait-points-prise-en-charge.md) | Retrait des points de prise en charge (montants avant trajet) | Acceptée |
+| [0012](0012-tutoriel-non-bloquant.md) | Tutoriel passager non bloquant à l'arrivée (carte d'accueil, sans voile) | Acceptée |

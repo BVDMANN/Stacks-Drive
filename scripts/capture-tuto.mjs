@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * capture-tuto.mjs — Captures des tutoriels Stacks Drive (v2.21).
+ * capture-tuto.mjs — Captures des tutoriels Stacks Drive (v2.21,
+ * choix des quartiers revu v2.22, carte d'accueil v2.36).
  *
  * Prend les captures des VRAIS écrans de l'app (jamais d'illustrations)
  * qui illustrent chaque étape des tutoriels passager et chauffeur, et
@@ -123,6 +124,19 @@ async function hideDevTools(page) {
   });
 }
 
+/** Choisir un quartier dans la combobox avec recherche (v2.22) : le
+ *  `<select>` natif n'existe plus sur l'accueil — on tape le nom
+ *  puis on touche l'option filtrée. (`selectOption` ne marche que
+ *  sur un `<select>` : c'est ce qui cassait les captures depuis
+ *  v2.22.) */
+async function pickNeighborhood(page, label, name) {
+  const input = page.getByLabel(label, { exact: true });
+  await input.click();
+  await input.fill(name);
+  await page.getByRole('option', { name, exact: true }).click();
+  await page.waitForTimeout(300);
+}
+
 async function shot(page, name, target = 'viewport') {
   const file = path.join(OUT_DIR, name);
   if (target === 'viewport') {
@@ -152,8 +166,8 @@ async function main() {
       isMobile: true,
       hasTouch: true,
     });
-    // Neutraliser les tutoriels pendant les captures (sinon la modale
-    // couvrirait l'accueil au premier lancement).
+    // Neutraliser les tutoriels pendant les captures (sinon la carte
+    // d'accueil couvrirait le haut de la carte au premier lancement).
     await ctx.addInitScript(() => {
       try {
         window.localStorage.setItem('stacks-drive-tuto-passager-vu', '1');
@@ -177,9 +191,9 @@ async function main() {
     await page.waitForTimeout(800);
     await shot(page, 'passager-01-carte.png');
 
-    // Choisir un trajet réel.
-    await page.getByLabel('Point de départ').selectOption('Aéroport Léon-Mba');
-    await page.getByLabel('Destination').selectOption('Centre-ville');
+    // Choisir un trajet réel (combobox avec recherche, v2.22).
+    await pickNeighborhood(page, 'Départ', 'Aéroport Léon-Mba');
+    await pickNeighborhood(page, 'Destination', 'Centre-ville');
     await page.waitForTimeout(1000); // estimation (300 ms) + prix animé
     // Haut de la feuille : départ / destination (+ cartes Solo/Groupe
     // avec leurs estimations juste en dessous).

@@ -10,6 +10,63 @@ Légende : **en ligne** = déployé sur https://stacks-drive.vercel.app ;
 **local** = en attente de push et, le cas échéant, d'exécution de la
 migration associée (voir le tableau des migrations dans le README).
 
+## v2.37 — 14/11/2026 (local)
+
+Correctif bloquant — la demande de course ne pouvait pas être créée :
+chaque POST /api/rides échouait avec « Demande impossible pour le
+moment » (erreur Postgres 23502, trouvée dans les logs Vercel :
+`null value in column "departure_time" of relation "rides" violates
+not-null constraint`, 3 occurrences le 14/11 à 19:35–19:37).
+Cause : `departure_time timestamptz not null` est un reste du modèle v1
+(schema.sql) — la migration v2 a supprimé `seats_total`,
+`seats_available`, `vehicle_label`, `driver_name`, `is_demo` et
+`payment_methods`, mais a oublié `departure_time`. Le modèle v2 ne la
+remplit jamais (course immédiate : `created_at` ; planifiée :
+`scheduled_at`) et aucun code ne la lit. Migration
+`supabase/migration-v2.37-rides-departure-time.sql` : suppression de la
+colonne (rien n'en dépend en production — la seule référence, une
+politique RLS v1 sur `bookings`, a disparu avec `drop table bookings
+cascade` en v2). Le log serveur inclut désormais aussi le code
+d'erreur Postgres (`error?.code`) pour diagnostiquer plus vite. Aucune
+autre colonne NOT NULL sans défaut ne manque à l'insertion (vérifié
+colonne par colonne).
+
+## v2.36 — 14/11/2026 (local)
+
+Tutoriel passager non bloquant à l'arrivée (décision du propriétaire,
+14/11/2026, en vérifiant le produit final) : la modale s'ouvrait en
+plein écran 900 ms après l'arrivée et masquait tout — les gens
+risquaient de se perdre. Désormais, au premier lancement, une petite
+carte d'accueil en haut de la carte (sans voile, sans fond sombre —
+la carte et la feuille restent visibles et utilisables) propose le
+tutoriel ; il ne s'ouvre que si on touche « Voir le tutoriel ». Fermer
+la carte (« Plus tard » / croix) vaut « vu » : elle ne revient pas.
+La modale elle-même est inchangée pour les ouvertures volontaires
+(« Revoir le tutoriel », « Mon compte »). ADR 0012. La formation
+chauffeur est inchangée (elle s'ouvre après la création du compte,
+pas à l'arrivée sur le site). Scripts remis à jour : la capture
+passager-02 utilisait encore `selectOption` (cassé depuis v2.22 — la
+combobox a remplacé le `<select>` ; désormais on tape le nom puis on
+touche l'option) et `tuto:verify` attendait la modale plein écran à
+l'arrivée (il attend désormais la carte d'accueil, puis l'ouverture
+volontaire). Aucune migration, aucun nouveau cron.
+
+## v2.35 — 14/11/2026 (local)
+
+Retrait de la section « Points de prise en charge » de l'accueil
+(décision du propriétaire, 14/11/2026, en vérifiant le produit final) :
+la liste des 10 lieux (aéroport, marchés, stades, gares, université, CHU,
+hôtel) affichait des montants avant même qu'un trajet soit défini —
+l'estimation doit être générée à partir du vrai trajet (départ +
+destination), jamais présentée comme des trajets prêts à prix
+prédéfinis. Supprimés : composant `components/home/PickupPoints.tsx`,
+rendu dans `HomeScreen.tsx` (et `handlePickupFromPoi`), données
+`PICKUP_POINT_NAMES` / `PICKUP_POINTS` dans `lib/pois.ts`. Les lieux
+restent sur la carte (43 POI, marqueurs cliquables) ; l'estimation
+indicative reste dans les cartes Solo / Groupe une fois le trajet choisi
+(ADR 0005 inchangée). ADR 0011. Captures des tutoriels refaites
+(`npm run tuto:captures`). Aucune migration, aucun nouveau cron.
+
 ## v2.34 — 14/11/2026 (local)
 
 Lot « Au-delà » : RideCheck maison (long arrêt > 5 min, déviation > 500 m de l'itinéraire OSRM, course anormalement longue — confirmation double, check-in passager « Tout va bien ? », alerte admin seulement sur « Problème » ou sans réponse sous 3 min, jamais de blocage chauffeur) ; enregistrement audio du trajet chiffré (AES-GCM, clé par course, envoyé uniquement en cas de litige, supprimé après 7 jours sans litige — limite : pas d'escrow complet de clé, la clé vit sur l'appareil) ; chauffeur favori (priorité 30 s depuis l'historique) ; courses sur le chemin du retour + filtre destination désactivable ; classe Confort (clim garantie, chauffeurs 4,5★ et plus, même prix que Solo, éligibilité vérifiée côté serveur) ; file d'attente virtuelle aéroport (premier arrivé, premier servi, exclusivité 60 s) ; arrondi du prix accepté à 50 FCFA près côté serveur (montant arrondi affiché avant acceptation) — **⚠️ À CONFIRMER PAR LE PROPRIÉTAIRE AVANT LE PUSH** ; parrainage doublé (parrain 2 000 pts, filleul 1 000 pts, toujours silencieux). Migration `supabase/migration-v2.34-au-dela.sql` à exécuter une seule fois. Vérification locale : `node scripts/verify-lot-v234.mjs`.

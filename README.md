@@ -84,7 +84,7 @@ sequenceDiagram
 
 ## Tutoriels visuels réels (v2.21)
 
-- **Passager (premier lancement) :** 6 étapes — carte, trajet + estimation, Solo/Groupe, propositions, prix figé + code PIN, paiement direct. Affiché une seule fois, fermable, rejouable depuis « Mon compte » (« Besoin d’aide ? ») et depuis le pied de la feuille d’accueil (« Revoir le tutoriel »).
+- **Passager (premier lancement) :** 6 étapes — carte, trajet + estimation, Solo/Groupe, propositions, prix figé + code PIN, paiement direct. À l’arrivée, une petite carte d’accueil en haut de la carte (sans voile, la carte et la feuille restent visibles et utilisables) propose le tutoriel — il ne s’ouvre que si on touche « Voir le tutoriel ». Affichée une seule fois, fermable (« Plus tard » / croix), rejouable depuis « Mon compte » (« Besoin d’aide ? ») et depuis le pied de la feuille d’accueil (« Revoir le tutoriel »).
 - **Chauffeur (formation, après création du compte) :** 6 étapes — mise en ligne, demande entrante, prix + places libres, code PIN, commission (5 % puis 8 %, plafond 10 %), règlement hebdo + règles de conduite. S’ouvre au premier passage sur le tableau de bord, rejouable avec « Revoir la formation ».
 - **Captures :** `public/tuto/` — 12 PNG des vrais écrans (Playwright, serveur de dev). Refaire avec `npm run tuto:captures`, vérifier avec `npm run tuto:verify`. Procédure et limites dans `public/tuto/README.md` (dont : fond de carte gris en local, gains « Chargement… » sans Supabase). La page d’aperçu dev `/tuto-apercu` (vrais composants, données démo) répond 404 en production.
 

@@ -1,0 +1,33 @@
+-- Migration v2.37 — Supprimer la colonne morte `departure_time` de `rides`.
+--
+-- BUG (14/11/2026, trouvé en production via les logs Vercel) : chaque
+-- demande de course passager échouait avec « Demande impossible pour
+-- le moment. Réessaie. » — erreur Postgres 23502 :
+--   null value in column "departure_time" of relation "rides"
+--   violates not-null constraint
+-- (3 occurrences le 14/11 à 19:35:41, 19:36:47, 19:37:48, POST /api/rides).
+--
+-- Cause : `departure_time timestamptz not null` est un reste du modèle
+-- v1 (schema.sql — le chauffeur publiait un trajet avec une heure de
+-- départ). La migration v2 a renommé `departure` → `pickup`,
+-- `price` → `estimated_price`, supprimé `seats_total`,
+-- `seats_available`, `vehicle_label`, `driver_name`, `is_demo`,
+-- `payment_methods` — mais a oublié `departure_time`. Le modèle v2
+-- ne la remplit jamais (une course immédiate part de `created_at`, une
+-- course planifiée utilise `scheduled_at`, v2.30) et aucun code ne la
+-- lit (vérifié par grep : zéro référence dans app/, components/,
+-- lib/). La contrainte NOT NULL sans défaut rejetait donc CHAQUE
+-- insertion de demande.
+--
+-- Correctif : supprimer la colonne. Rien n'en dépend en production :
+-- la seule référence restante (politique RLS v1 sur `bookings`) a
+-- disparu avec `drop table bookings cascade` (migration v2) ; les
+-- insertions de démonstration de schema.sql ne tournent que sur une
+-- installation neuve, avant cette migration.
+--
+-- Exécuter UNE SEULE FOIS dans le SQL Editor Supabase.
+-- Vérification : select column_name from information_schema.columns
+-- where table_schema = 'public' and table_name = 'rides'
+-- and column_name = 'departure_time';  → 0 ligne.
+
+alter table public.rides drop column if exists departure_time;

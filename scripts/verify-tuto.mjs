@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 /**
- * verify-tuto.mjs — Vérification fonctionnelle des tutoriels (v2.21).
+ * verify-tuto.mjs — Vérification fonctionnelle des tutoriels (v2.21, revu v2.36).
  *
  * Usage (serveur de dev actif sur http://localhost:3100) :
  *   npm run tuto:verify
  *
  * Contrôle, dans un vrai Chromium :
- *  1. Tutoriel passager : s'ouvre seul au premier lancement, se ferme,
- *     pose le drapeau « vu », ne se rouvre pas au rechargement, se
- *     rouvre avec « Revoir le tutoriel », et ses 6 images chargent.
+ *  1. Tutoriel passager (v2.36) : au premier lancement, c'est la
+ *     petite carte d'accueil qui apparaît (pas la modale plein
+ *     écran) ; « Voir le tutoriel » ouvre la modale, on parcourt les
+ *     6 étapes, la fermeture pose le drapeau « vu », rien ne se
+ *     rouvre au rechargement, et « Revoir le tutoriel » rouvre la
+ *     modale ; les 6 images chargent.
  *  2. Formation chauffeur (page d'aperçu dev) : s'ouvre sur demande
  *     et ses 6 images chargent.
  *  3. Captures : les 12 PNG existent dans `public/tuto/`.
@@ -102,14 +105,26 @@ async function main() {
     });
     const page = await ctx.newPage();
 
-    // --- 1. Premier lancement : ouverture auto, navigation, fermeture ---
+    // --- 1. Premier lancement : carte d'accueil (pas de modale plein
+    // écran, v2.36), puis ouverture volontaire du tutoriel ---
     console.log('Tutoriel passager (premier lancement)…');
     await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     try {
-      await page.getByRole('dialog', { name: 'Tutoriel passager' }).waitFor({ timeout: 8000 });
-      console.log('  ✓ ouverture automatique au premier lancement');
+      await page.getByRole('dialog', { name: 'Bienvenue sur Stacks Drive' }).waitFor({ timeout: 8000 });
+      console.log('  ✓ carte d’accueil au premier lancement (sans voile)');
     } catch {
-      fail('la modale ne s’est pas ouverte seule au premier lancement');
+      fail('la carte d’accueil ne s’est pas montrée au premier lancement');
+    }
+    // La modale ne doit PAS être ouverte d'elle-même à l'arrivée.
+    const modalAtArrival = await page.getByRole('dialog', { name: 'Tutoriel passager' }).count();
+    if (modalAtArrival === 0) console.log('  ✓ la modale ne masque pas l’écran à l’arrivée');
+    else fail('la modale s’est ouverte seule à l’arrivée (v2.36 : non)');
+    await page.getByRole('button', { name: 'Voir le tutoriel', exact: true }).click();
+    try {
+      await page.getByRole('dialog', { name: 'Tutoriel passager' }).waitFor({ timeout: 5000 });
+      console.log('  ✓ « Voir le tutoriel » ouvre la modale');
+    } catch {
+      fail('« Voir le tutoriel » n’ouvre pas la modale');
     }
     await stepThrough(page, 'passager');
     await page.screenshot({ path: '/tmp/tuto-modal-passager-etape-6.png' });
@@ -119,12 +134,13 @@ async function main() {
     if (seen === '1') console.log('  ✓ fermeture → drapeau « vu » posé');
     else fail('drapeau « vu » absent après fermeture');
 
-    // --- 2. Rechargement : ne se rouvre pas ---
+    // --- 2. Rechargement : ni carte ni modale ne se rouvrent ---
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2500);
     const reopened = await page.getByRole('dialog', { name: 'Tutoriel passager' }).count();
-    if (reopened === 0) console.log('  ✓ ne se rouvre pas au rechargement');
-    else fail('la modale s’est rouverte après rechargement');
+    const hintReopened = await page.getByRole('dialog', { name: 'Bienvenue sur Stacks Drive' }).count();
+    if (reopened === 0 && hintReopened === 0) console.log('  ✓ ni carte ni modale au rechargement');
+    else fail('la carte ou la modale s’est rouverte après rechargement');
 
     // --- 3. Rejouable depuis l'accueil (feuille dépliée : le lien
     // « Revoir le tutoriel » est dans le pied de la feuille) ---

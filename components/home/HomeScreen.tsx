@@ -32,7 +32,6 @@ import { DriverCard } from './DriverCard';
 import { CancelRideDialog } from '@/components/rides/CancelRideDialog';
 import type { CancelReasonCode } from '@/lib/cancellations';
 import { NeighborhoodSelect } from '@/components/shared/NeighborhoodSelect';
-import { PickupPoints } from './PickupPoints';
 import { OutOfZoneScreen } from './OutOfZoneScreen';
 import { OUT_OF_ZONE_DISMISSED_KEY } from '@/lib/area-waitlist';
 import { DriverHome } from '@/components/driver/DriverHome';
@@ -915,14 +914,6 @@ export function HomeScreen({
     setUnpavedRoad(false);
   }
 
-  // « Partir de là » (v2.22) : un point de prise en charge devient le
-  // départ (son quartier le plus proche), la carte se recentre dessus.
-  function handlePickupFromPoi(poi: Poi) {
-    handlePickupChange(poi.neighborhood);
-    focusNonceRef.current += 1;
-    setFocusPoint({ lat: poi.lat, lng: poi.lng, zoom: 14, nonce: focusNonceRef.current });
-  }
-
   // « Y aller » (v2.13) : le lieu devient la destination (son
   // quartier le plus proche), la carte se recentre dessus et la
   // feuille s'ouvre pour commander.
@@ -1629,12 +1620,6 @@ export function HomeScreen({
                   </label>
                 )}
               </div>
-
-              {/* Points de prise en charge (v2.22) : aéroport, marchés,
-                  stades, gares et lieux connus — estimation indicative
-                  vers la destination choisie (Centre-ville par défaut),
-                  jamais un prix fixe : le prix final se négocie. */}
-              <PickupPoints destination={destination} onPick={handlePickupFromPoi} />
 
               {/* Types de course — les montants affichés sont des
                   estimations indicatives, pas des prix (v2.11). */}
