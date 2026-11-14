@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send } from 'lucide-react';
 import { timeAgo } from '@/lib/dates';
 import { cn } from '@/lib/utils';
+import { pollingIntervalMs, useRealtimeSubscription } from '@/lib/realtime';
 
 export interface ChatMessage {
   id: string;
@@ -13,13 +14,20 @@ export interface ChatMessage {
 }
 
 /** Messages rapides du passager : « Où êtes-vous ? » est la question
- *  que Randy voulait permettre au client de poser à son chauffeur. */
+ *  que l’on voulait permettre au client de poser à son chauffeur. */
 const QUICK_MESSAGES = ['Où êtes-vous ?', "J'arrive", 'Je suis devant…'];
+
+/** Messages rapides du chauffeur (v2.30) : l'équivalent côté
+ *  chauffeur — mêmes règles : messagerie in-app uniquement, aucun
+ *  numéro affiché. */
+const QUICK_MESSAGES_DRIVER = ['J’arrive', 'Je suis devant…', 'Je vous attends', 'Je suis en route'];
 
 /** Fil de discussion d'une course (v2.10) : messagerie in-app entre le
  *  passager et le chauffeur, pendant que la course est en cours. Aucun
  *  numéro de téléphone n'est affiché — l'échange passe par l'app.
- *  Sondage court (3 s) : le projet n'utilise pas Supabase Realtime.
+ *  Temps réel (v2.24) : les nouveaux messages arrivent par Supabase
+ *  Realtime ; le sondage (3 s) ne reste qu'en repli si Realtime est
+ *  indisponible, plus un rafraîchissement de sécurité toutes les 30 s.
  *  Si la migration v2.10 n'est pas appliquée, la messagerie s'affiche
  *  comme non activée — jamais de crash. */
 export function RideChat({
@@ -58,11 +66,20 @@ export function RideChat({
     }
   }, [rideId]);
 
+  // Temps réel (v2.24) : un nouveau message déclenche un rechargement
+  // immédiat ; le sondage reste en repli (3 s) ou en sécurité (30 s).
+  const { live: realtimeLive } = useRealtimeSubscription({
+    table: 'ride_messages',
+    filter: `ride_id=eq.${rideId}`,
+    enabled: state === 'open',
+    onChange: fetchMessages,
+  });
+
   useEffect(() => {
     fetchMessages();
-    const t = window.setInterval(fetchMessages, 3000);
+    const t = window.setInterval(fetchMessages, pollingIntervalMs(realtimeLive, 3000, 30000));
     return () => window.clearInterval(t);
-  }, [fetchMessages]);
+  }, [fetchMessages, realtimeLive]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -163,22 +180,21 @@ export function RideChat({
             <div ref={bottomRef} />
           </div>
 
-          {/* Messages rapides (passager) : « Où êtes-vous ? » en un tap. */}
-          {myRole === 'passager' && (
-            <div className="flex flex-wrap gap-2">
-              {QUICK_MESSAGES.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  disabled={sending}
-                  onClick={() => send(q)}
-                  className="px-3 py-1.5 rounded-full text-xs font-black bg-slate-100 text-slate-700 hover:bg-slate-200 active:scale-95 transition-all disabled:opacity-50"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Messages rapides : passager (« Où êtes-vous ? ») et
+              chauffeur (« J’arrive »…) — en un tap, in-app uniquement. */}
+          <div className="flex flex-wrap gap-2">
+            {(myRole === 'passager' ? QUICK_MESSAGES : QUICK_MESSAGES_DRIVER).map((q) => (
+              <button
+                key={q}
+                type="button"
+                disabled={sending}
+                onClick={() => send(q)}
+                className="px-3 py-1.5 rounded-full text-xs font-black bg-slate-100 text-slate-700 hover:bg-slate-200 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
 
           {error && (
             <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">

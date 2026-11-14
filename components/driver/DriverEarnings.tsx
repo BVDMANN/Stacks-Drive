@@ -15,6 +15,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import type { DriverEarningsSummary } from '@/lib/earnings';
+import { WeeklySettlementCard } from '@/components/driver/WeeklySettlementCard';
 import {
   BADGES,
   DEPOSIT_FCFA,
@@ -343,6 +344,14 @@ export function DriverEarnings() {
         </div>
       </section>
 
+      {/* Relevé hebdo + « J'ai payé » (v2.15) */}
+      <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+        <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
+          <Wallet size={20} className="text-stacks-green" /> Ton relevé de la semaine
+        </h2>
+        <WeeklySettlementCard />
+      </section>
+
       {/* Quête du jour + série */}
       <section className="bg-night-900 border border-white/10 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 text-slate-100">
         <h2 className="font-black text-lg flex items-center gap-2">
@@ -435,9 +444,40 @@ export function DriverEarnings() {
         )}
       </section>
 
-      {/* Détail par course */}
+      {/* Détail par course (v2.30) : date, trajet, prix accepté,
+          commission, gain net — depuis `driver_earnings` (source de
+          vérité) + trajet joint depuis `rides`. Export CSV simple
+          (lecture seule, côté client, sans dépendance). */}
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3">
-        <h2 className="font-black text-lg text-slate-900">Dernières courses</h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h2 className="font-black text-lg text-slate-900">Détail par course</h2>
+          {summary.recent.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const header = 'Date;Trajet;Prix accepte (FCFA);Commission (FCFA);Gain net (FCFA)';
+                const lines = summary.recent.map((r) => {
+                  const date = r.completedAt ?? r.day;
+                  const trip =
+                    r.pickup && r.destination ? `${r.pickup} -> ${r.destination}` : '—';
+                  return [date, trip, r.fare, r.commission, r.kept].join(';');
+                });
+                const blob = new Blob([[header, ...lines].join('\n')], {
+                  type: 'text/csv;charset=utf-8',
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'gains-stacks-drive.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="px-4 py-2 rounded-full text-xs font-black bg-stacks-navy text-white hover:bg-slate-800 transition-colors"
+            >
+              Exporter en CSV
+            </button>
+          )}
+        </div>
         {summary.recent.length === 0 ? (
           <p className="text-sm text-slate-500">
             Aucune course terminée pour le moment — tes gains apparaîtront ici.
@@ -448,7 +488,9 @@ export function DriverEarnings() {
               <li key={r.rideId} className="py-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm">
                   <p className="font-bold text-slate-900">
-                    {formatFcfa(r.fare)} le trajet · {formatFcfa(r.kept)} pour toi
+                    {r.pickup && r.destination
+                      ? `${r.pickup} → ${r.destination}`
+                      : `${formatFcfa(r.fare)} le trajet`}
                     {r.isDoubleRide && (
                       <span className="ml-2 text-xs font-black px-2 py-0.5 rounded-full bg-gold/20 text-amber-800 border border-gold/40">
                         COURSE DOUBLE
@@ -461,7 +503,15 @@ export function DriverEarnings() {
                     )}
                   </p>
                   <p className="text-slate-500">
-                    {r.day} · commission {formatFcfa(r.commission)}
+                    {r.completedAt
+                      ? new Date(r.completedAt).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : r.day}
+                    {' · '}prix accepté {formatFcfa(r.fare)} · commission {formatFcfa(r.commission)}
                     {r.isDoubleRide ? ' · points doublés' : ''}
                     {r.isFreeRide ? ' · course sans commission (échange de points)' : ''}
                   </p>

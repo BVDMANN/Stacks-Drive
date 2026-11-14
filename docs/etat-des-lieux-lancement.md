@@ -3,33 +3,34 @@
 **Produit :** Stacks Drive — appli de mise en relation chauffeurs / passagers, Libreville d'abord.
 **État :** en ligne depuis le 13/11/2026 — https://stacks-drive.vercel.app (web app, Supabase + Vercel).
 **Version :** v2.6 en ligne (commit `65996054`, 14/11/2026).
-**Auteur :** Ruby, pour Randy (Stacks). **Date :** 14/11/2026.
+**Auteur :** Stacks. **Date :** 14/11/2026.
 **Statut :** document de travail interne — pas une promesse commerciale. Les chiffres cités sont ceux connus au 14/11/2026.
 
 ---
 
 ## 1. Le produit en une page (pour ne pas se perdre)
 
-- **Modèle Uber, pas BlaBlaCar :** les chauffeurs ne publient rien. Ils se mettent en ligne, le passager demande une course, le chauffeur reçoit une pop-up et fait une proposition (prix, places restantes, premier arrêt). Proposition valable 60 s. Si personne ne propose, le périmètre s'élargit (10 km → 25 km après 30 s).
+- **Modèle Uber, pas BlaBlaCar :** les chauffeurs ne publient rien. Ils se mettent en ligne, le passager demande une course, le chauffeur reçoit une pop-up et fait une proposition (prix, places restantes, premier arrêt). Proposition valable 60 s. Si personne ne propose, le périmètre s'élargit (5 km → 25 km après 30 s).
 <!-- DOC-SYNC: etat-commission -->
-- **Commission validée par Randy :** 5 % au lancement (3 mois), puis 8 % permanent, **plafond 10 % garanti**. La commission est calculée sur le total de la course, supplément route non bitumée compris.
+- **Commission validée par Stacks :** 5 % au lancement (3 mois), puis 8 % permanent, **plafond 10 % garanti**. La commission est calculée sur le total de la course, supplément route non bitumée compris.
 <!-- /DOC-SYNC -->
 <!-- DOC-SYNC: etat-deposit -->
 - **Garde-fous contre les chauffeurs qui disparaissent sans payer :** **dépôt de garantie remboursable de 5 000 FCFA** à l'inscription (transfert P2P, gardé si le chauffeur part sans solder, remboursé s'il part proprement) + **plafond de dette d'environ 5 000 FCFA** (au-delà, plus de nouvelles demandes tant que ce n'est pas réglé).
 <!-- /DOC-SYNC -->
 - **Deux types de course :** Solo (privée, directe, prix plein) et Groupe (partagée, prix divisé, arrêts multiples dans l'ordre). Groupe par défaut, avec le badge « LE MOINS CHER ». Moto = Solo uniquement.
-- **Paiement — l'appli ne touche jamais l'argent :** le passager paie le chauffeur directement (espèces ou transfert P2P Airtel Money / Moov Money vers son numéro perso). La commission est comptée en silence et réglée **1 fois par semaine, en un seul transfert Mobile Money** vers le numéro perso de Randy. Aucune API de paiement, aucune clé, aucun frais.
+- **Paiement — l'appli ne touche jamais l'argent :** le passager paie le chauffeur directement (espèces ou transfert P2P Airtel Money / Moov Money vers son numéro perso). La commission est comptée en silence et réglée **1 fois par semaine, en un seul transfert Mobile Money** vers le numéro perso de l’administrateur. Aucune API de paiement, aucune clé, aucun frais.
 - **Vérification chauffeur automatisée dès l'inscription :** selfie + pièce d'identité (CNI / passeport) ou permis ; contrôles automatiques (visage, lecture de la pièce par OCR, doublons) et décision automatique — vérifié, refusé avec motif, ou ticket pour l'admin dans les cas ambigus. Tant que ce n'est pas vérifié, pas de mise en ligne, pas de proposition.
+- **Les 2 règles (v2.17, priorité n°1) :** barre de chargement partout où il y a une attente (prix passager, mise en ligne chauffeur sur l'accueil ET le tableau de bord, bascule de mode) ; impossible de passer en mode Chauffeur sans compte chauffeur créé — sinon direction « Devenir chauffeur » (inscription chauffeur + vérification) ; la mise en ligne exige un compte vérifié ; verrou côté serveur (PATCH /api/profile) ET dans la base (migration v2.17, trigger anti-escalade).
 - **Sécurité passager :** SOS (112) + partage de course en direct (lien public de suivi), code PIN à 4 chiffres donné au chauffeur pour démarrer la course.
 - **Fidélité :** 10e course offerte (le passager ne paie pas, le chauffeur est payé intégralement, la plateforme absorbe) ; points chauffeur (100 points/course, 10 000 points = 5 courses sans commission).
 <!-- DOC-SYNC: etat-pricing -->
 - **Prix :** estimation indicative au km — prise en charge + prix au kilomètre (Solo 500 + 210 FCFA/km, Groupe 300 + 135 FCFA/km, Moto = Solo ×0,6), **jamais de surge** ; AUCUN tarif fixe défini par la plateforme. Le prix final est convenu entre le passager et le chauffeur — le chauffeur propose, le passager peut proposer son prix à la demande et contre-proposer — puis il est figé à l'acceptation. Planchers de l'estimation Solo 550 / Groupe 400 FCFA.
 <!-- /DOC-SYNC -->
 <!-- DOC-SYNC: etat-map -->
-- **Carte :** 70 quartiers de Libreville avec leurs noms affichés sur la carte (12 visibles au zoom 12, 30 au zoom 13, 70 au zoom 14), 43 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics — pictogrammes dès le zoom 13, noms dès le zoom 15), icônes chauffeurs dorées avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.
+- **Carte :** 70 quartiers de Libreville avec leurs noms affichés sur la carte (12 visibles au zoom 12, 27 au zoom 13, 69 au zoom 14), 43 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics — pictogrammes dès le zoom 13, noms dès le zoom 15), icônes chauffeurs dorées avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.
 <!-- /DOC-SYNC -->
 <!-- DOC-SYNC: etat-difficult -->
-- **Quartiers à accès difficile :** 15 quartiers ne sont pas desservis sur route bitumée — la course s'y arrête par défaut à un point de dépôt sur route bitumée (PK12, Angondjé, Nzeng-Ayong, Owendo selon la zone) ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **800 FCFA**, que le chauffeur est libre d'accepter ou non. La commission est calculée sur le total, supplément compris. Tous les PK jusqu'à PK12 inclus sont bitumés et normaux.
+- **Quartiers à accès difficile :** 15 quartiers ne sont pas desservis sur route bitumée — la course s'y arrête par défaut à un point de dépôt sur route bitumée (Bikélé, Angondjé, Nzeng-Ayong, Owendo, PK12 selon la zone) ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **800 FCFA**, que le chauffeur est libre d'accepter ou non. La commission est calculée sur le total, supplément compris. Tous les PK jusqu'à PK12 inclus sont bitumés et normaux.
 <!-- /DOC-SYNC -->
 - **Gamification chauffeur :** tableau de bord clair (montant par course, total 24 h, montant dû en temps réel, récaps hebdo et mensuel), célébrations après chaque course, quêtes jour / hebdo, séries, niveaux Bronze / Argent / Or / Diamant, badges, « Course Double » (environ 1 course sur 10 tirée au sort, commission offerte, le chauffeur garde 100 % + la course compte double dans sa quête), « Chauffeur de la semaine ».
 
@@ -85,7 +86,7 @@ Stacks Drive est une web app (navigateur). Pas de publication App Store / Google
 Le passager paie en espèces ou par transfert P2P direct au chauffeur. C'est un choix délibéré (l'appli ne touche jamais l'argent, aucun frais, aucune API), mais ça a un coût : pas de paiement par carte, pas de preuve de paiement automatique dans l'appli, et la commission repose sur le règlement hebdo + le dépôt + le plafond. Si un chauffeur fait une semaine de courses puis disparaît, le dépôt (5 000 FCFA) couvre environ une semaine de commissions — pas plus. Le modèle est honnête, il faut juste ne pas le sur-vendre : la confiance est encadrée, pas éliminée.
 
 **4. Pas de notoriété, une seule ville, une toute petite équipe.**
-Yango est une marque mondiale, Gozem est là depuis 2021, Taxi Gab+ aligne 1 066 véhicules. Nous, c'est Randy, seul, avec une appli lancée le 13/11/2026. Pas de budget pub, pas de partenariat, pas de flotte. La seule réponse possible : être meilleur sur le terrain (chauffeurs contents, passagers en sécurité) et grandir par le bouche-à-oreille, pas par la pub.
+Yango est une marque mondiale, Gozem est là depuis 2021, Taxi Gab+ aligne 1 066 véhicules. Nous, c'est Stacks — une seule personne, avec une appli lancée le 13/11/2026. Pas de budget pub, pas de partenariat, pas de flotte. La seule réponse possible : être meilleur sur le terrain (chauffeurs contents, passagers en sécurité) et grandir par le bouche-à-oreille, pas par la pub.
 <!-- DOC-SYNC: etat-weakness5 -->
 **5. Fiabilité : l'estimation est calculée côté serveur, les prix convenus sont validés côté serveur, le circuit complet n'a jamais été testé en conditions réelles.**
 Depuis la v2.2 : estimation calculée côté serveur uniquement, bornes absolues de sécurité (400–50 000 FCFA, pas de prix fou), pas de double commission (idempotence), journal d'audit, blocage + message clair en cas d'anomalie, page d'erreur de marque (« Service momentanément indisponible ») si ça plante vraiment. Reste vrai : le circuit complet (estimation → prix convenu → commission → règlement hebdo → dépôt → plafond) n'a jamais été testé avec de vrais chauffeurs et de vraies courses. Un bug de trop-perçu ou de double commission au lancement tuerait la confiance des chauffeurs en une semaine.
@@ -93,7 +94,7 @@ Depuis la v2.2 : estimation calculée côté serveur uniquement, bornes absolues
 
 **6. Détails produit connus.**
 - Les 6 chauffeurs démo sont toujours affichés (profils fictifs, signalés comme tels dans les mentions légales).
-- Le flux « Me localiser » complet et une vraie inscription / connexion n'ont jamais été testés par Randy sur son téléphone.
+- Le flux « Me localiser » complet et une vraie inscription / connexion n'ont jamais été testés par le propriétaire sur son téléphone.
 - Statut juridique d'intermédiaire vs transporteur : les CGU sont rédigées mais n'ont pas été relues par un juriste (responsabilité, assurance, loi gabonaise).
 - Les e-mails de tickets de vérification partent via Resend (clé configurée dans Vercel) ; l'expéditeur du plan gratuit (`onboarding@resend.dev`) ne peut écrire qu'à l'e-mail du propriétaire du compte Resend.
 
@@ -114,11 +115,12 @@ Depuis la v2.2 : estimation calculée côté serveur uniquement, bornes absolues
 | Politique de confidentialité | `app/confidentialite/page.tsx` | Faite. |
 | Politique cookies | `app/cookies/page.tsx` | Faite — lien présent dans le pied de page. |
 | Mentions légales | `app/mentions-legales/page.tsx` | Faites — précisent que les 6 chauffeurs affichés sont des profils de démonstration fictifs. |
-| Règles de commission | `lib/commission.ts` | <!-- DOC-SYNC: etat-paperasse-commission -->5 % / 8 % / plafond 10 %. Ne pas toucher aux taux sans décision de Randy.<!-- /DOC-SYNC --> |
+| Règles de commission | `lib/commission.ts` | <!-- DOC-SYNC: etat-paperasse-commission -->5 % / 8 % / plafond 10 %. Ne pas toucher aux taux sans décision du propriétaire.<!-- /DOC-SYNC --> |
 | Estimation indicative (`lib/pricing.ts`) | `lib/pricing.ts` | <!-- DOC-SYNC: etat-paperasse-pricing -->Prise en charge + prix au km (Solo 500 + 210/km, Groupe 300 + 135/km, Moto ×0,6), AUCUN tarif fixe — le prix final est convenu entre le passager et le chauffeur, supplément route non bitumée 800 FCFA.<!-- /DOC-SYNC --> |
 | Quartiers et accès difficile | `lib/neighborhoods.ts` | <!-- DOC-SYNC: etat-paperasse-neighborhoods -->70 quartiers, 15 à accès difficile, points de dépôt.<!-- /DOC-SYNC --> |
 | Lieux sur la carte | `lib/pois.ts` | <!-- DOC-SYNC: etat-paperasse-pois -->43 lieux.<!-- /DOC-SYNC --> |
 | Modèle de variables d'environnement | `.env.example` | Fait. |
+| Migration v2.17 (règles 1 et 2) | `supabase/migration-v2.17-mode-rules.sql` | À exécuter une seule fois, pas encore appliquée — verrouillage du switch Passager → Chauffeur + mise en ligne (trigger anti-escalade). |
 | Code source complet | `app/`, `components/`, `lib/`, `styles/`, `public/`, `types/` | En ligne (v2.6, commit `65996054`). |
 
 ### Règle de rangement

@@ -62,7 +62,12 @@ export function detectProposalEvents<T extends RideProposal>(
   return { events, snapshot: snapshotProposals(next) };
 }
 
-/** Prénom du chauffeur d'une proposition (jamais de téléphone). */
+/** Prénom du chauffeur d'une proposition (jamais de téléphone).
+ *  Les civilités (« M. », « Mme », « Mlle ») sont ignorées : « M.
+ *  Jean N. » donne « Jean », pas « M. ». */
+const HONORIFICS = new Set(['m.', 'mme', 'mlle', 'mr', 'monsieur', 'madame']);
 export function driverFirstName(p: RideProposal): string {
-  return p.driver?.name?.trim().split(' ')[0] ?? 'Le chauffeur';
+  const parts = (p.driver?.name ?? '').trim().split(/\s+/).filter(Boolean);
+  const first = parts.find((part) => !HONORIFICS.has(part.toLowerCase()));
+  return first ?? 'Le chauffeur';
 }

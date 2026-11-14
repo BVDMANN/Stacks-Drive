@@ -1,7 +1,8 @@
 import { Header } from '@/components/shared/Header';
 import { HomeScreen } from '@/components/home/HomeScreen';
-import { getSessionUser } from '@/lib/supabase/server';
+import { getSessionUser, hasDriverAccount } from '@/lib/supabase/server';
 import { getOnlineDrivers } from '@/lib/rides';
+import { toAnonymousMapDriver } from '@/lib/db-types';
 import { DEMO_DRIVERS } from '@/lib/demo-drivers';
 
 // Page d'accueil map-first : carte plein écran + feuille de demande.
@@ -22,6 +23,7 @@ export default async function Page() {
         email: sessionUser.email,
         role: sessionUser.profile?.role ?? 'passager',
         isAdmin: sessionUser.profile?.is_admin ?? false,
+        canSwitchToDriver: hasDriverAccount(sessionUser.profile),
       }
     : null;
 
@@ -31,8 +33,11 @@ export default async function Page() {
       <HomeScreen
         user={user}
         profile={sessionUser?.profile ?? null}
-        realDrivers={realDrivers}
-        demoDrivers={DEMO_DRIVERS}
+        // v2.20 : la carte passager ne reçoit que des marqueurs
+        // anonymes (position + type de véhicule) — l'identité des
+        // chauffeurs n'est jamais sérialisée avant une proposition.
+        realDrivers={realDrivers.map(toAnonymousMapDriver)}
+        demoDrivers={DEMO_DRIVERS.map(toAnonymousMapDriver)}
       />
     </div>
   );

@@ -168,6 +168,35 @@ html {
   border: none;
 }
 
+/* 🚦 Marqueur trafic communautaire (v2.27) : pastille blanche, pictogramme
+   du type de signalement. Confirmé par plusieurs chauffeurs : anneau doré
+   + halo — c'est lui qu'on voit en premier sur la carte. Expire tout
+   seul (30–60 min) : le marqueur disparaît au prochain rafraîchissement. */
+.map-traffic-marker {
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid #0b1020;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+}
+.map-traffic-marker.confirmed {
+  border-color: #ffd60a;
+  box-shadow:
+    0 0 0 3px rgba(255, 214, 10, 0.55),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+  animation: traffic-halo 2s ease-in-out infinite;
+}
+@keyframes traffic-halo {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 214, 10, 0.55), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 214, 10, 0.15), 0 4px 10px rgba(0, 0, 0, 0.5); }
+}
+
 /* 🚗 Marqueur chauffeur v2.5 « Nuit dorée » : pastille or, glyph sombre,
    anneau cyan discret qui pulse = en ligne. La moto a son propre glyph.
    Le badge ★ (note) reste fixe pendant que le glyph tourne avec le cap.
@@ -456,6 +485,13 @@ html {
   animation: radar-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
   pointer-events: none;
 }
+
+/* 🌍 Écran hors zone (v2.32) : la tuile icône or reprend le halo
+ *  pulsant des marqueurs chauffeurs (`driver-halo`) — même
+ *  vocabulaire animé, rien de nouveau. */
+.out-of-zone-tile {
+  animation: driver-halo 2.6s ease-in-out infinite;
+}
 .radar-ring.delayed {
   animation-delay: 1.1s;
 }
@@ -568,4 +604,26 @@ html {
 .countdown-urgent {
   animation: countdown-urgent 1s ease-in-out infinite;
   color: #dc2626;
+}
+
+/* 🖨️ Impression du reçu (v2.30, P1) : seul le reçu s'imprime
+ *  (zone `.print-receipt`), le reste de la page est masqué.
+ *  L'utilisateur choisit « Enregistrer au format PDF » dans la
+ *  boîte d'impression du navigateur : pas de génération PDF côté
+ *  serveur, aucune dépendance. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-receipt,
+  .print-receipt * {
+    visibility: visible;
+  }
+  .print-receipt {
+    position: absolute;
+    inset: 0;
+    padding: 16px;
+    background: #fff;
+    color: #000;
+  }
 }

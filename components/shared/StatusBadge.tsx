@@ -7,6 +7,9 @@ const RIDE_LABELS: Record<string, { label: string; className: string }> = {
   en_cours: { label: 'En cours', className: 'bg-stacks-green text-white' },
   terminee: { label: 'Terminée', className: 'bg-green-100 text-green-800' },
   annulee: { label: 'Annulée', className: 'bg-red-100 text-red-800' },
+  // Courses planifiées (v2.30) : pas encore envoyée / heure passée.
+  planifiee: { label: 'Planifiée', className: 'bg-violet-100 text-violet-800' },
+  expiree: { label: 'Expirée — à relancer', className: 'bg-slate-100 text-slate-600' },
 };
 
 const PROPOSAL_LABELS: Record<string, { label: string; className: string }> = {

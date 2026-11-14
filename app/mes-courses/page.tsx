@@ -8,6 +8,8 @@ import { getMyRideRequests } from '@/lib/rides';
 import { formatFcfa } from '@/lib/commission';
 import { PAYMENT_LABELS } from '@/lib/neighborhoods';
 import { formatDepartureTime } from '@/lib/dates';
+import { ScheduledRideActions } from '@/components/rides/ScheduledRideActions';
+import { FavoriteButton } from '@/components/rides/FavoriteButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +37,10 @@ export default async function MesCoursesPage() {
   const active = rides.filter((r) =>
     ['recherche', 'propositions', 'acceptee', 'en_cours'].includes(r.status)
   );
+  // Courses planifiées (v2.30) : pas encore envoyées — annulables
+  // avant l'envoi ; expirées : heure passée sans chauffeur,
+  // relançables en 1 tap.
+  const scheduled = rides.filter((r) => r.status === 'planifiee' || r.status === 'expiree');
   const past = rides.filter((r) => ['terminee', 'annulee'].includes(r.status));
 
   return (
@@ -64,6 +70,38 @@ export default async function MesCoursesPage() {
         </div>
       ) : (
         <div className="space-y-6">
+          {scheduled.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="font-black text-lg text-slate-900">Planifiées ({scheduled.length})</h2>
+              {scheduled.map((ride) => {
+                const planned = ride.scheduledAt ? formatDepartureTime(ride.scheduledAt) : null;
+                return (
+                  <article key={ride.id} className="bg-white border-2 border-violet-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <Link href={`/courses/${ride.id}`} className="font-black text-slate-900 text-lg hover:text-stacks-green transition-colors">
+                          {ride.pickup} → {ride.destination}
+                        </Link>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                          {ride.status === 'planifiee' && planned
+                            ? `Prévue ${planned.date} à ${planned.time} · envoi aux chauffeurs ~15 min avant`
+                            : 'Heure prévue passée sans chauffeur disponible'}
+                          {' · '}{ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'}
+                          {' · '}Paiement : {PAYMENT_LABELS[ride.paymentMethod]}
+                          {` · estimation ${formatFcfa(ride.estimatedPrice)}`}
+                        </p>
+                      </div>
+                      <RideStatusBadge status={ride.status} />
+                    </div>
+                    <div className="border-t border-slate-100 pt-3">
+                      <ScheduledRideActions rideId={ride.id} status={ride.status as 'planifiee' | 'expiree'} />
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+
           {active.length > 0 && (
             <section className="space-y-4">
               <h2 className="font-black text-lg text-slate-900">En cours ({active.length})</h2>
@@ -124,13 +162,24 @@ export default async function MesCoursesPage() {
                         </Link>
                         <p className="text-sm text-slate-500 mt-0.5">
                           {date} · {time} · {ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'}
+                          {ride.comfort ? ' · Confort' : ''}
                           {ride.driverId ? ` · Chauffeur : ${drivers.get(ride.driverId) ?? ''}` : ''}
                           {ride.ratingDriver ? ` · Ta note : ${ride.ratingDriver}/5` : ''}
+                          {ride.status === 'terminee' && (
+                            <>
+                              {ride.distanceKm !== null ? ` · ~${Math.max(1, Math.round(ride.distanceKm))} km` : ''}
+                              {ride.durationMin !== null ? ` · ~${ride.durationMin} min` : ''}
+                              {!ride.loyaltyFree && ride.proposedPrice !== null
+                                ? ` · commission ${formatFcfa(ride.platformFee)}`
+                                : ''}
+                            </>
+                          )}
+                          {ride.status === 'annulee' && ride.cancelReason ? ` · Annulée — ${ride.cancelReason}` : ''}
                         </p>
                       </div>
                       <RideStatusBadge status={ride.status} />
                     </div>
-                    <p className="text-sm border-t border-slate-100 pt-3">
+                    <p className="text-sm border-t border-slate-100 pt-3 flex flex-wrap items-center justify-between gap-3">
                       <span className="font-black text-slate-900">
                         {ride.loyaltyFree
                           ? '0 FCFA — 10e course offerte'
@@ -142,6 +191,23 @@ export default async function MesCoursesPage() {
                         <span className="inline-flex items-center gap-1 text-xs font-black text-stacks-amber ml-2">
                           <Gift size={13} /> Offerte
                         </span>
+                      )}
+                      {ride.status === 'terminee' && (
+                        <Link
+                          href={`/courses/${ride.id}?print=1`}
+                          className="px-4 py-2 rounded-full text-xs font-black bg-stacks-navy text-white hover:bg-slate-800 transition-colors"
+                        >
+                          Imprimer / Exporter le reçu
+                        </Link>
+                      )}
+                      {/* Chauffeur favori (v2.34) : reprendre avec ce
+                          chauffeur — la prochaine demande lui part en
+                          priorité pendant 30 s. */}
+                      {ride.status === 'terminee' && ride.driverId && (
+                        <FavoriteButton
+                          driverId={ride.driverId}
+                          driverName={drivers.get(ride.driverId) ?? null}
+                        />
                       )}
                     </p>
                   </article>

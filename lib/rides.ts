@@ -4,13 +4,24 @@ import {
   mapDriverProfile,
   mapProposalRow,
   mapRideRow,
+  stripDriverPhone,
   type ProfileRow,
   type RideProposalRow,
   type RideRow,
 } from '@/lib/db-types';
 import { NEIGHBORHOOD_COORDS, type Neighborhood } from '@/lib/neighborhoods';
-import { haversineKm } from '@/lib/geo';
-import type { DriverProfile, Ride, RideProposal } from '@/types';
+import { DISPATCH_WIDENED_RADIUS_KM, DRIVERS_AROUND_RADIUS_KM, haversineKm } from '@/lib/geo';
+import { canReceiveRide, deriveDriverStatus, getDriverAvailability } from '@/lib/seats';
+import { checkAndLogUnansweredRides } from '@/lib/no-driver-zones';
+import { isComfortEligible } from '@/lib/comfort';
+import { isFavoriteExclusive } from '@/lib/favorites';
+import { isOnWayToReturn } from '@/lib/return-trips';
+import {
+  AIRPORT_NEIGHBORHOOD,
+  AIRPORT_QUEUE_EXCLUSIVITY_SEC,
+  getAirportQueueHead,
+} from '@/lib/airport-queue';
+import type { DriverProfile, DriverStatus, Ride, RideProposal } from '@/types';
 
 const PROFILE_SELECT = `id, email, full_name, phone, role, vehicle_type, vehicle_brand,
   vehicle_model, vehicle_color, plate, seats, is_online, is_verified,
@@ -34,6 +45,99 @@ export async function expireStaleProposals(): Promise<void> {
   }
 }
 
+/** Note moyenne d'un passager (v2.30) — moyenne des notes données par
+ *  les chauffeurs après ses courses terminées (`rides.rating_passenger`,
+ *  1 à 5, posée par FeedbackForm / /api/feedback dans les deux sens
+ *  depuis la v2.2). Null = aucune course notée : le chauffeur voit
+ *  « Nouveau passager », jamais 0. Aucune donnée inventée. */
+export async function getPassengerRating(
+  passengerId: string
+): Promise<{ average: number; count: number } | null> {
+  const all = await getPassengerRatings([passengerId]);
+  return all.get(passengerId) ?? null;
+}
+
+export async function getPassengerRatings(
+  passengerIds: string[]
+): Promise<Map<string, { average: number; count: number }>> {
+  const out = new Map<string, { average: number; count: number }>();
+  const ids = [...new Set(passengerIds.filter(Boolean))];
+  if (!isSupabaseConfigured() || ids.length === 0) return out;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('rides')
+    .select('passenger_id, rating_passenger')
+    .in('passenger_id', ids)
+    .eq('status', 'terminee')
+    .not('rating_passenger', 'is', null);
+  const agg = new Map<string, { sum: number; count: number }>();
+  (data ?? []).forEach((r: { passenger_id: string | null; rating_passenger: number | null }) => {
+    if (!r.passenger_id || r.rating_passenger === null) return;
+    const cur = agg.get(r.passenger_id) ?? { sum: 0, count: 0 };
+    cur.sum += r.rating_passenger;
+    cur.count += 1;
+    agg.set(r.passenger_id, cur);
+  });
+  agg.forEach((a, id) => {
+    out.set(id, { average: Math.round((a.sum / a.count) * 10) / 10, count: a.count });
+  });
+  return out;
+}
+
+/** Envoi des courses planifiées (v2.30) — déclenché par le sondage
+ *  existant des demandes entrantes (chaque chauffeur en ligne sonde
+ *  toutes les 10 s : c'est ce sondage qui fait office de déclencheur,
+ *  sans nouveau cron ni service payant) et par la route cron dédiée
+ *  `/api/cron/scheduled-dispatch` (filet de sécurité, à programmer
+ *  seulement si le sondage ne suffit pas — voir SETUP.md).
+ *
+ *  - Une course `planifiee` dont l'heure prévue est dans moins de
+ *    15 min passe en `recherche` (les chauffeurs proches la reçoivent
+ *    au sondage suivant) et `dispatched_at` est posé.
+ *  - Une course `planifiee` dont l'heure prévue est passée depuis
+ *    plus de 30 min sans chauffeur passe en `expiree` : le passager
+ *    la voit dans « Mes courses » avec une proposition de relancer.
+ *  Idempotent (statut filtré avant mise à jour) et silencieux si la
+ *  migration v2.30 n'est pas appliquée (colonne absente = abandon). */
+export async function dispatchDueScheduledRides(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<{ dispatched: number; expired: number }> {
+  const result = { dispatched: 0, expired: 0 };
+  try {
+    const now = new Date();
+    const dispatchBefore = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
+    const expireBefore = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
+    const { data: due, error: dueError } = await supabase
+      .from('rides')
+      .select('id')
+      .eq('status', 'planifiee')
+      .not('scheduled_at', 'is', null)
+      .lte('scheduled_at', dispatchBefore);
+    if (dueError) return result; // migration v2.30 non appliquée
+    const dueIds = ((due ?? []) as { id: string }[]).map((r) => r.id);
+    if (dueIds.length === 0) return result;
+    const { data: updated } = await supabase
+      .from('rides')
+      .update({ status: 'recherche', dispatched_at: now.toISOString() })
+      .eq('status', 'planifiee')
+      .in('id', dueIds)
+      .select('id');
+    result.dispatched = (updated ?? []).length;
+    // Expirées : heure passée depuis plus de 30 min, jamais envoyées.
+    const { data: expired } = await supabase
+      .from('rides')
+      .update({ status: 'expiree' })
+      .eq('status', 'planifiee')
+      .not('scheduled_at', 'is', null)
+      .lt('scheduled_at', expireBefore)
+      .select('id');
+    result.expired = (expired ?? []).length;
+  } catch {
+    // Meilleur effort : le dispatch ne bloque jamais les demandes.
+  }
+  return result;
+}
+
 /** Chauffeurs réels en ligne et vérifiés, avec leur note moyenne.
  *  Sans Supabase configuré : liste vide (les chauffeurs démo, statiques,
  *  sont ajoutés côté client). */
@@ -52,7 +156,7 @@ export async function getOnlineDrivers(): Promise<DriverProfile[]> {
     return [];
   }
   const rows = data as ProfileRow[];
-  const drivers = rows.map(mapDriverProfile);
+  const drivers = rows.map((r) => stripDriverPhone(mapDriverProfile(r))!);
   if (drivers.length === 0) return drivers;
 
   // Notes moyennes depuis les courses terminées.
@@ -99,7 +203,9 @@ export async function getRideByShareToken(
   if (!payload.ride) return null;
   return {
     ride: mapRideRow(payload.ride),
-    driver: payload.driver ? mapDriverProfile(payload.driver) : null,
+    // v2.20 : le lien de suivi est public — jamais de téléphone, même
+    // si la fonction SQL venait à en renvoyer un jour.
+    driver: payload.driver ? stripDriverPhone(mapDriverProfile(payload.driver)) : null,
   };
 }
 
@@ -270,10 +376,49 @@ export async function getDriverRides(userId: string): Promise<Ride[]> {
   return ((data ?? []) as RideRow[]).map(mapRideRow);
 }
 
+/** Note moyenne d'un chauffeur (v2.34 — classe Confort) : moyenne
+ *  des notes `rating_driver` de ses courses terminées. Null = aucune
+ *  course notée. */
+export async function getDriverRating(
+  driverId: string
+): Promise<{ average: number; count: number } | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('rides')
+    .select('rating_driver')
+    .eq('driver_id', driverId)
+    .eq('status', 'terminee')
+    .not('rating_driver', 'is', null);
+  const ratings = ((data ?? []) as { rating_driver: number | null }[])
+    .map((r) => r.rating_driver)
+    .filter((v): v is number => v !== null);
+  if (ratings.length === 0) return null;
+  const sum = ratings.reduce((a, b) => a + b, 0);
+  return { average: Math.round((sum / ratings.length) * 10) / 10, count: ratings.length };
+}
+
 /** Demandes entrantes pour un chauffeur en ligne : statut recherche ou
  *  propositions, créées il y a moins de 15 minutes, à proximité.
- *  Rayon de 10 km les 30 premières secondes, puis élargi à 25 km
- *  (« on élargit la recherche »). */
+ *  Premier rayon = le périmètre « chauffeurs autour de toi »
+ *  (DRIVERS_AROUND_RADIUS_KM, même valeur que la vue passager) les
+ *  30 premières secondes, puis élargi à DISPATCH_WIDENED_RADIUS_KM
+ *  (« on élargit la recherche »).
+ *  Filtre places / statut (v2.19), EN PLUS du rayon — jamais à la
+ *  place : Groupe → au moins 1 place libre (y compris en course
+ *  Groupe avec des places restantes) ; Solo → véhicule totalement
+ *  vide (aucune course en cours) ; Plein (0 place libre) ou Solo en
+ *  cours → plus aucune demande.
+ *  Filtres v2.34 (EN PLUS, jamais à la place des précédents) :
+ *  favori (exclusivité 30 s pour le chauffeur choisi), Confort
+ *  (clim + note ≥ 4,5 vérifiées côté serveur), retour (le chauffeur
+ *  ne reçoit que les demandes sur son chemin de retour), file
+ *  aéroport (la demande aéroport part d'abord au premier de la file).
+ *  Pourquoi 15 minutes : une demande plus vieille est abandonnée (le
+ *  passager a renoncé ou recommencé) — la garder visible ferait
+ *  proposer des chauffeurs sur des courses mortes. Pourquoi 30 s
+ *  avant d'élargir : laisser d'abord la chance aux chauffeurs proches
+ *  (ETA courte), puis seulement chercher plus loin. */
 export async function getIncomingRequests(driver: {
   id: string;
   currentArea: Neighborhood | null;
@@ -282,7 +427,39 @@ export async function getIncomingRequests(driver: {
 }): Promise<Ride[]> {
   if (!isSupabaseConfigured()) return [];
   await expireStaleProposals();
+  // Courses planifiées (v2.30) : le sondage des demandes entrantes
+  // fait office de déclencheur d'envoi (~15 min avant l'heure prévue)
+  // et d'expiration — sans nouveau cron, en meilleur effort.
   const supabase = await createClient();
+  await dispatchDueScheduledRides(supabase).catch(() => undefined);
+  // Zones sans chauffeur (v2.27) : chaque sondage des demandes
+  // entrantes (re)vérifie les demandes sans proposition depuis plus
+  // de 2 min et les journalise (une seule alerte par demande) — sans
+  // nouveau cron, en meilleur effort (jamais bloquant).
+  await checkAndLogUnansweredRides(supabase).catch(() => undefined);
+  // Disponibilité du chauffeur (places libres + courses en cours) :
+  // c'est elle qui décide quelles demandes il peut recevoir.
+  const availability = await getDriverAvailability(supabase, driver.id);
+  // Préférences v2.34 du chauffeur (Confort / retour) + file aéroport :
+  // lues en une fois, résilientes si la migration v2.34 n'est pas
+  // encore appliquée (colonnes absentes = filtres désactivés).
+  let driverPrefs: {
+    has_air_conditioning: boolean | null;
+    return_destination: string | null;
+    return_filter_enabled: boolean | null;
+  } = { has_air_conditioning: null, return_destination: null, return_filter_enabled: null };
+  try {
+    const { data: prefRow } = await supabase
+      .from('profiles')
+      .select('has_air_conditioning, return_destination, return_filter_enabled')
+      .eq('id', driver.id)
+      .single();
+    if (prefRow) driverPrefs = prefRow as typeof driverPrefs;
+  } catch {
+    /* migration v2.34 non appliquée : filtres désactivés */
+  }
+  const driverRating = await getDriverRating(driver.id).catch(() => null);
+  const airportHead = await getAirportQueueHead(supabase).catch(() => null);
   const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from('rides')
@@ -299,12 +476,83 @@ export async function getIncomingRequests(driver: {
   const now = Date.now();
   return rows
     .filter((row) => {
+      // Filtre places / statut (v2.19) : une demande Groupe ne part
+      // que vers un chauffeur avec au moins 1 place libre, une Solo
+      // que vers un chauffeur totalement vide, un chauffeur Plein
+      // (ou en Solo) ne reçoit rien.
+      if (
+        !canReceiveRide(row.ride_type, {
+          capacity: availability.capacity,
+          freeSeats: availability.freeSeats,
+          activeRideTypes: availability.activeRideTypes,
+        })
+      ) {
+        return false;
+      }
+      // v2.34 — Chauffeur favori : pendant l'exclusivité (30 s), la
+      // demande n'est visible que par le chauffeur choisi.
+      if (
+        row.preferred_driver_id &&
+        isFavoriteExclusive(row.preferred_until ?? null) &&
+        row.preferred_driver_id !== driver.id
+      ) {
+        return false;
+      }
+      // v2.34 — Classe Confort : clim garantie + note ≥ 4,5, vérifiées
+      // côté serveur. Un chauffeur non éligible ne voit pas la demande.
+      if (
+        row.comfort &&
+        !isComfortEligible({
+          hasAirConditioning: driverPrefs.has_air_conditioning,
+          averageRating: driverRating?.average ?? null,
+        })
+      ) {
+        return false;
+      }
+      // v2.34 — Filtre destination de retour : le chauffeur ne reçoit
+      // que les demandes qui vont dans sa direction de retour.
+      if (
+        driverPrefs.return_filter_enabled &&
+        driverPrefs.return_destination &&
+        row.pickup &&
+        row.destination
+      ) {
+        const driverPos =
+          driver.lat !== null && driver.lng !== null
+            ? { lat: driver.lat, lng: driver.lng }
+            : driver.currentArea
+              ? NEIGHBORHOOD_COORDS[driver.currentArea]
+              : null;
+        if (
+          driverPos &&
+          !isOnWayToReturn({
+            driverLat: driverPos.lat,
+            driverLng: driverPos.lng,
+            returnDestination: driverPrefs.return_destination as Neighborhood,
+            ridePickup: row.pickup as Neighborhood,
+            rideDestination: row.destination as Neighborhood,
+          })
+        ) {
+          return false;
+        }
+      }
       const ageSec = (now - new Date(row.created_at).getTime()) / 1000;
+      // v2.34 — File aéroport : pendant les 60 premières secondes,
+      // une demande au départ de l'aéroport part d'abord au premier
+      // de la file ; ensuite, dispatch normal pour tout le monde.
+      if (
+        row.pickup === AIRPORT_NEIGHBORHOOD &&
+        airportHead &&
+        airportHead.driverId !== driver.id &&
+        ageSec <= AIRPORT_QUEUE_EXCLUSIVITY_SEC
+      ) {
+        return false;
+      }
       const coords = NEIGHBORHOOD_COORDS[row.pickup as Neighborhood];
       if (!coords) return ageSec > 30; // quartier inconnu : seulement après élargissement
       if (driver.lat !== null && driver.lng !== null) {
         const dist = haversineKm(driver.lat, driver.lng, coords.lat, coords.lng);
-        return dist <= (ageSec <= 30 ? 10 : 25);
+        return dist <= (ageSec <= 30 ? DRIVERS_AROUND_RADIUS_KM : DISPATCH_WIDENED_RADIUS_KM);
       }
       // Pas de position GPS : même quartier d'abord, puis tout Libreville.
       if (ageSec <= 30) return driver.currentArea === row.pickup;
@@ -327,7 +575,13 @@ export async function getProposalsForRide(rideId: string): Promise<RideProposal[
     console.error('[stacks-drive] getProposalsForRide:', error.message);
     return [];
   }
-  return ((data ?? []) as RideProposalRow[]).map(mapProposalRow);
+  return ((data ?? []) as RideProposalRow[]).map((row) => {
+    const proposal = mapProposalRow(row);
+    // v2.20 : une proposition révèle l'identité du chauffeur (prénom,
+    // véhicule, plaque, note) — jamais son téléphone.
+    if (proposal.driver) proposal.driver = stripDriverPhone(proposal.driver);
+    return proposal;
+  });
 }
 
 /** Propositions envoyées par le chauffeur connecté. */
@@ -428,6 +682,51 @@ export async function getAdminStats(): Promise<{
     .select('*')
     .order('created_at', { ascending: false })
     .limit(10);
+
+  // Places libres + statut par chauffeur (v2.19) : l'admin voit qui
+  // est Vide / En course / Plein et combien de places chacun propose.
+  // Résilient si la migration v2.19 n'est pas appliquée (colonne
+  // absente → places déduites des courses en cours).
+  const driverRows = (drivers ?? []) as ProfileRow[];
+  if (driverRows.length > 0) {
+    let freeById = new Map<string, number | null>();
+    const { data: seatsRows, error: seatsError } = await supabase
+      .from('profiles')
+      .select('id, seats, free_seats')
+      .eq('role', 'chauffeur');
+    if (!seatsError && seatsRows) {
+      (seatsRows as { id: string; seats: number | null; free_seats: number | null }[]).forEach(
+        (r) => freeById.set(r.id, r.free_seats ?? r.seats ?? null)
+      );
+    }
+    const driverIds = driverRows.map((d) => d.id);
+    const { data: activeRides } = await supabase
+      .from('rides')
+      .select('driver_id, ride_type')
+      .in('driver_id', driverIds)
+      .in('status', ['acceptee', 'en_cours']);
+    const activeById = new Map<string, ('solo' | 'groupe')[]>();
+    ((activeRides ?? []) as { driver_id: string | null; ride_type: string }[]).forEach((r) => {
+      if (!r.driver_id || (r.ride_type !== 'solo' && r.ride_type !== 'groupe')) return;
+      const list = activeById.get(r.driver_id) ?? [];
+      list.push(r.ride_type);
+      activeById.set(r.driver_id, list);
+    });
+    driverRows.forEach((d) => {
+      const active = activeById.get(d.id) ?? [];
+      // Avant la migration v2.19 : places déduites des courses en cours.
+      let free = freeById.get(d.id);
+      if (free === undefined) {
+        free = active.includes('solo') ? 0 : Math.max(0, (d.seats ?? 0) - active.length);
+      }
+      d.free_seats = free;
+      d.driver_status = deriveDriverStatus({
+        capacity: d.seats ?? null,
+        freeSeats: free,
+        activeRideTypes: active,
+      });
+    });
+  }
 
   return {
     ridesCount: ridesCount ?? 0,

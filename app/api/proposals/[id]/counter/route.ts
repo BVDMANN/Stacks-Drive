@@ -13,7 +13,7 @@ const CounterSchema = z.object({
 /** POST /api/proposals/[id]/counter — le passager contre-propose un prix
  *  sur une proposition de chauffeur (v2.11).
  *
- *  Modèle exact (décision de Randy, 14/11/2026) : le prix final se
+ *  Modèle exact (décision du propriétaire, 14/11/2026) : le prix final se
  *  décide entre le passager et le chauffeur. Le chauffeur voit la
  *  contre-proposition dans son tableau de bord : il peut l'accepter
  *  telle quelle (le prix est alors figé) ou proposer un autre prix.

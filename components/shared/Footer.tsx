@@ -50,6 +50,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/aide" className="text-slate-400 hover:text-cyan transition-colors">
+                  Aide — questions courantes
+                </Link>
+              </li>
+              <li>
                 <Link href="/compte" className="text-slate-400 hover:text-cyan transition-colors">
                   Mon compte
                 </Link>

@@ -28,7 +28,9 @@ export default function ConfidentialitePage() {
             <li><strong>Compte :</strong> e-mail, nom complet, téléphone, rôle (passager / chauffeur), informations du véhicule pour les chauffeurs (type, marque, modèle, couleur, plaque, places).</li>
             <li><strong>Vérification chauffeur :</strong> selfie de vérification et pièce d’identité (carte nationale d’identité ou passeport) ou permis de conduire. Ces documents sont sensibles : ils sont stockés dans un espace privé et contrôlés automatiquement par la plateforme (détection du visage, lecture de la pièce), puis, en cas de dossier ambigu, par l’administrateur chargé du contrôle ; ils ne sont jamais montrés aux passagers (seul le badge « Vérifié » s’affiche).</li>
             <li><strong>Géolocalisation :</strong> votre position, uniquement lorsque vous appuyez sur « Me localiser » pour définir votre point de départ. La position n’est jamais suivie en continu et n’est jamais conservée après la course.</li>
-            <li><strong>Courses :</strong> demandes (départ, destination, type Solo ou Groupe, places, estimation indicative, prix proposé par le passager le cas échéant), propositions des chauffeurs (prix, places restantes, premier arrêt), statut et historique des courses, notes entre passagers et chauffeurs.</li>
+            <li><strong>Courses :</strong> demandes (départ, destination, type Solo, Groupe ou Confort, places, estimation indicative, prix proposé par le passager le cas échéant), propositions des chauffeurs (prix, places restantes, premier arrêt), statut et historique des courses, notes entre passagers et chauffeurs.</li>
+            <li><strong>Audio du trajet (optionnel) :</strong> pendant une course, le passager ou le chauffeur peut enregistrer l’audio du trajet. L’enregistrement est chiffré sur l’appareil et n’est envoyé à Stacks Drive qu’en cas de litige ouvert sur la course — il n’est jamais écouté sans litige. Sans litige, il est supprimé automatiquement après 7 jours.</li>
+            <li><strong>Sécurité du trajet (RideCheck) :</strong> pendant une course, la position partagée sert aussi à détecter un long arrêt, une déviation importante ou une course anormalement longue ; dans ce cas seulement, le passager reçoit une question (« Tout va bien ? ») et, sans réponse ou en cas de problème signalé, l’administrateur est alerté. Aucun blocage automatique du chauffeur.</li>
             <li><strong>Commission et dépôt chauffeur :</strong> dépôt de garantie versé, commissions dues par course et règlements hebdomadaires (montants et références de transfert). Stacks Drive ne conserve aucune donnée bancaire : tous les paiements sont des transferts directs de personne à personne par Mobile Money (Airtel Money, Moov Money).</li>
             <li><strong>Technique :</strong> cookies de session indispensables à la connexion (voir notre{' '}
               <Link href="/cookies" className="text-cyan font-bold hover:underline">
@@ -76,9 +78,17 @@ export default function ConfidentialitePage() {
           <p>
             Vos données sont conservées tant que votre compte est actif. Les
             documents de vérification sont conservés tant que le chauffeur
-            est actif sur la plateforme, puis supprimés. Vous pouvez demander la
-            suppression de votre compte et de vos données à tout moment en
-            écrivant à{' '}
+            est actif sur la plateforme, puis supprimés. Les positions de
+            suivi des chauffeurs sont supprimées au plus tard 24 heures
+            après la course (elles ne servent qu’au suivi jusqu’au point
+            de départ). Les enregistrements audio de trajet sont supprimés
+            automatiquement après 7 jours sans litige sur la course. Les propositions de course expirées sont conservées
+            dans l’historique avec le statut « expirée ». Les comptes
+            sans aucune activité depuis 12 mois sont signalés à
+            l’administrateur, qui peut vous contacter avant toute
+            suppression : aucun compte n’est jamais supprimé ni anonymisé
+            automatiquement. Vous pouvez demander la suppression de votre
+            compte et de vos données à tout moment en écrivant à{' '}
             <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
               stacks.markett@gmail.com
             </a>{' '}

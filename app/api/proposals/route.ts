@@ -2,10 +2,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
-import { expireStaleProposals, getMyProposals, getProposalsForRide } from '@/lib/rides';
+import { expireStaleProposals, getMyProposals, getProposalsForRide, getDriverRating } from '@/lib/rides';
+import { isComfortEligible } from '@/lib/comfort';
 import { validateProposedPrice } from '@/lib/fare-guard';
 import { getDriverOwed } from '@/lib/earnings';
 import { DEBT_CAP_FCFA } from '@/lib/gamification';
+import { canReceiveRide, getDriverAvailability } from '@/lib/seats';
 import { logAudit } from '@/lib/audit';
 import { isDifficultAccess, type Neighborhood } from '@/lib/neighborhoods';
 
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, is_verified, is_online')
+    .select('role, is_verified, is_online, fraud_blocked')
     .eq('id', user.id)
     .single();
   if (profile?.role !== 'chauffeur') {
@@ -53,6 +55,19 @@ export async function POST(request: NextRequest) {
   if (!profile.is_online) {
     return NextResponse.json(
       { error: 'Mets-toi en ligne pour recevoir et proposer des courses.' },
+      { status: 403 }
+    );
+  }
+  // Blocage temporaire pour fraude (v2.26) : le compte « à vérifier »
+  // ne reçoit plus de demandes tant que l'administrateur ne l'a pas
+  // débloqué dans /admin. Sans la migration v2.26, `fraud_blocked`
+  // est absent (undefined) : le verrou est inactif.
+  if ((profile as { fraud_blocked?: boolean }).fraud_blocked === true) {
+    return NextResponse.json(
+      {
+        error: 'Ton compte est à vérifier : contacte l’administrateur pour le débloquer avant de proposer.',
+        code: 'fraud_blocked',
+      },
       { status: 403 }
     );
   }
@@ -95,6 +110,67 @@ export async function POST(request: NextRequest) {
   if (ride.ride_type === 'groupe' && v.seatsLeft < ride.seats) {
     return NextResponse.json(
       { error: `Le passager voyage à ${ride.seats} : il faut au moins ${ride.seats} place(s).` },
+      { status: 400 }
+    );
+  }
+
+  // Classe Confort (v2.34) : seuls les chauffeurs éligibles (clim +
+  // note ≥ 4,5, vérifié côté serveur) peuvent proposer sur une
+  // demande Confort — le dispatch filtre déjà, ce garde-fou couvre
+  // la proposition directe.
+  if ((ride as { comfort?: boolean }).comfort) {
+    const { data: driverProfile } = await supabase
+      .from('profiles')
+      .select('has_air_conditioning')
+      .eq('id', user.id)
+      .single();
+    const rating = await getDriverRating(user.id).catch(() => null);
+    if (
+      !isComfortEligible({
+        hasAirConditioning: (driverProfile as { has_air_conditioning?: boolean | null } | null)
+          ?.has_air_conditioning,
+        averageRating: rating?.average ?? null,
+      })
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Confort exige une voiture climatisée et une note moyenne de 4,5★ ou plus : déclare la climatisation dans ton profil et garde une bonne note pour y accéder.',
+        },
+        { status: 403 }
+      );
+    }
+  }
+
+  // Places / statut (v2.19) : on ne propose que sur les demandes
+  // adaptées — Groupe avec au moins 1 place libre (y compris en
+  // course Groupe avec des places restantes), Solo uniquement si le
+  // véhicule est totalement vide, rien si Plein ou en Solo. Le
+  // dispatch (GET /api/rides?scope=incoming) filtre déjà, mais une
+  // proposition directe sur une demande vue avant ne doit pas passer.
+  const availability = await getDriverAvailability(supabase, user.id);
+  if (
+    !canReceiveRide(ride.ride_type, {
+      capacity: availability.capacity,
+      freeSeats: availability.freeSeats,
+      activeRideTypes: availability.activeRideTypes,
+    })
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          ride.ride_type === 'solo'
+            ? 'Une course Solo exige un véhicule totalement vide : termine ta course en cours avant de proposer sur une Solo.'
+            : 'Tu n’as plus de place libre pour cette course Groupe.',
+      },
+      { status: 400 }
+    );
+  }
+  if (v.seatsLeft > availability.freeSeats) {
+    return NextResponse.json(
+      {
+        error: `Tu n’as que ${availability.freeSeats} place${availability.freeSeats > 1 ? 's' : ''} libre${availability.freeSeats > 1 ? 's' : ''} : tu ne peux pas proposer ${v.seatsLeft} place${v.seatsLeft > 1 ? 's' : ''}.`,
+      },
       { status: 400 }
     );
   }

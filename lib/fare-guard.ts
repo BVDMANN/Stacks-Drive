@@ -1,6 +1,6 @@
 /** Garde-fous tarifaires Stacks Drive (v2.11) — plan d'urgence.
  *
- *  Modèle exact (décision de Randy, 14/11/2026) : le passager voit une
+ *  Modèle exact (décision du propriétaire, 14/11/2026) : le passager voit une
  *  estimation indicative avant la course, puis le prix final se décide
  *  entre le passager et le chauffeur (proposition / contre-proposition)
  *  et est figé à l'acceptation. La plateforme ne définit AUCUN prix
@@ -42,7 +42,14 @@ export function isFareInBounds(amount: number): boolean {
 /** Valide un prix proposé par un chauffeur (ou contre-proposé par un
  *  passager) : bornes absolues uniquement. L'estimation indicative
  *  affichée à côté de la proposition sert à chacun pour juger — elle
- *  n'est jamais une contrainte. */
+ *  n'est jamais une contrainte.
+ *
+ *  Revue de sécurité — invariant : AUCUN prix venu du client n'entre
+ *  en base sans passer ici (proposition, contre-proposition,
+ *  acceptation). Attaque empêchée : client modifié envoyant 1 FCFA,
+ *  un montant négatif ou 1 000 000 FCFA. Cas limite : `NaN` /
+ *  `Infinity` (JSON) sont rejetés par `Number.isFinite` avant toute
+ *  comparaison — un montant non fini ne passe jamais la borne. */
 export function validateProposedPrice(proposedPrice: number): FareCheck {
   if (!Number.isFinite(proposedPrice) || proposedPrice <= 0) {
     return { ok: false, message: 'Prix invalide : le montant doit être supérieur à 0 FCFA.' };
@@ -66,7 +73,14 @@ export function validateAcceptedPrice(proposedPrice: number): FareCheck {
 
 /** Vérifie qu'une découpe tarif / commission est cohérente : la
  *  commission ne dépasse jamais le plafond de 10 % et les parts
- *  s'additionnent bien au tarif. */
+ *  s'additionnent bien au tarif.
+ *
+ *  Revue de sécurité — invariant : `platformFee + driverShare === fare`
+ *  et `rate <= COMMISSION_CAP`. Attaque empêchée : client modifié qui
+ *  gonflerait la part chauffeur (ou annulerait la commission) en
+ *  envoyant une découpe truquée. Cas limite : le plafond est testé sur
+ *  le TAUX, pas sur le montant — un tarif élevé avec un taux légal
+ *  reste valide. */
 export function validateSplit(
   fare: number,
   rate: number,
@@ -87,7 +101,14 @@ export function validateSplit(
 
 /** Détecte une anomalie sur une course terminée avant d'enregistrer
  *  ses gains : montant négatif, tarif zéro avec une vraie distance,
- *  commission au-dessus du plafond, tarif hors bornes. */
+ *  commission au-dessus du plafond, tarif hors bornes.
+ *
+ *  Revue de sécurité — c'est le DERNIER contrôle avant l'écriture des
+ *  gains : même si un prix invalide avait traversé les validations
+ *  amont (bug, migration partielle), il est bloqué ici. Cas limite :
+ *  un tarif à 0 avec une distance de 0 (course annulée avant départ)
+ *  n'est pas une anomalie — seule la combinaison « 0 FCFA pour un
+ *  trajet réel » l'est. */
 export function detectEarningAnomaly(input: {
   fare: number;
   distanceKm: number;

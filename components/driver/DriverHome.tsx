@@ -15,22 +15,29 @@ import {
 } from 'lucide-react';
 import type { SessionProfile } from '@/lib/supabase/server';
 import type { DriverEarningsSummary } from '@/lib/earnings';
-import type { Ride, RideProposal } from '@/types';
-import { NEIGHBORHOODS, type Neighborhood } from '@/lib/neighborhoods';
+import type { PassengerRating, Ride, RideProposal } from '@/types';
+import { SELECTABLE_NEIGHBORHOODS, type Neighborhood } from '@/lib/neighborhoods';
 import { POINTS_REDEEM_TARGET } from '@/lib/gamification';
 import { formatFcfa } from '@/lib/commission';
 import { timeAgo } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { RequestPopup } from './RequestPopup';
+import { SelfieRecheckCard } from './SelfieRecheckCard';
+import { isSelfieRecheckDue } from '@/lib/selfie-recheck';
+import { DriverNotices } from './DriverNotices';
+import { SeatsPopup } from './SeatsPopup';
+import { DriverStatusBadge } from './DriverStatusBadge';
+import type { DriverStatus } from '@/types';
 import { ToastStack, useToastStack } from '@/components/shared/Toast';
 import { detectProposalEvents, type ProposalSnapshot } from '@/lib/proposal-events';
+import { pollingIntervalMs, useRealtimeSubscription } from '@/lib/realtime';
 
 interface IncomingRide {
   ride: Ride;
   passenger: { name: string | null; phone: string | null } | null;
+  /** Note moyenne du passager (v2.30) — jointe par /api/rides. */
+  passengerRating?: PassengerRating | null;
 }
-
-const SELECTABLE = NEIGHBORHOODS.filter((n) => n !== 'Autre');
 
 /** Accueil chauffeur (v2.3) — l'écran d'accueil vu par un chauffeur
  *  connecté n'est PLUS celui du passager : pas de formulaire de
@@ -55,8 +62,23 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
   const [summary, setSummary] = useState<DriverEarningsSummary | null>(null);
   const [incoming, setIncoming] = useState<IncomingRide[]>([]);
   const [popupRide, setPopupRide] = useState<IncomingRide | null>(null);
+  // Demandes sans chauffeur près de moi (v2.27) : une demande sans
+  // proposition depuis plus de 2 min — une seule alerte par demande,
+  // sans spam (unicité en base).
+  const [unanswered, setUnanswered] = useState<
+    { rideId: string; pickup: string; destination: string; rideType: string; waitingMin: number }[]
+  >([]);
   const [debtBlocked, setDebtBlocked] = useState<{ amount: number; cap: number } | null>(null);
   const [offlineConfirm, setOfflineConfirm] = useState<{ remaining: number; bonus: number } | null>(null);
+  // Places libres + statut (v2.19) : déclarées à la mise en ligne
+  // (pop-up) et modifiables à tout moment (« Mes places »).
+  const [seatsInfo, setSeatsInfo] = useState<{
+    capacity: number | null;
+    freeSeats: number;
+    status: DriverStatus;
+    activeRideTypes: string[];
+  } | null>(null);
+  const [seatsPopupOpen, setSeatsPopupOpen] = useState(false);
   const seenRef = useRef<Set<string>>(new Set());
   const proposedRef = useRef<Set<string>>(new Set());
 
@@ -77,6 +99,25 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
       const res = await fetch('/api/driver/earnings');
       const data = await res.json().catch(() => null);
       if (data?.ok) setSummary(data.summary as DriverEarningsSummary);
+    } catch {
+      // Réessaie au prochain tour.
+    }
+  }, []);
+
+  // Places libres + statut (v2.19) : lus depuis le serveur — le
+  // statut est dérivé des places libres et des courses en cours.
+  const fetchSeats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/driver/seats');
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        setSeatsInfo({
+          capacity: data.capacity as number | null,
+          freeSeats: data.freeSeats as number,
+          status: data.status as DriverStatus,
+          activeRideTypes: (data.activeRideTypes ?? []) as string[],
+        });
+      }
     } catch {
       // Réessaie au prochain tour.
     }
@@ -113,14 +154,56 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
 
   useEffect(() => {
     fetchSummary();
-  }, [fetchSummary]);
+    fetchSeats();
+  }, [fetchSummary, fetchSeats]);
 
+  // Temps réel (v2.24) : nouvelles demandes et contre-propositions
+  // arrivent instantanément ; les sondages (10 s / 15 s) ne restent
+  // qu'en repli, plus un rafraîchissement de sécurité toutes les 60 s.
+  const { live: incomingLive } = useRealtimeSubscription({
+    table: 'rides',
+    enabled: isOnline && verified,
+    onChange: fetchIncoming,
+  });
   useEffect(() => {
     if (!isOnline || !verified) return;
     fetchIncoming();
-    const t = window.setInterval(fetchIncoming, 10000);
+    const t = window.setInterval(fetchIncoming, pollingIntervalMs(incomingLive, 10000));
     return () => window.clearInterval(t);
-  }, [isOnline, verified, fetchIncoming]);
+  }, [isOnline, verified, fetchIncoming, incomingLive]);
+
+  // Demandes sans chauffeur près de moi (v2.27) : sondage toutes les
+  // 30 s, en ligne seulement. La liste exclut les demandes déjà dans
+  // mes entrantes (un chauffeur qui peut proposer l'a déjà reçue).
+  const fetchUnanswered = useCallback(async () => {
+    try {
+      const res = await fetch('/api/driver/unanswered');
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        const incomingIds = new Set(incoming.map((i) => i.ride.id));
+        setUnanswered(
+          ((data.zones ?? []) as {
+            rideId: string;
+            pickup: string;
+            destination: string;
+            rideType: string;
+            waitingMin: number;
+          }[]).filter((z) => !incomingIds.has(z.rideId))
+        );
+      }
+    } catch {
+      // Bannière absente ce tour-ci : prochain sondage.
+    }
+  }, [incoming]);
+  useEffect(() => {
+    if (!isOnline || !verified) {
+      setUnanswered([]);
+      return;
+    }
+    fetchUnanswered();
+    const t = window.setInterval(fetchUnanswered, 30000);
+    return () => window.clearInterval(t);
+  }, [isOnline, verified, fetchUnanswered]);
 
   /** Sondage de mes propositions (v2.12, toutes les 15 s, en ligne
    *  seulement) : détecte les contre-propositions des passagers et les
@@ -194,12 +277,22 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
     }
   }
 
+  // Temps réel (v2.24) : les contre-propositions des passagers et
+  // les acceptations arrivent instantanément (voir aussi le sondage
+  // de repli ci-dessous).
+  const { live: proposalsLive } = useRealtimeSubscription({
+    table: 'ride_proposals',
+    filter: `driver_id=eq.${profile.id}`,
+    enabled: isOnline && verified,
+    onChange: fetchMyProposals,
+  });
+
   useEffect(() => {
     if (!isOnline || !verified) return;
     fetchMyProposals();
-    const t = window.setInterval(fetchMyProposals, 15000);
+    const t = window.setInterval(fetchMyProposals, pollingIntervalMs(proposalsLive, 15000));
     return () => window.clearInterval(t);
-  }, [isOnline, verified, fetchMyProposals]);
+  }, [isOnline, verified, fetchMyProposals, proposalsLive]);
 
   async function toggleOnline(next: boolean) {
     if (!verified) {
@@ -245,7 +338,14 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
       return;
     }
     setIsOnline(next);
-    if (next) fetchIncoming();
+    if (next) {
+      fetchIncoming();
+      // Pop-up places libres (v2.19) : à chaque mise en ligne, le
+      // chauffeur déclare combien de places libres il propose — ce
+      // nombre décide quelles demandes il reçoit (Groupe / Solo).
+      await fetchSeats();
+      if ((profile.seats ?? null) !== null) setSeatsPopupOpen(true);
+    }
   }
 
   async function changeArea(next: Neighborhood) {
@@ -262,6 +362,15 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
     <div className="p-4 sm:p-5 pt-1 space-y-4">
       {/* Notifications pop-up de négociation (v2.12). */}
       <ToastStack toasts={toasts} onClose={dismissToast} />
+
+      {/* Messages in-app chauffeur (v2.25, lot C) : bienvenue, dossier
+          incomplet, inactivité, dette au plafond (« régularise pour
+          reprendre ») — aussi sur le tableau de bord. */}
+      <DriverNotices settleHref="/tableau-de-bord#gains" />
+
+      {/* Re-vérification selfie ponctuelle (v2.30) : selfie à refaire
+          avant la mise en ligne quand le contrôle est dû. */}
+      <SelfieRecheckCard required={isSelfieRecheckDue(profile)} />
 
       {/* Statut */}
       <div>
@@ -292,7 +401,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         </div>
       )}
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+      <div id="mise-en-ligne" className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 scroll-mt-24">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="font-black text-white">
@@ -308,6 +417,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
             type="button"
             role="switch"
             aria-checked={isOnline}
+            aria-busy={saving}
             aria-label={isOnline ? 'Passer hors ligne' : 'Passer en ligne'}
             disabled={saving}
             onClick={() => toggleOnline(!isOnline)}
@@ -336,7 +446,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
             aria-label="Quartier où tu te trouves"
           >
             <option value="">Où es-tu ?</option>
-            {SELECTABLE.map((n) => (
+            {SELECTABLE_NEIGHBORHOODS.map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
@@ -344,6 +454,32 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         {saving && (
           <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
             <Loader2 size={13} className="animate-spin" /> Mise à jour…
+          </p>
+        )}
+        {/* Places libres + statut (v2.19) : le statut décide quelles
+            demandes arrivent — Groupe avec des places libres, Solo
+            seulement si le véhicule est totalement vide. */}
+        {verified && seatsInfo && seatsInfo.capacity !== null && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/10">
+            <DriverStatusBadge
+              status={seatsInfo.status}
+              freeSeats={seatsInfo.freeSeats}
+              capacity={seatsInfo.capacity}
+            />
+            <button
+              type="button"
+              onClick={() => setSeatsPopupOpen(true)}
+              className="text-xs font-black text-cyan hover:underline"
+            >
+              Mes places →
+            </button>
+          </div>
+        )}
+        {verified && (profile.seats ?? null) === null && (
+          <p className="text-xs text-amber-300">
+            Déclare ton véhicule (capacité) dans{' '}
+            <Link href="/compte" className="font-black underline">Mon compte</Link>{' '}
+            pour indiquer tes places libres.
           </p>
         )}
       </div>
@@ -406,6 +542,29 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         </div>
       </div>
 
+      {/* Demande sans chauffeur près de toi (v2.27) : un passager
+          attend depuis plus de 2 min sans proposition — une seule
+          alerte par demande, sans spam. */}
+      {isOnline && verified && unanswered.length > 0 && (
+        <div
+          role="status"
+          className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 text-sm space-y-1"
+        >
+          <p className="font-black text-amber-300">
+            ⚠ {unanswered.length} demande{unanswered.length > 1 ? 's' : ''} sans chauffeur près de toi
+          </p>
+          {unanswered.slice(0, 3).map((z) => (
+            <p key={z.rideId} className="text-slate-300">
+              {z.pickup} → {z.destination} · {z.rideType === 'groupe' ? 'Groupe' : 'Solo'} · attend
+              depuis {z.waitingMin} min
+            </p>
+          ))}
+          <p className="text-xs text-slate-400">
+            Personne n’a encore proposé — si tu es dans le coin, regarde tes demandes entrantes.
+          </p>
+        </div>
+      )}
+
       {/* Demandes entrantes */}
       <div className="space-y-2.5">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
@@ -437,6 +596,9 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
                     estimation {formatFcfa(i.ride.estimatedPrice)} · {timeAgo(i.ride.createdAt)}
                     {i.ride.offeredPrice !== null ? ` · le passager propose ${formatFcfa(i.ride.offeredPrice)}` : ''}
                     {i.passenger?.name ? ` · ${i.passenger.name}` : ''}
+                    {i.passengerRating
+                      ? ` · ★ ${i.passengerRating.average}/5`
+                      : ' · nouveau passager'}
                   </p>
                   <span className="inline-block mt-2 text-xs font-black text-cyan">Proposer mon prix →</span>
                 </button>
@@ -461,13 +623,29 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         <RequestPopup
           ride={popupRide.ride}
           passenger={popupRide.passenger}
+          passengerRating={popupRide.passengerRating ?? null}
           driverSeats={profile.seats}
+          freeSeats={seatsInfo?.freeSeats ?? profile.seats}
           onClose={() => setPopupRide(null)}
           onProposed={(rideId) => {
             proposedRef.current.add(rideId);
             setPopupRide(null);
             fetchIncoming();
             fetchSummary();
+            fetchSeats();
+          }}
+        />
+      )}
+
+      {/* Pop-up places libres (v2.19) : à la mise en ligne + « Mes places ». */}
+      {seatsPopupOpen && (profile.seats ?? null) !== null && (
+        <SeatsPopup
+          capacity={profile.seats as number}
+          freeSeats={seatsInfo?.freeSeats ?? null}
+          onClose={() => setSeatsPopupOpen(false)}
+          onSaved={() => {
+            setSeatsPopupOpen(false);
+            fetchSeats();
           }}
         />
       )}

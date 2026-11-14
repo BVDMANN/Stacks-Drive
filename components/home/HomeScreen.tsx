@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -18,21 +18,30 @@ import {
   Navigation,
   Satellite as SatelliteIcon,
   ShieldCheck,
+  Snowflake,
   User,
   Users,
   X,
 } from 'lucide-react';
 import type { HeaderUser } from '@/components/shared/Header';
 import type { DriverProfile, Ride, RideProposal } from '@/types';
+import type { AnonymousMapDriver } from '@/lib/db-types';
 import type { SessionProfile } from '@/lib/supabase/server';
 import { ProposalCard } from './ProposalCard';
 import { DriverCard } from './DriverCard';
+import { CancelRideDialog } from '@/components/rides/CancelRideDialog';
+import type { CancelReasonCode } from '@/lib/cancellations';
+import { NeighborhoodSelect } from '@/components/shared/NeighborhoodSelect';
+import { PickupPoints } from './PickupPoints';
+import { OutOfZoneScreen } from './OutOfZoneScreen';
+import { OUT_OF_ZONE_DISMISSED_KEY } from '@/lib/area-waitlist';
 import { DriverHome } from '@/components/driver/DriverHome';
+import { PassengerTutorial } from '@/components/tuto/PassengerTutorial';
 import { ToastStack, useToastStack } from '@/components/shared/Toast';
 import { detectProposalEvents, driverFirstName, type ProposalSnapshot } from '@/lib/proposal-events';
+import { pollingIntervalMs, useRealtimeSubscription } from '@/lib/realtime';
 import {
   LIBREVILLE_CENTER,
-  NEIGHBORHOODS,
   NEIGHBORHOOD_COORDS,
   PAYMENT_LABELS,
   dropOffPointFor,
@@ -41,10 +50,11 @@ import {
   type PaymentMethod,
 } from '@/lib/neighborhoods';
 import { UNPAVED_ROAD_SUPPLEMENT, estimateFare, etaMinutes, type RideType, type VehiclePreference } from '@/lib/pricing';
-import { haversineKm, nearestNeighborhood } from '@/lib/geo';
+import { DISPATCH_WIDENED_RADIUS_KM, DRIVERS_AROUND_RADIUS_KM, MAP_INITIAL_ZOOM, haversineKm, isInServiceArea, nearestNeighborhood } from '@/lib/geo';
 import {
   geoErrorMessage,
   getUserPosition,
+  reverseGeocodeCityCountry,
   reverseGeocodeNominatim,
   type GeoErrorKind,
 } from '@/lib/geolocation';
@@ -52,7 +62,10 @@ import { formatFcfa } from '@/lib/commission';
 import type { Poi } from '@/lib/pois';
 import { PoiInfoCard, type PoiOrigin } from './PoiInfoCard';
 import { cn } from '@/lib/utils';
-import type { FocusPoint } from '@/components/map/LibrevilleMap';
+import type { FocusPoint, TrafficMapMarker } from '@/components/map/LibrevilleMap';
+import { fetchRoadRouteViaApi, type RoadRoute } from '@/lib/routing';
+import { useRoadRoute } from '@/lib/use-road-route';
+import type { TrafficReport } from '@/lib/traffic';
 
 const LibrevilleMap = dynamic(
   () => import('@/components/map/LibrevilleMap').then((m) => m.LibrevilleMap),
@@ -68,6 +81,13 @@ const LibrevilleMap = dynamic(
 
 type Phase = 'idle' | 'searching' | 'proposals' | 'confirmed' | 'done';
 
+/** Valeur `datetime-local` en heure locale (l'input attend l'heure
+ *  locale, pas l'UTC de `toISOString`). */
+function toLocalInputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 const DRAFT_KEY = 'stacks-drive-draft-v2';
 
 /** Raccourcis d'itinéraire (trajets les plus demandés) — SANS prix :
@@ -79,8 +99,6 @@ const ROUTE_SHORTCUTS: { pickup: Neighborhood; destination: Neighborhood; label:
   { pickup: 'Nzeng-Ayong', destination: 'Centre-ville', label: 'Nzeng-Ayong → Centre-ville' },
   { pickup: 'Glass', destination: 'Nzeng-Ayong', label: 'Glass → Nzeng-Ayong' },
 ];
-
-const SELECTABLE = NEIGHBORHOODS.filter((n) => n !== 'Autre');
 
 /** Hauteurs de la feuille (dvh), façon Uber / Bolt / Yango : trois crans
  *  nets — mini (15 : poignée + titre, la carte est quasi entièrement
@@ -182,13 +200,33 @@ export function HomeScreen({
    *  a besoin de is_online / is_verified / current_area / véhicule.
    *  Null quand déconnecté ou profil manquant. */
   profile?: SessionProfile | null;
-  realDrivers: DriverProfile[];
-  demoDrivers: DriverProfile[];
+  /** Chauffeurs en ligne pour la carte / le compteur / l'ETA —
+   *  ANONYMES (v2.20) : position + type de véhicule uniquement. Nom,
+   *  véhicule, plaque, note et téléphone ne sont pas sérialisés vers
+   *  le passager avant une proposition. */
+  realDrivers: AnonymousMapDriver[];
+  demoDrivers: AnonymousMapDriver[];
 }) {
   const router = useRouter();
   const [pickup, setPickup] = useState<Neighborhood | ''>('');
   const [destination, setDestination] = useState<Neighborhood | ''>('');
   const [rideType, setRideType] = useState<RideType>('groupe');
+  // Classe Confort (v2.34) : Solo + clim garantie + chauffeurs 4,5★
+  // et plus — même estimation et même modèle de prix que Solo.
+  const [comfort, setComfort] = useState(false);
+  // Chauffeur favori (v2.34) : la demande part en priorité au
+  // chauffeur choisi (30 s d'exclusivité), puis aux autres.
+  const [favorites, setFavorites] = useState<{ driverId: string; driverName: string | null }[]>([]);
+  const [favoriteDriverId, setFavoriteDriverId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user || user.role !== 'passager') return;
+    fetch('/api/favorites')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.ok) setFavorites(d.favorites ?? []);
+      })
+      .catch(() => undefined);
+  }, [user]);
   const [vehiclePref, setVehiclePref] = useState<VehiclePreference>('tous');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('especes');
   // Prix proposé directement par le passager (v2.11, optionnel) : les
@@ -199,6 +237,11 @@ export function HomeScreen({
   // jusqu'à un quartier à accès difficile (+ supplément). Remis à zéro
   // à chaque changement de destination.
   const [unpavedRoad, setUnpavedRoad] = useState(false);
+  // Course planifiée (v2.30) : date/heure future — la demande part
+  // aux chauffeurs ~15 min avant l'heure prévue, sans nouveau cron.
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [scheduledDone, setScheduledDone] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [rideId, setRideId] = useState<string | null>(null);
   const [proposals, setProposals] = useState<RideProposal[]>([]);
@@ -242,8 +285,58 @@ export function HomeScreen({
   const [geoLabel, setGeoLabel] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [pickupExact, setPickupExact] = useState<{ lat: number; lng: number } | null>(null);
+  // Écran hors zone (v2.32) : position GPS connue mais hors de la
+  // zone de service — l'écran plein écran s'affiche (jamais pour une
+  // position dans la zone, jamais sans GPS). Une fois fermé, il ne
+  // réapparaît pas avant la fin de la session (`sessionStorage`) —
+  // sauf « Me localiser », action explicite qui le remontre.
+  const [outOfZone, setOutOfZone] = useState<{
+    lat: number;
+    lng: number;
+    place: { city: string | null; country: string | null } | null;
+  } | null>(null);
+  const outOfZoneDismissedRef = useRef<boolean | null>(null);
+  function isOutOfZoneDismissed(): boolean {
+    if (outOfZoneDismissedRef.current !== null) return outOfZoneDismissedRef.current;
+    let dismissed = false;
+    try {
+      dismissed = window.sessionStorage.getItem(OUT_OF_ZONE_DISMISSED_KEY) === '1';
+    } catch {
+      // Stockage indisponible : l'écran pourra s'afficher.
+    }
+    outOfZoneDismissedRef.current = dismissed;
+    return dismissed;
+  }
+  function showOutOfZone(pos: { lat: number; lng: number }, opts?: { force?: boolean }) {
+    if (!opts?.force && isOutOfZoneDismissed()) return;
+    setOutOfZone({ lat: pos.lat, lng: pos.lng, place: null });
+    // Ville / pays en best-effort (jamais de coordonnées transmises
+    // ailleurs que dans ce navigateur) pour la liste « préviens-moi ».
+    reverseGeocodeCityCountry(pos.lat, pos.lng).then((place) => {
+      if (!place) return;
+      setOutOfZone((cur) =>
+        cur && cur.lat === pos.lat && cur.lng === pos.lng ? { ...cur, place } : cur
+      );
+    });
+  }
+  function dismissOutOfZone() {
+    outOfZoneDismissedRef.current = true;
+    try {
+      window.sessionStorage.setItem(OUT_OF_ZONE_DISMISSED_KEY, '1');
+    } catch {
+      // Stockage indisponible : l'écran se fermera quand même.
+    }
+    setOutOfZone(null);
+  }
   const [focusPoint, setFocusPoint] = useState<FocusPoint | null>(null);
   const focusNonceRef = useRef(0);
+  // Départ choisi MANUELLEMENT dans la liste (v2.31) : tant qu'il est
+  // faux, l'ancre (ouverture + cercle périmètre) est la position GPS ;
+  // dès que l'utilisateur choisit un quartier, l'ancre devient ce
+  // quartier — c'est de là que partira la course, et le rayon de
+  // matching est autour du départ. « Me localiser » et l'ancrage
+  // automatique remettent ce drapeau à faux.
+  const manualPickupRef = useRef(false);
 
   // --- Feuille draggable ---
   // Arrivée (v2.14, standard « Google Maps ») : la feuille démarre au
@@ -292,7 +385,24 @@ export function HomeScreen({
     });
   }
 
-  // Restaurer le brouillon après connexion.
+  // Ancrage d'ouverture (v2.31 — « carte zonée quartier ») : la carte
+  // s'ouvre sur TA zone, zoom quartier (`MAP_INITIAL_ZOOM` = 14),
+  // jamais sur toute la ville. Ordre de priorité :
+  //   (a) la POSITION GPS RÉELLE si elle est dans la zone de service
+  //       (Grand Libreville, `isInServiceArea`) — le départ se cale
+  //       alors sur le quartier le plus proche de cette position ;
+  //   (b) sinon le quartier de départ restauré depuis le brouillon
+  //       sauvegardé (`DRAFT_KEY`, après une connexion) ;
+  //   (c) sinon le Centre-ville — la carte est déjà centrée dessus
+  //       au zoom quartier, rien à faire.
+  // Géolocalisation SILENCIEUSE au chargement (délai 5 s) : refus,
+  // hors délai ou hors zone → repli immédiat sur (b) puis (c), sans
+  // bloquer l'ouverture et sans message d'erreur (l'utilisateur n'a
+  // rien demandé). La position ne quitte jamais le navigateur
+  // (`lib/geolocation.ts`) : elle sert juste à placer le départ et
+  // l'ancre. Si l'utilisateur choisit un départ manuellement avant
+  // que la géolocalisation ne réponde, son choix gagne : on ne lui
+  // écrase pas le départ, on place juste le marqueur « Vous êtes ici ».
   useEffect(() => {
     const d = readDraft();
     if (d) {
@@ -304,7 +414,68 @@ export function HomeScreen({
       setOfferedPrice(d.offeredPrice !== null && d.offeredPrice !== undefined ? String(d.offeredPrice) : '');
       window.localStorage.removeItem(DRAFT_KEY);
     }
+    const focusOn = (lat: number, lng: number) => {
+      focusNonceRef.current += 1;
+      setFocusPoint({ lat, lng, zoom: MAP_INITIAL_ZOOM, nonce: focusNonceRef.current });
+    };
+    let cancelled = false;
+    getUserPosition(5000)
+      .then((pos) => {
+        if (cancelled) return;
+        if (!isInServiceArea(pos.lat, pos.lng)) {
+          // Hors zone : repli (b) puis (c), sans message d'erreur
+          // dans la feuille — l'écran hors zone (v2.32) prend le
+          // relais, sans jamais bloquer l'appli.
+          showOutOfZone(pos);
+          if (d && d.pickup) {
+            const c = NEIGHBORHOOD_COORDS[d.pickup as Neighborhood];
+            focusOn(c.lat, c.lng);
+          }
+          return;
+        }
+        const nearest = nearestNeighborhood(pos.lat, pos.lng);
+        setUserLocation({ lat: pos.lat, lng: pos.lng, label: nearest.neighborhood });
+        if (!manualPickupRef.current) {
+          setPickup(nearest.neighborhood);
+          setPickupExact({ lat: pos.lat, lng: pos.lng });
+          focusOn(pos.lat, pos.lng);
+        }
+        reverseGeocodeNominatim(pos.lat, pos.lng).then((label) => {
+          if (!cancelled && label) setGeoLabel(label);
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Permission refusée / hors délai / indisponible : repli (b)
+        // puis (c), silencieusement — aucun message d'erreur.
+        if (d && d.pickup) {
+          const c = NEIGHBORHOOD_COORDS[d.pickup as Neighborhood];
+          focusOn(c.lat, c.lng);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Une seule fois, au chargement — l'ancre ne se recalcule pas
+    // quand le départ change (c'est le cercle périmètre qui suit).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Bienvenue passager (v2.24) : une fois par session navigateur —
+  // couvre l'inscription sans confirmation e-mail (le flux avec
+  // confirmation est couvert par /auth/callback). L'envoi est
+  // dédupliqué en base, rappeler la route ne renvoie jamais un
+  // deuxième e-mail.
+  useEffect(() => {
+    if (!user || user.role !== 'passager') return;
+    try {
+      if (window.sessionStorage.getItem('stacks-drive-welcome-v1')) return;
+      window.sessionStorage.setItem('stacks-drive-welcome-v1', '1');
+    } catch {
+      return;
+    }
+    fetch('/api/welcome', { method: 'POST' }).catch(() => undefined);
+  }, [user]);
 
   const validTrip = pickup !== '' && destination !== '' && pickup !== destination;
   // Destination à accès difficile ? La course s'arrête par défaut au
@@ -357,9 +528,42 @@ export function HomeScreen({
     return () => window.clearTimeout(t);
   }, [pickup, destination, rideType, vehiclePref, unpavedRoad, validTrip]);
 
+  // Signalements trafic actifs (v2.27) : marqueurs sur la carte,
+  // rafraîchis toutes les 60 s.
+  const [trafficReports, setTrafficReports] = useState<TrafficMapMarker[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/traffic');
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data?.ok) {
+          setTrafficReports(
+            ((data.reports ?? []) as TrafficReport[]).map((r) => ({
+              id: r.id,
+              type: r.type,
+              lat: r.lat,
+              lng: r.lng,
+              confirmed: r.confirmed,
+              expiresAt: r.expiresAt,
+            }))
+          );
+        }
+      } catch {
+        // Carte sans trafic : prochain tour.
+      }
+    };
+    load();
+    const t = window.setInterval(load, 60000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, []);
+
   // Tous les chauffeurs en ligne : réels + démos. La carte et le compteur
-  // « chauffeurs autour de toi » les montrent TOUS, Moto comprise : la
-  // carte est une vitrine de l'offre, pas un filtre de mise en relation.
+  // « chauffeurs autour de toi » ne les montrent PAS tous (v2.18) : seuls
+  // ceux dans le périmètre sont visibles — voir `driversInPerimeter`.
   const allDrivers = useMemo(() => [...realDrivers, ...demoDrivers], [realDrivers, demoDrivers]);
   // Chauffeurs éligibles à la mise en relation pour le trajet choisi :
   // la Moto est Solo uniquement (jamais en Groupe) et la préférence de
@@ -380,6 +584,47 @@ export function HomeScreen({
     : null;
   const destCoords = destination !== '' ? NEIGHBORHOOD_COORDS[destination as Neighborhood] : null;
 
+  // Itinéraire routier (v2.27) : géométrie OSRM + durée/distance
+  // routières pour le trajet choisi — affichées dans la feuille et
+  // sur la carte (la polyligne droite est remplacée). Le PRIX ne
+  // change pas : l'estimation reste calculée sur la distance à vol
+  // d'oiseau (`estimateFare`) — seule la durée affichée devient la
+  // durée routière réelle. OSRM indisponible → on garde la ligne
+  // droite et la durée estimée (repli silencieux).
+  const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
+  useEffect(() => {
+    if (!pickupCoords || !destCoords || !validTrip) {
+      setRoadRoute(null);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      fetchRoadRouteViaApi(pickupCoords, destCoords).then((r) => {
+        if (!cancelled) setRoadRoute(r);
+      });
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [pickupCoords, destCoords, validTrip]);
+
+  // Périmètre « chauffeurs autour de toi » (v2.18) : seuls les chauffeurs
+  // en ligne situés dans un rayon de DRIVERS_AROUND_RADIUS_KM autour du
+  // départ (position exacte si géolocalisé, sinon centre du quartier)
+  // sont visibles sur la carte passager et comptés — Moto comprise.
+  // Sans départ choisi, pas de centre : tous les chauffeurs sont
+  // affichés (le compteur affiche alors le total).
+  const driversInPerimeter = useMemo(() => {
+    if (!pickupCoords) return allDrivers;
+    return allDrivers.filter(
+      (d) =>
+        d.lat !== null &&
+        d.lng !== null &&
+        haversineKm(pickupCoords.lat, pickupCoords.lng, d.lat, d.lng) <= DRIVERS_AROUND_RADIUS_KM
+    );
+  }, [pickupCoords, allDrivers]);
+
   // Point de départ de l'estimation d'un lieu (v2.13) : ta position
   // si tu es géolocalisé, sinon ton départ sélectionné, sinon le
   // centre de Libreville.
@@ -391,31 +636,45 @@ export function HomeScreen({
     return { lat: LIBREVILLE_CENTER.lat, lng: LIBREVILLE_CENTER.lng, label: 'Centre-ville', kind: 'center' as const };
   }, [userLocation, pickupCoords, pickup]);
 
-  // ETA du chauffeur le plus proche du point de départ.
+  // Ancre du cercle périmètre 5 km (v2.31) : la position GPS par
+  // défaut ; le quartier de départ dès que l'utilisateur le choisit
+  // manuellement (c'est de là que partira la course) ; le
+  // Centre-ville s'il n'y a ni l'un ni l'autre. Le cercle suit donc
+  // l'ancre — GPS d'abord, départ manuel ensuite. (Mode chauffeur :
+  // pas de cercle — le `null` est appliqué au passage de la prop,
+  // `isChauffeurMode` étant déclaré plus bas.)
+  const perimeterCenter = useMemo(() => {
+    if (manualPickupRef.current && pickupCoords && pickup)
+      return { ...pickupCoords, label: pickup };
+    if (userLocation) return { lat: userLocation.lat, lng: userLocation.lng, label: userLocation.label };
+    if (pickupCoords && pickup) return { ...pickupCoords, label: pickup };
+    return { lat: LIBREVILLE_CENTER.lat, lng: LIBREVILLE_CENTER.lng, label: 'Centre-ville' };
+    // `manualPickupRef` est un drapeau, pas un état : le mémo se
+    // recalcule quand `pickup` / `userLocation` change — c'est le
+    // changement de départ qui fait bouger l'ancre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupCoords, pickup, userLocation]);
+
+  // ETA du chauffeur le plus proche du point de départ — parmi les
+  // chauffeurs éligibles ET dans le périmètre (un chauffeur hors
+  // périmètre ne peut pas être mis en relation, son ETA ne compte pas).
   const nearestEta = useMemo(() => {
     if (!pickupCoords || matchableDrivers.length === 0) return null;
     let best: number | null = null;
     matchableDrivers.forEach((d) => {
       if (d.lat === null || d.lng === null) return;
+      if (!driversInPerimeter.includes(d)) return;
       const dist = haversineKm(pickupCoords.lat, pickupCoords.lng, d.lat, d.lng);
       const eta = etaMinutes(dist);
       if (best === null || eta < best) best = eta;
     });
     return best;
-  }, [pickupCoords, matchableDrivers]);
+  }, [pickupCoords, matchableDrivers, driversInPerimeter]);
 
-  const driversNearPickup = useMemo(() => {
-    if (!pickupCoords) return allDrivers.length;
-    // Rayon « autour de toi » : 10 km, comme le premier rayon de
-    // recherche. Compte TOUS les chauffeurs en ligne, Moto comprise :
-    // la Moto était exclue en Groupe et le compteur n'affichait que 5/6.
-    return allDrivers.filter(
-      (d) =>
-        d.lat !== null &&
-        d.lng !== null &&
-        haversineKm(pickupCoords.lat, pickupCoords.lng, d.lat, d.lng) <= 10
-    ).length;
-  }, [pickupCoords, allDrivers]);
+  // Compteur « chauffeurs autour de toi » : le nombre de chauffeurs en
+  // ligne dans le périmètre autour du départ (v2.18) — il se recalcule
+  // quand le départ change. Sans départ, le total des chauffeurs.
+  const driversNearPickup = driversInPerimeter.length;
 
   // Horloge (comptes à rebours des propositions + élargissement).
   useEffect(() => {
@@ -424,99 +683,118 @@ export function HomeScreen({
     return () => window.clearInterval(t);
   }, [phase]);
 
-  // Sondage des propositions (toutes les 5 s pendant la recherche).
-  // Notifications pop-up de négociation (v2.12) : chaque changement
-  // détecté par rapport au sondage précédent déclenche un toast —
-  // nouvelle proposition, nouveau prix du chauffeur, prix accepté.
-  // Quand le chauffeur accepte la contre-proposition du passager, la
-  // course est confirmée : on charge la course et on passe en phase
-  // « confirmed » (sinon l'écran resterait sur « Recherche »).
-  useEffect(() => {
-    if (!rideId || (phase !== 'searching' && phase !== 'proposals')) return;
-    let cancelled = false;
-    async function poll() {
-      try {
-        const res = await fetch(`/api/proposals?rideId=${rideId}`);
-        const data = await res.json();
-        if (cancelled || !data?.ok) return;
-        const list = (data.proposals ?? []) as RideProposal[];
-        setProposals(list);
-        const { events, snapshot } = detectProposalEvents(proposalSnapshotRef.current, list);
-        proposalSnapshotRef.current = snapshot;
-        for (const ev of events) {
-          if (cancelled) break;
-          if (ev.kind === 'new') {
-            pushToast({
-              id: `new-${ev.proposal.id}`,
-              title: `Nouvelle proposition : ${formatFcfa(ev.proposal.proposedPrice)}`,
-              message: `${driverFirstName(ev.proposal)} propose ce prix pour ta course.`,
-              variant: 'offer',
-            });
-          } else if (ev.kind === 'repriced') {
-            pushToast({
-              id: `repriced-${ev.proposal.id}-${ev.proposal.proposedPrice}`,
-              title: `Nouveau prix proposé : ${formatFcfa(ev.proposal.proposedPrice)}`,
-              message: `${driverFirstName(ev.proposal)} a modifié son prix — à toi de choisir.`,
-              variant: 'info',
-            });
-          } else if (ev.kind === 'accepted') {
-            const price = ev.proposal.counterPrice ?? ev.proposal.proposedPrice;
-            pushToast({
-              id: `accepted-${ev.proposal.id}`,
-              title: `Prix accepté : ${formatFcfa(price)} — prix figé`,
-              message: `C'est le prix de ta course, il ne bougera plus.`,
-              variant: 'success',
-            });
-            const rideRes = await fetch(`/api/rides/${rideId}`);
-            const rideData = await rideRes.json().catch(() => null);
-            if (!cancelled && rideData?.ok) {
-              setAcceptedRide(rideData.ride as Ride);
-              setAcceptedDriver((rideData.driver as DriverProfile | null) ?? null);
-              setPhase('confirmed');
-            }
+  // Phase courante en ref : les rechargements déclenchés par Realtime
+  // (hors effet) ne doivent rien faire une fois la phase passée.
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+
+  // Rechargement des propositions (v2.12 + v2.24) : notifications
+  // pop-up de négociation à chaque changement détecté par rapport au
+  // sondage précédent — nouvelle proposition, nouveau prix du
+  // chauffeur, prix accepté. Quand le chauffeur accepte la
+  // contre-proposition du passager, la course est confirmée : on
+  // charge la course et on passe en phase « confirmed » (sinon
+  // l'écran resterait sur « Recherche »). Déclenché par Realtime
+  // (instantané) ou par le sondage de repli (5 s).
+  const pollProposals = useCallback(async () => {
+    if (!rideId) return;
+    if (phaseRef.current !== 'searching' && phaseRef.current !== 'proposals') return;
+    try {
+      const res = await fetch(`/api/proposals?rideId=${rideId}`);
+      const data = await res.json();
+      if (!data?.ok) return;
+      const list = (data.proposals ?? []) as RideProposal[];
+      setProposals(list);
+      const { events, snapshot } = detectProposalEvents(proposalSnapshotRef.current, list);
+      proposalSnapshotRef.current = snapshot;
+      for (const ev of events) {
+        if (ev.kind === 'new') {
+          pushToast({
+            id: `new-${ev.proposal.id}`,
+            title: `Nouvelle proposition : ${formatFcfa(ev.proposal.proposedPrice)}`,
+            message: `${driverFirstName(ev.proposal)} propose ce prix pour ta course.`,
+            variant: 'offer',
+          });
+        } else if (ev.kind === 'repriced') {
+          pushToast({
+            id: `repriced-${ev.proposal.id}-${ev.proposal.proposedPrice}`,
+            title: `Nouveau prix proposé : ${formatFcfa(ev.proposal.proposedPrice)}`,
+            message: `${driverFirstName(ev.proposal)} a modifié son prix — à toi de choisir.`,
+            variant: 'info',
+          });
+        } else if (ev.kind === 'accepted') {
+          const price = ev.proposal.counterPrice ?? ev.proposal.proposedPrice;
+          pushToast({
+            id: `accepted-${ev.proposal.id}`,
+            title: `Prix accepté : ${formatFcfa(price)} — prix figé`,
+            message: `C'est le prix de ta course, il ne bougera plus.`,
+            variant: 'success',
+          });
+          const rideRes = await fetch(`/api/rides/${rideId}`);
+          const rideData = await rideRes.json().catch(() => null);
+          if (rideData?.ok) {
+            setAcceptedRide(rideData.ride as Ride);
+            setAcceptedDriver((rideData.driver as DriverProfile | null) ?? null);
+            setPhase('confirmed');
           }
         }
-        if (list.some((p) => p.status === 'pending')) setPhase('proposals');
-      } catch {
-        // Réseau instable : on réessaie au prochain tour.
       }
+      if (list.some((p) => p.status === 'pending')) setPhase('proposals');
+    } catch {
+      // Réseau instable : on réessaie au prochain tour.
     }
-    poll();
-    const t = window.setInterval(poll, 5000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(t);
-    };
-  }, [rideId, phase, pushToast]);
+  }, [rideId, pushToast]);
 
-  // Suivi de la course confirmée (toutes les 10 s).
+  // Temps réel (v2.24) : les propositions arrivent instantanément ;
+  // le sondage 5 s ne reste qu'en repli, plus un rafraîchissement
+  // de sécurité toutes les 60 s.
+  const { live: proposalsLive } = useRealtimeSubscription({
+    table: 'ride_proposals',
+    filter: rideId ? `ride_id=eq.${rideId}` : undefined,
+    enabled: !!rideId && (phase === 'searching' || phase === 'proposals'),
+    onChange: pollProposals,
+  });
+  useEffect(() => {
+    if (!rideId || (phase !== 'searching' && phase !== 'proposals')) return;
+    pollProposals();
+    const t = window.setInterval(pollProposals, pollingIntervalMs(proposalsLive, 5000));
+    return () => window.clearInterval(t);
+  }, [rideId, phase, proposalsLive, pollProposals]);
+
+  // Suivi de la course confirmée : rechargement déclenché par Realtime
+  // (changement de statut) ou par le sondage de repli (10 s).
+  const pollRide = useCallback(async () => {
+    if (!rideId) return;
+    if (phaseRef.current !== 'confirmed') return;
+    try {
+      const res = await fetch(`/api/rides/${rideId}`);
+      const data = await res.json();
+      if (!data?.ok) return;
+      setAcceptedRide(data.ride as Ride);
+      if (data.driver) setAcceptedDriver(data.driver as DriverProfile);
+      if ((data.ride as Ride).status === 'terminee') setPhase('done');
+      if ((data.ride as Ride).status === 'annulee') {
+        setPhase('idle');
+        setRideId(null);
+        setAcceptedRide(null);
+        setAcceptedDriver(null);
+      }
+    } catch {
+      // Réessaie au prochain tour.
+    }
+  }, [rideId]);
+  const { live: rideLive } = useRealtimeSubscription({
+    table: 'rides',
+    filter: rideId ? `id=eq.${rideId}` : undefined,
+    enabled: !!rideId && phase === 'confirmed',
+    onChange: pollRide,
+  });
   useEffect(() => {
     if (!rideId || phase !== 'confirmed') return;
-    let cancelled = false;
-    async function poll() {
-      try {
-        const res = await fetch(`/api/rides/${rideId}`);
-        const data = await res.json();
-        if (cancelled || !data?.ok) return;
-        setAcceptedRide(data.ride as Ride);
-        if (data.driver) setAcceptedDriver(data.driver as DriverProfile);
-        if ((data.ride as Ride).status === 'terminee') setPhase('done');
-        if ((data.ride as Ride).status === 'annulee') {
-          setPhase('idle');
-          setRideId(null);
-          setAcceptedRide(null);
-          setAcceptedDriver(null);
-        }
-      } catch {
-        // Réessaie au prochain tour.
-      }
-    }
-    const t = window.setInterval(poll, 10000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(t);
-    };
-  }, [rideId, phase]);
+    pollRide();
+    const t = window.setInterval(pollRide, pollingIntervalMs(rideLive, 10000));
+    return () => window.clearInterval(t);
+  }, [rideId, phase, rideLive, pollRide]);
 
   const liveProposals = useMemo(() => {
     return proposals
@@ -535,24 +813,33 @@ export function HomeScreen({
     now - searchStartedAt > 30000 &&
     liveProposals.length === 0;
 
-  // Marqueurs de la carte : TOUS les chauffeurs en ligne, découplés du
-  // filtre de mise en relation (la Moto reste visible en Groupe — sa
-  // bulle précise « Solo uniquement »).
+  // Marqueurs de la carte : SEULS les chauffeurs en ligne dans le
+  // périmètre autour du départ (v2.18) — hors périmètre, masqués.
+  // La Moto reste visible en Groupe — sa bulle précise « Solo uniquement ».
+  // Confidentialité (v2.20) : les marqueurs sont ANONYMES avant le
+  // matching — ni nom, ni véhicule, ni note, ni plaque. Seul le
+  // chauffeur assigné (course acceptée) retrouve son identité sur la
+  // carte, depuis `acceptedDriver` (chargé via /api/rides/[id] après
+  // acceptation) — jamais depuis la liste des chauffeurs en ligne.
   const mapDrivers = useMemo(
     () =>
-      allDrivers
+      driversInPerimeter
         .filter((d) => d.lat !== null && d.lng !== null)
-        .map((d) => ({
-          id: d.id,
-          name: d.name,
-          lat: d.lat as number,
-          lng: d.lng as number,
-          vehicleLabel: d.vehicleLabel,
-          vehicleType: d.vehicleType ?? '',
-          rating: d.rating,
-          isDemo: d.isDemo,
-        })),
-    [allDrivers]
+        .map((d) => {
+          const assigned =
+            acceptedDriver && acceptedDriver.id === d.id ? acceptedDriver : null;
+          return {
+            id: d.id,
+            name: assigned?.name ?? '',
+            lat: d.lat as number,
+            lng: d.lng as number,
+            vehicleLabel: assigned?.vehicleLabel ?? '',
+            vehicleType: d.vehicleType ?? '',
+            rating: assigned?.rating ?? null,
+            isDemo: d.isDemo,
+          };
+        }),
+    [driversInPerimeter, acceptedDriver]
   );
 
   function saveDraft() {
@@ -572,27 +859,35 @@ export function HomeScreen({
   }
 
   // --- « Me localiser » : GPS → quartier le plus proche → départ. ---
+  // Test d'appartenance à la zone de service (v2.31,
+  // `isInServiceArea` / `SERVICE_BOUNDS`) : l'ancien test « > 60 km
+  // du quartier le plus proche » plaçait encore quelqu'un à 20–50 km
+  // de Libreville et faisait voler la carte jusqu'à lui. Hors zone,
+  // la carte RESTE sur Libreville et le message est clair.
   async function handleLocate() {
     if (locating) return;
     setLocating(true);
     setGeoError(null);
     try {
       const pos = await getUserPosition();
-      const nearest = nearestNeighborhood(pos.lat, pos.lng);
-      if (nearest.distanceKm > 60) {
-        // Hors de Libreville (ex. test depuis la France) : on ne place
-        // pas un faux départ — message clair + sélection manuelle.
+      if (!isInServiceArea(pos.lat, pos.lng)) {
+        const nearest = nearestNeighborhood(pos.lat, pos.lng);
+        // Action explicite : l'écran hors zone (v2.32) se remontre
+        // même s'il a déjà été fermé dans cette session.
+        showOutOfZone(pos, { force: true });
         setGeoError(
-          `Tu es à ~${Math.round(nearest.distanceKm)} km de Libreville — la géolocalisation ne peut pas te placer ici. Choisis ton quartier dans la liste.`
+          `Tu es hors de la zone de service — le service est à Libreville pour l'instant (~${Math.round(nearest.distanceKm)} km du quartier le plus proche). Choisis ton quartier dans la liste.`
         );
         return;
       }
+      const nearest = nearestNeighborhood(pos.lat, pos.lng);
+      manualPickupRef.current = false;
       setPickup(nearest.neighborhood);
       setPickupExact({ lat: pos.lat, lng: pos.lng });
       setUserLocation({ lat: pos.lat, lng: pos.lng, label: nearest.neighborhood });
       setGeoLabel(null);
       focusNonceRef.current += 1;
-      setFocusPoint({ lat: pos.lat, lng: pos.lng, zoom: 15, nonce: focusNonceRef.current });
+      setFocusPoint({ lat: pos.lat, lng: pos.lng, zoom: MAP_INITIAL_ZOOM, nonce: focusNonceRef.current });
       // Nom de rue en complément (best-effort, jamais bloquant).
       reverseGeocodeNominatim(pos.lat, pos.lng).then((label) => {
         if (label) setGeoLabel(label);
@@ -604,11 +899,13 @@ export function HomeScreen({
     }
   }
 
-  // Choix manuel du départ : on revient au centre du quartier.
+  // Choix manuel du départ : on revient au centre du quartier — et
+  // l'ancre (ouverture + cercle périmètre) devient ce quartier (v2.31).
   function handlePickupChange(value: Neighborhood | '') {
     setPickup(value);
     setPickupExact(null);
     setGeoLabel(null);
+    if (value !== '') manualPickupRef.current = true;
   }
 
   // Choix de la destination : la demande de route non bitumée repart
@@ -616,6 +913,14 @@ export function HomeScreen({
   function handleDestinationChange(value: Neighborhood | '') {
     setDestination(value);
     setUnpavedRoad(false);
+  }
+
+  // « Partir de là » (v2.22) : un point de prise en charge devient le
+  // départ (son quartier le plus proche), la carte se recentre dessus.
+  function handlePickupFromPoi(poi: Poi) {
+    handlePickupChange(poi.neighborhood);
+    focusNonceRef.current += 1;
+    setFocusPoint({ lat: poi.lat, lng: poi.lng, zoom: 14, nonce: focusNonceRef.current });
   }
 
   // « Y aller » (v2.13) : le lieu devient la destination (son
@@ -629,13 +934,14 @@ export function HomeScreen({
     setSheetH(58);
   }
 
-  // Bouton « Recentrer » sur la carte : sur moi si localisé, sinon Libreville.
+  // Bouton « Recentrer » sur la carte : sur moi si localisé, sinon
+  // Libreville — dans les deux cas au zoom quartier (v2.31).
   function handleRecenter() {
     focusNonceRef.current += 1;
     if (userLocation) {
-      setFocusPoint({ lat: userLocation.lat, lng: userLocation.lng, zoom: 15, nonce: focusNonceRef.current });
+      setFocusPoint({ lat: userLocation.lat, lng: userLocation.lng, zoom: MAP_INITIAL_ZOOM, nonce: focusNonceRef.current });
     } else {
-      setFocusPoint({ lat: LIBREVILLE_CENTER.lat, lng: LIBREVILLE_CENTER.lng, zoom: 12, nonce: focusNonceRef.current });
+      setFocusPoint({ lat: LIBREVILLE_CENTER.lat, lng: LIBREVILLE_CENTER.lng, zoom: MAP_INITIAL_ZOOM, nonce: focusNonceRef.current });
     }
   }
 
@@ -692,6 +998,7 @@ export function HomeScreen({
 
   async function commander() {
     setError(null);
+    setScheduledDone(false);
     setSelectedPoi(null);
     if (!validTrip || !estimate) return;
     // Prix proposé par le passager (v2.11, optionnel) : entre 400 et
@@ -701,6 +1008,25 @@ export function HomeScreen({
     if (offered !== null && (!Number.isFinite(offered) || offered < 400 || offered > 50000)) {
       setError('Ton prix proposé doit être entre 400 et 50 000 FCFA.');
       return;
+    }
+    // Course planifiée (v2.30) : au moins 30 min dans le futur, au
+    // plus 7 jours — le serveur re-valide les mêmes bornes.
+    let scheduledIso: string | null = null;
+    if (scheduleEnabled) {
+      const d = new Date(scheduledAt);
+      if (Number.isNaN(d.getTime())) {
+        setError('Choisis une date et une heure pour ta course planifiée.');
+        return;
+      }
+      if (d.getTime() < Date.now() + 30 * 60 * 1000) {
+        setError('Choisis une heure au moins 30 minutes dans le futur.');
+        return;
+      }
+      if (d.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) {
+        setError('On ne planifie pas plus de 7 jours à l’avance.');
+        return;
+      }
+      scheduledIso = d.toISOString();
     }
     if (!user) {
       saveDraft();
@@ -719,17 +1045,28 @@ export function HomeScreen({
         pickup,
         destination,
         rideType,
+        comfort: rideType === 'solo' ? comfort : false,
+        favoriteDriverId,
         vehiclePreference: vehiclePref,
         seats: 1, // Groupe : 1 place. Solo : véhicule entier — pas de nombre de passagers.
         paymentMethod,
         unpavedRoad,
         offeredPrice: offered,
+        scheduledAt: scheduledIso,
       }),
     });
     const data = await res.json().catch(() => null);
     setBusy(false);
     if (!res.ok) {
       setError(data?.error ?? 'Demande impossible pour le moment. Réessaie.');
+      return;
+    }
+    // Course planifiée : pas de recherche immédiate — confirmation
+    // + renvoi vers « Mes courses » (annulable avant l'envoi).
+    if (scheduledIso) {
+      setScheduledDone(true);
+      setScheduleEnabled(false);
+      setScheduledAt('');
       return;
     }
     setRideId(data.rideId as string);
@@ -798,16 +1135,33 @@ export function HomeScreen({
     return true;
   }
 
+  /** Annulation (v2.23) : motif obligatoire — la modale s'ouvre
+   *  d'abord, la requête part seulement après confirmation. */
+  const [cancelOpen, setCancelOpen] = useState(false);
+
   async function annulerCourse() {
-    if (!rideId) return;
+    setCancelOpen(true);
+  }
+
+  async function confirmerAnnulation(
+    reasonCode: CancelReasonCode,
+    detail: string | null
+  ): Promise<boolean> {
+    if (!rideId) return false;
     setBusy(true);
-    await fetch(`/api/rides/${rideId}`, {
+    const res = await fetch(`/api/rides/${rideId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'cancel' }),
-    }).catch(() => undefined);
+      body: JSON.stringify({ action: 'cancel', reasonCode, reason: detail }),
+    }).catch(() => null);
     setBusy(false);
+    if (!res?.ok) {
+      const data = await res?.json().catch(() => null);
+      setError(data?.error ?? 'Annulation impossible pour le moment. Réessaie.');
+      return false;
+    }
     resetToIdle();
+    return true;
   }
 
   function resetToIdle() {
@@ -830,6 +1184,18 @@ export function HomeScreen({
     acceptedDriver && pickupCoords && acceptedDriver.lat !== null && acceptedDriver.lng !== null
       ? etaMinutes(haversineKm(pickupCoords.lat, pickupCoords.lng, acceptedDriver.lat, acceptedDriver.lng))
       : null;
+  // ETA routière du chauffeur accepté (P0b) : durée OSRM chauffeur →
+  // pickup quand elle est là, sinon l'ETA à vol d'oiseau ci-dessus.
+  // La position du profil ne bouge pas ici : pas de rafraîchissement
+  // — le suivi en direct prend le relais sur la page de la course.
+  const acceptedDriverPos =
+    acceptedDriver && acceptedDriver.lat !== null && acceptedDriver.lng !== null
+      ? { lat: acceptedDriver.lat, lng: acceptedDriver.lng }
+      : null;
+  const { route: acceptedRoadRoute } = useRoadRoute(acceptedDriverPos, pickupCoords, {
+    enabled: !!acceptedDriverPos && !!pickupCoords,
+  });
+  const etaAcceptedRoad = acceptedRoadRoute?.durationMin ?? etaAccepted;
 
   return (
     <div className="relative flex-1 min-h-0">
@@ -860,12 +1226,24 @@ export function HomeScreen({
         }
         onMapClick={() => setSelectedPoi(null)}
         selectedPoi={selectedPoi}
+        routeGeometry={
+          roadRoute && roadRoute.geometry.length >= 2 ? roadRoute.geometry : null
+        }
+        trafficReports={trafficReports}
+        perimeterCenter={isChauffeurMode ? null : perimeterCenter}
       />
 
       {/* Notifications pop-up de négociation (v2.12) : propositions,
           nouveaux prix, prix accepté — en haut de l'écran, au-dessus
           de la carte et de la feuille. */}
       <ToastStack toasts={toasts} onClose={dismissToast} />
+
+      {/* Écran hors zone (v2.32) : position GPS connue, hors zone —
+          plein écran non bloquant, fermable, sans réapparition dans
+          la session. Jamais affiché dans la zone ni sans GPS. */}
+      {outOfZone && (
+        <OutOfZoneScreen place={outOfZone.place} onClose={dismissOutOfZone} />
+      )}
 
       {/* Mini-carte d'info d'un lieu (v2.13) : nom, catégorie,
           distance, estimation Solo/Groupe, bouton « Y aller ». */}
@@ -891,8 +1269,8 @@ export function HomeScreen({
           <span className="inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/10 shadow-xl shadow-black/40 rounded-full px-4 py-2 text-xs font-black text-slate-100">
             <span className="w-2 h-2 rounded-full bg-cyan animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
             {phase === 'idle'
-              ? `${driversNearPickup} chauffeur${driversNearPickup > 1 ? 's' : ''} autour de toi`
-              : `Radar · ${driversNearPickup} chauffeur${driversNearPickup > 1 ? 's' : ''} détecté${driversNearPickup > 1 ? 's' : ''} autour de toi`}
+              ? `${driversNearPickup} chauffeur${driversNearPickup > 1 ? 's' : ''} autour de toi · dans un rayon de ${DRIVERS_AROUND_RADIUS_KM} km`
+              : `Radar · ${driversNearPickup} chauffeur${driversNearPickup > 1 ? 's' : ''} détecté${driversNearPickup > 1 ? 's' : ''} autour de toi · dans un rayon de ${DRIVERS_AROUND_RADIUS_KM} km`}
           </span>
         </div>
       )}
@@ -1025,39 +1403,33 @@ export function HomeScreen({
                 Où allez-vous ?
               </h1>
 
-              {/* Départ / Destination */}
+              {/* Départ / Destination — listes triées par ordre
+                  alphabétique, avec recherche par nom (v2.22). */}
               <div className="space-y-2">
-                <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-3.5 py-1">
-                  <Navigation size={18} className="text-cyan shrink-0" />
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      Départ
-                    </span>
-                    <select
-                      value={pickup}
-                      onChange={(e) => handlePickupChange(e.target.value as Neighborhood | '')}
-                      className="w-full bg-transparent font-bold text-white focus:outline-none py-0.5"
-                      aria-label="Point de départ"
-                    >
-                      <option value="">Ton point de départ…</option>
-                      {SELECTABLE.map((n) => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleLocate}
-                    disabled={locating}
-                    className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-cyan px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
-                  >
-                    {locating ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <LocateFixed size={14} />
-                    )}
-                    {locating ? 'Localisation…' : 'Me localiser'}
-                  </button>
+                <div className="bg-white/5 border border-white/10 rounded-2xl px-3.5 py-1.5">
+                  <NeighborhoodSelect
+                    id="depart"
+                    label="Départ"
+                    value={pickup}
+                    onChange={handlePickupChange}
+                    placeholder="Ton point de départ…"
+                    icon={<Navigation size={18} className="text-cyan shrink-0" />}
+                    action={
+                      <button
+                        type="button"
+                        onClick={handleLocate}
+                        disabled={locating}
+                        className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-cyan px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
+                      >
+                        {locating ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <LocateFixed size={14} />
+                        )}
+                        {locating ? 'Localisation…' : 'Me localiser'}
+                      </button>
+                    }
+                  />
                 </div>
                 {geoLabel && pickup !== '' && (
                   <p className="text-xs font-bold text-cyan flex items-center gap-1 px-1">
@@ -1069,25 +1441,16 @@ export function HomeScreen({
                     {geoError}
                   </p>
                 )}
-                <label className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-3.5 py-1">
-                  <MapPin size={18} className="text-gold shrink-0" />
-                  <span className="flex-1">
-                    <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      Destination
-                    </span>
-                    <select
-                      value={destination}
-                      onChange={(e) => handleDestinationChange(e.target.value as Neighborhood | '')}
-                      className="w-full bg-transparent font-bold text-white focus:outline-none py-0.5"
-                      aria-label="Destination"
-                    >
-                      <option value="">Où vas-tu ?</option>
-                      {SELECTABLE.map((n) => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-                  </span>
-                </label>
+                <div className="bg-white/5 border border-white/10 rounded-2xl px-3.5 py-1.5">
+                  <NeighborhoodSelect
+                    id="destination"
+                    label="Destination"
+                    value={destination}
+                    onChange={handleDestinationChange}
+                    placeholder="Où vas-tu ?"
+                    icon={<MapPin size={18} className="text-gold shrink-0" />}
+                  />
+                </div>
                 {/* Accès difficile (v2.6) : la route bitumée s'arrête au
                     point de dépôt — le passager choisit d'y descendre ou
                     de demander la piste (+ supplément). Le chauffeur
@@ -1125,6 +1488,65 @@ export function HomeScreen({
                 )}
               </div>
 
+              {/* Lieux favoris (v2.30) : Maison / Travail enregistrés
+                  dans « Mon compte » — 1 tap pour définir le départ
+                  ou la destination. */}
+              {profile &&
+                ((profile.home_neighborhood ?? null) !== null ||
+                  (profile.work_neighborhood ?? null) !== null) && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Mes lieux
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        [
+                          {
+                            key: 'home',
+                            label: 'Maison',
+                            icon: '🏠',
+                            neighborhood: profile.home_neighborhood,
+                            detail: profile.home_detail,
+                          },
+                          {
+                            key: 'work',
+                            label: 'Travail',
+                            icon: '💼',
+                            neighborhood: profile.work_neighborhood,
+                            detail: profile.work_detail,
+                          },
+                        ] as const
+                      )
+                        .filter((f) => f.neighborhood)
+                        .map((f) => (
+                          <span
+                            key={f.key}
+                            className="inline-flex items-center gap-1 bg-white/5 border border-white/10 rounded-full pl-3 pr-1 py-1 text-xs font-bold text-white"
+                            title={`${f.label} : ${f.neighborhood}${f.detail ? ` — ${f.detail}` : ''}`}
+                          >
+                            {f.icon} {f.label} · {f.neighborhood}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handlePickupChange(f.neighborhood as Neighborhood);
+                              }}
+                              className="ml-1 px-2 py-1 rounded-full bg-cyan/20 text-cyan hover:bg-cyan/30 transition-colors"
+                            >
+                              Départ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDestination(f.neighborhood as Neighborhood)}
+                              className="px-2 py-1 rounded-full bg-gold/20 text-gold hover:bg-gold/30 transition-colors"
+                            >
+                              Destination
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
               {/* Trajets fréquents — raccourcis d'itinéraire, SANS prix :
                   la plateforme ne définit aucun tarif fixe (v2.11). */}
               <div className="space-y-1.5">
@@ -1137,11 +1559,9 @@ export function HomeScreen({
                       key={f.label}
                       type="button"
                       onClick={() => {
-                        setPickup(f.pickup);
+                        handlePickupChange(f.pickup);
                         setDestination(f.destination);
                         setUnpavedRoad(false);
-                        setPickupExact(null);
-                        setGeoLabel(null);
                         setRideType('groupe');
                       }}
                       className="text-xs font-bold bg-cyan/10 border border-cyan/30 text-cyan px-3 py-1.5 rounded-full hover:bg-cyan/20 active:scale-95 transition-all"
@@ -1150,7 +1570,71 @@ export function HomeScreen({
                     </button>
                   ))}
                 </div>
+
+                {/* Classe Confort (v2.34) : Solo uniquement — clim
+                    garantie, chauffeurs 4,5★ et plus. Même estimation
+                    que Solo : aucune différence de prix. */}
+                {rideType === 'solo' && (
+                  <button
+                    type="button"
+                    onClick={() => setComfort((c) => !c)}
+                    aria-pressed={comfort}
+                    className={cn(
+                      'w-full text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
+                      comfort
+                        ? 'border-cyan bg-cyan/10 shadow-lg shadow-cyan/20'
+                        : 'border-white/10 bg-white/5 hover:border-white/25'
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 font-black text-white">
+                      <Snowflake size={17} /> Confort
+                      <span className="ml-auto font-black text-base text-white">
+                        {estimating ? (
+                          <PriceSkeleton />
+                        ) : (
+                          <AnimatedPrice
+                            value={validTrip ? estimateSolo?.price ?? null : null}
+                            suffix={<span className="text-xs font-bold text-slate-400"> la course</span>}
+                          />
+                        )}
+                      </span>
+                    </span>
+                    <span className="block text-xs text-slate-400 mt-1 leading-snug">
+                      Climatisation garantie · Chauffeurs notés 4,5★ et plus · Même prix que Solo.
+                    </span>
+                  </button>
+                )}
+
+                {/* Chauffeur favori (v2.34) : reprendre avec un
+                    chauffeur déjà rencontré — la demande lui part en
+                    priorité pendant 30 s, puis aux autres chauffeurs. */}
+                {favorites.length > 0 && (
+                  <label className="block space-y-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Chauffeur favori — optionnel
+                    </span>
+                    <select
+                      value={favoriteDriverId ?? ''}
+                      onChange={(e) => setFavoriteDriverId(e.target.value || null)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-cyan focus:outline-none"
+                      aria-label="Chauffeur favori"
+                    >
+                      <option value="">Aucun — envoyer à tous les chauffeurs</option>
+                      {favorites.map((f) => (
+                        <option key={f.driverId} value={f.driverId}>
+                          Reprendre avec {f.driverName ?? 'ce chauffeur'} (priorité 30 s)
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
+
+              {/* Points de prise en charge (v2.22) : aéroport, marchés,
+                  stades, gares et lieux connus — estimation indicative
+                  vers la destination choisie (Centre-ville par défaut),
+                  jamais un prix fixe : le prix final se négocie. */}
+              <PickupPoints destination={destination} onPick={handlePickupFromPoi} />
 
               {/* Types de course — les montants affichés sont des
                   estimations indicatives, pas des prix (v2.11). */}
@@ -1161,7 +1645,10 @@ export function HomeScreen({
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setRideType('groupe')}
+                    onClick={() => {
+                      setRideType('groupe');
+                      setComfort(false);
+                    }}
                     aria-pressed={rideType === 'groupe'}
                     className={cn(
                       'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
@@ -1312,16 +1799,33 @@ export function HomeScreen({
                       Estimation — indicative
                     </p>
                     <p className="text-2xl font-black text-white leading-tight">
-                      <AnimatedPrice
-                        value={estimate.price}
-                        suffix={
-                          rideType === 'groupe' ? (
-                            <span className="text-sm font-bold text-slate-400"> / passager</span>
-                          ) : undefined
-                        }
-                      />
+                      {/* Règle 1 (v2.17) : le grand prix aussi attend son
+                          squelette pendant le recalcul — pas seulement
+                          les deux cartes Groupe / Solo au-dessus. */}
+                      {estimating ? (
+                        <PriceSkeleton className="h-8 w-36" />
+                      ) : (
+                        <AnimatedPrice
+                          value={estimate.price}
+                          suffix={
+                            rideType === 'groupe' ? (
+                              <span className="text-sm font-bold text-slate-400"> / passager</span>
+                            ) : undefined
+                          }
+                        />
+                      )}
                     </p>
                     <p className="text-xs text-slate-400">{estimate.breakdown}</p>
+                    {/* Itinéraire routier (v2.27) : durée et distance
+                        par la route (OSRM) — le prix, lui, ne change
+                        pas (modèle au km sur la distance à vol
+                        d'oiseau). Sans OSRM : durée estimée classique. */}
+                    {roadRoute && roadRoute.source === 'osrm' && (
+                      <p className="text-xs font-bold text-cyan mt-0.5">
+                        Par la route : ~{roadRoute.durationMin} min ·{' '}
+                        {roadRoute.distanceKm.toFixed(1).replace('.', ',')} km
+                      </p>
+                    )}
                     <p className="text-xs text-slate-500 mt-0.5">
                       Ce n’est pas le prix de la course : les chauffeurs proposent leur prix, tu choisis — le prix accepté est figé.
                     </p>
@@ -1334,20 +1838,83 @@ export function HomeScreen({
                 </div>
               )}
 
+              {/* Course planifiée (v2.30) : la demande part aux
+                  chauffeurs ~15 min avant l'heure prévue ; annulable
+                  avant l'envoi dans « Mes courses ». */}
+              {scheduledDone && (
+                <p role="status" className="text-sm font-bold text-green-300 bg-green-500/10 border border-green-500/30 rounded-2xl px-3.5 py-2.5">
+                  Course planifiée — ta demande partira aux chauffeurs proches ~15 min avant l’heure
+                  prévue.{' '}
+                  <Link href="/mes-courses" className="underline hover:text-green-200">
+                    Voir dans Mes courses →
+                  </Link>
+                </p>
+              )}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-2.5">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={scheduleEnabled}
+                    onChange={(e) => setScheduleEnabled(e.target.checked)}
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-[#FFC700]"
+                  />
+                  <span className="text-sm text-slate-200 leading-snug">
+                    <span className="font-black text-white flex items-center gap-1.5">
+                      <Clock size={15} className="text-gold shrink-0" /> Planifier pour plus tard
+                    </span>
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      Au moins 30 min dans le futur, au plus 7 jours — envoi automatique aux
+                      chauffeurs ~15 min avant.
+                    </span>
+                  </span>
+                </label>
+                {scheduleEnabled && (
+                  <div className="space-y-1.5">
+                    <label htmlFor="scheduled-at" className="text-xs font-black uppercase tracking-widest text-slate-400">
+                      Date et heure prévues
+                    </label>
+                    <input
+                      id="scheduled-at"
+                      type="datetime-local"
+                      required
+                      value={scheduledAt}
+                      min={toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000))}
+                      max={toLocalInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))}
+                      onChange={(e) => setScheduledAt(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-white/20 text-white text-sm font-bold focus:border-gold focus:outline-none [color-scheme:dark]"
+                    />
+                  </div>
+                )}
+              </div>
+
               <button
                 type="button"
                 disabled={!validTrip || !estimate || busy || isChauffeurMode}
                 onClick={commander}
-                className="w-full bg-or text-night-900 font-black text-lg py-4 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all disabled:opacity-40"
+                className="w-full inline-flex items-center justify-center gap-2 bg-or text-night-900 font-black text-lg py-4 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all disabled:opacity-40"
               >
-                {busy
-                  ? 'Envoi…'
-                  : !user
-                    ? 'Se connecter pour commander'
-                    : 'Commander'}
+                {busy ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> Envoi…
+                  </>
+                ) : !user ? (
+                  'Se connecter pour commander'
+                ) : scheduleEnabled ? (
+                  'Planifier ma course'
+                ) : (
+                  'Commander'
+                )}
               </button>
 
               <p className="text-[11px] text-slate-500 text-center">
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new Event('stacks-drive:open-tuto-passager'))}
+                  className="underline hover:text-cyan font-bold"
+                >
+                  Revoir le tutoriel
+                </button>
+                {' · '}
                 <Link href="/a-propos" className="underline hover:text-cyan">
                   Comment ça marche
                 </Link>
@@ -1416,7 +1983,12 @@ export function HomeScreen({
                       rideType={rideType}
                       estimatePrice={estimate?.price ?? p.proposedPrice}
                       estimateBreakdown={estimate?.breakdown}
+                      distanceKm={estimate?.distanceKm ?? null}
+                      // Durée routière réelle (v2.27) quand OSRM a
+                      // répondu, sinon durée estimée classique.
+                      durationMin={roadRoute?.durationMin ?? estimate?.durationMin ?? null}
                       etaMin={etaForProposal(p)}
+                      pickup={pickupCoords}
                       secondsLeft={p.secondsLeft ?? 0}
                       busy={busyProposalId !== null}
                       dropOffPoint={destDifficult ? destDropOff : null}
@@ -1445,7 +2017,7 @@ export function HomeScreen({
                     Les chauffeurs en ligne autour de {pickup} reçoivent ta demande…
                   </p>
                   <span className="block text-xs text-slate-500 mt-1">
-                    Le radar cherche jusqu’à 10 km, puis élargit à 25 km.
+                    Le radar cherche jusqu’à {DRIVERS_AROUND_RADIUS_KM} km, puis élargit à {DISPATCH_WIDENED_RADIUS_KM} km.
                   </span>
                 </div>
               )}
@@ -1454,9 +2026,10 @@ export function HomeScreen({
                 type="button"
                 disabled={busy}
                 onClick={annulerCourse}
-                className="w-full text-sm font-bold text-red-400 hover:underline disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 text-sm font-bold text-red-400 hover:underline disabled:opacity-50"
               >
-                Annuler la demande
+                {busy && <Loader2 size={14} className="animate-spin" />}
+                {busy ? 'Annulation…' : 'Annuler la demande'}
               </button>
             </div>
           )}
@@ -1486,7 +2059,8 @@ export function HomeScreen({
               <DriverCard
                 driver={acceptedDriver}
                 ride={acceptedRide}
-                etaMin={etaAccepted}
+                etaMin={etaAcceptedRoad}
+                pinCode={acceptedRide.pinCode}
                 shareUrl={acceptedRide.shareToken ? `/suivi/${acceptedRide.shareToken}` : `/courses/${acceptedRide.id}`}
                 detailUrl={`/courses/${acceptedRide.id}`}
                 onCancel={acceptedRide.status === 'acceptee' ? annulerCourse : undefined}
@@ -1550,6 +2124,20 @@ export function HomeScreen({
           <ChevronUp size={22} />
         </button>
       )}
+
+      {/* Annulation avec motif (v2.23) : l'autre partie est prévenue
+          immédiatement, l'annulation est comptée dans la fiabilité. */}
+      <CancelRideDialog
+        open={cancelOpen}
+        role="passager"
+        onClose={() => setCancelOpen(false)}
+        onConfirm={confirmerAnnulation}
+      />
+
+      {/* Tutoriel passager (v2.21) : une seule fois au premier lancement,
+          fermable, rejouable depuis « Mon compte ». Pas d'ouverture auto
+          en mode Chauffeur (l'accueil n'est pas l'écran passager). */}
+      <PassengerTutorial autoShow isChauffeurMode={isChauffeurMode} />
     </div>
   );
 }

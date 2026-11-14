@@ -8,6 +8,9 @@ export interface HeaderUser {
   email: string;
   role: ProfileRole;
   isAdmin: boolean;
+  /** Règle 2 (v2.17) : le compte a un dossier chauffeur — sinon le
+   *  switch vers le mode Chauffeur est bloqué (voir ModeToggle). */
+  canSwitchToDriver: boolean;
 }
 
 /** En-tête épuré, style Uber : logo à gauche, un petit bouton
@@ -34,7 +37,7 @@ export function Header({ user }: { user: HeaderUser | null }) {
         <div className="ml-auto flex items-center gap-2">
           {user ? (
             <>
-              <ModeToggle currentRole={user.role} />
+              <ModeToggle currentRole={user.role} canSwitchToDriver={user.canSwitchToDriver} />
               <Link
                 href="/compte"
                 className="hidden sm:inline-flex text-sm font-bold text-slate-300 hover:text-cyan px-2 py-2"

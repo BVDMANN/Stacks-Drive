@@ -22,7 +22,7 @@ const config: Config = {
           darker: '#080808',
         },
         // Identité « Libreville la nuit » — palette B « Or & Cyan »
-        // (choix de Randy, 13/11/2026) : ciel nocturne bleu encre,
+        // (choix de Stacks, 13/11/2026) : ciel nocturne bleu encre,
         // or (la valeur, l'argent) et cyan (la carte, la ville qui vit).
         // Or remplace l'ancien orange braise, cyan remplace l'ancien
         // vert volt. Le fond nuit et l'or du drapeau gabonais restent.

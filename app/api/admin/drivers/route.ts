@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { logAudit } from '@/lib/audit';
+import { unblockFraudUser } from '@/lib/fraud';
 
 const AdminDriverSchema = z.object({
-  action: z.enum(['deposit', 'settlement', 'unlock_pin']),
+  action: z.enum(['deposit', 'settlement', 'unlock_pin', 'unblock_fraud']),
   driverId: z.string().uuid().optional(),
   rideId: z.string().uuid().optional(),
   amount: z.number().int().min(1).max(1000000).optional(),
@@ -36,6 +37,9 @@ async function requireAdmin() {
  *  - settlement : enregistrer un règlement hebdomadaire de commissions
  *    (1 transfert Mobile Money reçu de la part du chauffeur).
  *  - unlock_pin : déverrouiller une course bloquée après 5 codes faux.
+ *  - unblock_fraud : débloquer un compte bloqué temporairement pour
+ *    suspicion de fraude (v2.26) — marqueur levé, dossiers ouverts
+ *    marqués résolus, le chauffeur se remet en ligne lui-même.
  *  Chaque action est journalisée dans audit_log. */
 export async function POST(request: NextRequest) {
   if (!isSupabaseConfigured()) {
@@ -105,6 +109,17 @@ export async function POST(request: NextRequest) {
       amount: v.amount,
       method: v.method ?? 'mobile_money',
     });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (v.action === 'unblock_fraud') {
+    if (!v.driverId) {
+      return NextResponse.json({ error: 'Chauffeur requis.' }, { status: 400 });
+    }
+    const ok = await unblockFraudUser(supabase, user.id, v.driverId);
+    if (!ok) {
+      return NextResponse.json({ error: 'Déblocage impossible.' }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
   }
 

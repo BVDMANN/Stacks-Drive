@@ -1,6 +1,6 @@
 /** Commission Stacks Drive prélevée sur chaque course.
  *
- *  Décision validée par Randy le 13/11/2026 :
+ *  Décision validée par Stacks le 13/11/2026 :
  *  - Lancement : 5 % pendant 3 mois (aimant à chauffeurs).
  *  - Ensuite : 8 % permanent.
  *  - Plafond garanti : 10 % — la commission ne dépassera jamais ce taux.
@@ -37,7 +37,15 @@ export interface FareSplit {
   rate: number;
 }
 
-/** Découpe un tarif total entre la plateforme et le chauffeur. */
+/** Découpe un tarif total entre la plateforme et le chauffeur.
+ *
+ *  Invariant (revue de sécurité) : la somme est exacte par
+ *  construction — la part plateforme est arrondie, la part chauffeur
+ *  est le reste (`total − platformFee`), jamais un second arrondi.
+ *  C'est ce que `validateSplit` (lib/fare-guard.ts) vérifie côté
+ *  serveur avant d'enregistrer des gains : une découpe dont les parts
+ *  ne s'additionnent pas au tarif est une anomalie, pas une erreur
+ *  d'arrondi. Ne jamais calculer les deux parts indépendamment. */
 export function splitFare(totalPriceFcfa: number, rate: number = COMMISSION_RATE): FareSplit {
   const platformFee = Math.round(totalPriceFcfa * rate);
   return {

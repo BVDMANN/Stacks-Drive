@@ -10,7 +10,7 @@ export type VehiclePreference = 'voiture' | 'moto' | 'tous';
 
 /** Estimation indicative d'un trajet — PAS un prix.
  *
- *  Modèle exact (décision de Randy, 14/11/2026) : le passager voit une
+ *  Modèle exact (décision du propriétaire, 14/11/2026) : le passager voit une
  *  estimation avant la course, puis le prix final se décide entre le
  *  passager et le chauffeur (le chauffeur propose, le passager peut
  *  aussi proposer son prix directement et contre-proposer) ; une fois
@@ -35,14 +35,14 @@ export interface FareEstimate {
 
 /** Supplément route non bitumée (v2.6) : forfait fixe ajouté au tarif
  *  quand le passager demande la continuité jusqu'à un quartier à accès
- *  difficile — et que le chauffeur l'accepte. Décision de Randy le
- *  14/11/2026 : 800 FCFA. Le supplément fait partie du tarif total :
+ *  difficile — et que le chauffeur l'accepte. Décision du propriétaire
+ *  le 14/11/2026 : 800 FCFA. Le supplément fait partie du tarif total :
  *  la commission (5 % puis 8 %) s'applique sur le total, supplément
  *  compris — voir splitFare (lib/commission.ts), qui découpe le prix
  *  figé de la course sans distinguer ses composantes. */
 export const UNPAVED_ROAD_SUPPLEMENT = 800;
 
-/** Estimation au km (v2.11, recalage décidé par Randy le 14/11/2026,
+/** Estimation au km (v2.11, recalage décidé par le propriétaire le 14/11/2026,
  *  ancré sur l'exemple Centre-ville → Nzeng-Ayong : Solo 1 500 FCFA,
  *  Groupe 950 FCFA) : comme Gozem et Yango — prise en charge + prix au
  *  kilomètre, estimation indicative affichée avant la course, pas de
@@ -65,6 +65,10 @@ export const MIN_FARE_GROUPE = 400;
 const AIRPORT = 'Aéroport Léon-Mba';
 
 function round50(n: number): number {
+  // Arrondi aux 50 FCFA : les espèces n'ont pas de monnaie fine à
+  // Libreville — un prix rond est payable tel quel, sans rendu de
+  // monnaie compliqué, et l'estimation reste lisible. Le plancher
+  // (550 / 400) est appliqué APRÈS l'arrondi, jamais avant.
   return Math.max(0, Math.round(n / 50) * 50);
 }
 
@@ -79,7 +83,11 @@ export function distanceBetween(a: Neighborhood, b: Neighborhood): number {
 /** Trajet estimé (distance / durée) — sans aucun prix. Utilisé partout
  *  où l'interface a besoin de la distance et de la durée sans parler
  *  d'argent (vue course, tableau de bord chauffeur, pop-up de
- *  proposition). */
+ *  proposition).
+ *  Distance = vol d'oiseau (haversine) entre les centres des quartiers
+ *  — DÉLIBÉRÉ (ADR 0010) : le prix ne doit jamais dépendre d'OSRM
+ *  (service démo non garanti) ni varier selon l'itinéraire choisi.
+ *  La distance routière sert à l'affichage et au guidage uniquement. */
 export function estimateTrip(
   pickup: Neighborhood,
   destination: Neighborhood

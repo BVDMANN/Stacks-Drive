@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { PremiumButton } from '@/components/shared/PremiumButton';
 import { VerificationStatusBadge } from '@/components/shared/StatusBadge';
 import {
-  NEIGHBORHOODS,
+  SELECTABLE_NEIGHBORHOODS,
   VEHICLE_TYPES,
   type Neighborhood,
   type VehicleType,
@@ -33,6 +33,16 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
     (profile.current_area as Neighborhood | '') ?? ''
   );
   const [isOnline, setIsOnline] = useState(profile.is_online);
+  // Lieux favoris (v2.30) : domicile / travail — quartier + précision
+  // libre, modifiables et supprimables ici.
+  const [homeNeighborhood, setHomeNeighborhood] = useState<Neighborhood | ''>(
+    (profile.home_neighborhood as Neighborhood | '') ?? ''
+  );
+  const [homeDetail, setHomeDetail] = useState(profile.home_detail ?? '');
+  const [workNeighborhood, setWorkNeighborhood] = useState<Neighborhood | ''>(
+    (profile.work_neighborhood as Neighborhood | '') ?? ''
+  );
+  const [workDetail, setWorkDetail] = useState(profile.work_detail ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -48,6 +58,11 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
       body: JSON.stringify({
         fullName: fullName.trim(),
         phone: phone.trim(),
+        // Lieux favoris (v2.30) : null = supprimer le lieu.
+        homeNeighborhood: homeNeighborhood || null,
+        homeDetail: homeDetail.trim() || null,
+        workNeighborhood: workNeighborhood || null,
+        workDetail: workDetail.trim() || null,
         ...(isDriver
           ? {
               vehicleType,
@@ -128,6 +143,89 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
       <p className="text-sm text-slate-500">
         E-mail du compte : <strong className="text-slate-700">{profile.email}</strong>
       </p>
+
+      {/* Lieux favoris (v2.30) : domicile / travail — raccourcis 1 tap
+          sur l'accueil pour définir le départ ou la destination.
+          Vider le quartier + la précision supprime le lieu. */}
+      <div className="border-t border-slate-100 pt-5 space-y-5">
+        <h3 className="font-black text-slate-900">Mes lieux — Maison &amp; Travail</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label htmlFor="home-neighborhood" className={labelCls}>🏠 Maison — quartier</label>
+            <select
+              id="home-neighborhood"
+              value={homeNeighborhood}
+              onChange={(e) => setHomeNeighborhood(e.target.value as Neighborhood | '')}
+              className={inputCls}
+            >
+              <option value="">Pas de domicile enregistré</option>
+              {SELECTABLE_NEIGHBORHOODS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+            <input
+              id="home-detail"
+              type="text"
+              maxLength={120}
+              value={homeDetail}
+              onChange={(e) => setHomeDetail(e.target.value)}
+              placeholder="Précision libre — ex : près de la pharmacie"
+              className={inputCls}
+            />
+            {homeNeighborhood && (
+              <button
+                type="button"
+                onClick={() => {
+                  setHomeNeighborhood('');
+                  setHomeDetail('');
+                }}
+                className="text-xs font-black text-red-600 hover:underline"
+              >
+                Supprimer « Maison »
+              </button>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="work-neighborhood" className={labelCls}>💼 Travail — quartier</label>
+            <select
+              id="work-neighborhood"
+              value={workNeighborhood}
+              onChange={(e) => setWorkNeighborhood(e.target.value as Neighborhood | '')}
+              className={inputCls}
+            >
+              <option value="">Pas de lieu de travail enregistré</option>
+              {SELECTABLE_NEIGHBORHOODS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+            <input
+              id="work-detail"
+              type="text"
+              maxLength={120}
+              value={workDetail}
+              onChange={(e) => setWorkDetail(e.target.value)}
+              placeholder="Précision libre — ex : entrée principale"
+              className={inputCls}
+            />
+            {workNeighborhood && (
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkNeighborhood('');
+                  setWorkDetail('');
+                }}
+                className="text-xs font-black text-red-600 hover:underline"
+              >
+                Supprimer « Travail »
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-slate-400">
+          Sur l’accueil, « Maison » et « Travail » deviennent des raccourcis : 1 tap pour les
+          mettre en départ ou en destination.
+        </p>
+      </div>
 
       {isDriver && (
         <>
@@ -213,7 +311,7 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
                   className={inputCls}
                 >
                   <option value="">Choisir un quartier…</option>
-                  {NEIGHBORHOODS.filter((n) => n !== 'Autre').map((n) => (
+                  {SELECTABLE_NEIGHBORHOODS.map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>

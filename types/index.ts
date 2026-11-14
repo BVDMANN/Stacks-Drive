@@ -2,6 +2,13 @@ import type { Neighborhood, PaymentMethod, VehicleType } from '@/lib/neighborhoo
 
 export type UserRole = 'passager' | 'chauffeur';
 
+/** Statut d'un chauffeur (v2.19) — DÉRIVÉ des places libres et des
+ *  courses en cours, jamais stocké (voir `lib/seats.ts`) :
+ *  Vide (aucune course, véhicule libre), En course (course en cours,
+ *  avec ou sans places restantes — une Solo en cours = sans
+ *  disponibilité), Plein (0 place libre). */
+export type DriverStatus = 'vide' | 'en_course' | 'plein';
+
 /** Un chauffeur visible sur la carte (réel et en ligne, ou démo). */
 export interface DriverProfile {
   id: string;
@@ -11,8 +18,18 @@ export interface DriverProfile {
   vehicleLabel: string;
   plate: string | null;
   seats: number | null;
+  /** Places libres déclarées (v2.19) : null = jamais déclarées =
+   *  capacité entière libre. */
+  freeSeats: number | null;
+  /** Statut dérivé (v2.19) — null quand il n'est pas calculé
+   *  (ex. marqueur carte sans courses jointes). */
+  status: DriverStatus | null;
   isVerified: boolean;
   isOnline: boolean;
+  /** Climatisation déclarée (v2.34, classe Confort) — optionnel :
+   *  les chauffeurs démo et les objets construits à la main ne le
+   *  renseignent pas (null = non déclaré). */
+  hasAirConditioning?: boolean | null;
   /** Note moyenne (1 à 5) — null si aucune course notée. */
   rating: number | null;
   /** Nombre de courses terminées. */
@@ -34,7 +51,16 @@ export type RideStatus =
   | 'acceptee' // une proposition acceptée, chauffeur assigné
   | 'en_cours' // course démarrée
   | 'terminee'
-  | 'annulee';
+  | 'annulee'
+  | 'planifiee' // v2.30 : planifiée pour plus tard, pas encore envoyée
+  | 'expiree'; // v2.30 : heure passée sans chauffeur, relançable
+
+/** Note moyenne d'un passager (v2.30) — ce que le chauffeur voit au
+ *  matching pour décider d'accepter. Null = aucune course notée. */
+export interface PassengerRating {
+  average: number;
+  count: number;
+}
 
 /** Statuts d'une proposition de chauffeur. */
 export type ProposalStatus = 'pending' | 'accepted' | 'declined' | 'expired';
@@ -54,6 +80,17 @@ export interface Ride {
   rideType: RideType;
   /** Préférence de véhicule : voiture, moto (Solo uniquement) ou indifférent. */
   vehiclePreference: 'voiture' | 'moto' | 'tous';
+  /** Classe Confort (v2.34) : clim garantie, chauffeurs 4,5★ et plus.
+   *  Une course Confort est une Solo (véhicule entier) avec ce
+   *  drapeau — même estimation et même modèle de prix que Solo.
+   *  Optionnel : les objets construits à la main (tutoriels) ne le
+   *  renseignent pas (absent = non-Confort). */
+  comfort?: boolean;
+  /** Chauffeur favori prioritaire (v2.34) : la demande lui est
+   *  réservée jusqu'à `preferredUntil`, puis s'ouvre aux autres.
+   *  Optionnels pour la même raison. */
+  preferredDriverId?: string | null;
+  preferredUntil?: string | null;
   /** Nombre de passagers (1 en Solo, 1 à 4 en Groupe). */
   seats: number;
   /** Prix fixe estimé à la demande (FCFA) — estimation indicative
@@ -88,11 +125,23 @@ export interface Ride {
   /** Notes après course (1 à 5). */
   ratingDriver: number | null;
   ratingPassenger: number | null;
+  /** Note moyenne du passager (v2.30) — jointe côté serveur pour le
+   *  chauffeur au matching (demandes entrantes / carte de course).
+   *  Null = pas encore calculée / aucune course notée. */
+  passengerRating: PassengerRating | null;
+  /** Course planifiée (v2.30) : heure prévue (ISO) et heure d'envoi
+   *  réel aux chauffeurs (~15 min avant). Nulls = course immédiate. */
+  scheduledAt: string | null;
+  dispatchedAt: string | null;
   /** 10e course offerte (fidélité) : le passager ne paie rien, le
    *  chauffeur touche l'intégralité du tarif, la plateforme absorbe. */
   loyaltyFree: boolean;
   /** Jeton public de suivi en direct (/suivi/[token]). */
   shareToken: string | null;
+  /** Qui a annulé la course (v2.23) : 'passager' / 'chauffeur' / null. */
+  cancelledBy: 'passager' | 'chauffeur' | null;
+  /** Motif d'annulation, libellé lisible (v2.23). */
+  cancelReason: string | null;
   /** Code PIN à 4 chiffres (v2.2) : généré à l'acceptation, le passager
    *  le donne au chauffeur pour démarrer le trajet. Null tant que la
    *  course n'est pas acceptée. */

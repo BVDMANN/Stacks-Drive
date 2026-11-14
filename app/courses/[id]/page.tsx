@@ -1,19 +1,29 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, BadgeCheck, Car, KeyRound, MapPin, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Car, MapPin, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { AmountToPay } from '@/components/rides/AmountToPay';
+import { RideReceiptCard } from '@/components/rides/RideReceipt';
+import { AutoPrintOnParam } from '@/components/rides/AutoPrintOnParam';
+import { TrustedSharePanel } from '@/components/rides/TrustedSharePanel';
+import { buildRideReceipt } from '@/lib/receipt';
 import { Header } from '@/components/shared/Header';
 import { Footer } from '@/components/shared/Footer';
 import { RideLiveTracking } from '@/components/rides/RideLiveTracking';
+import { RideCheckPanel } from '@/components/rides/RideCheckPanel';
 import { RideChat } from '@/components/rides/RideChat';
 import { DriverCard } from '@/components/home/DriverCard';
 import { RideActions } from '@/components/rides/RideActions';
 import { PinEntry } from '@/components/driver/PinEntry';
 import { FeedbackForm } from '@/components/rides/FeedbackForm';
+import { DisputeForm } from '@/components/rides/DisputeForm';
 import { RideStatusBadge } from '@/components/shared/StatusBadge';
 import { getRideRequestById } from '@/lib/rides';
-import { getSessionUser, createClient } from '@/lib/supabase/server';
+import { mapDriverProfile, stripDriverPhone } from '@/lib/db-types';
+import { getSessionUser, createClient, hasDriverAccount } from '@/lib/supabase/server';
 import { formatFcfa } from '@/lib/commission';
 import { estimateTrip } from '@/lib/pricing';
+import { fetchRoadRoute } from '@/lib/routing';
 import { PAYMENT_LABELS, NEIGHBORHOOD_COORDS, type Neighborhood } from '@/lib/neighborhoods';
 import { formatDepartureTime, timeAgo } from '@/lib/dates';
 
@@ -42,6 +52,7 @@ export default async function CoursePage({ params }: Ctx) {
     email: sessionUser.email,
     role: sessionUser.profile?.role ?? 'passager',
     isAdmin: sessionUser.profile?.is_admin ?? false,
+    canSwitchToDriver: hasDriverAccount(sessionUser.profile),
   };
 
   if (!found) {
@@ -67,29 +78,20 @@ export default async function CoursePage({ params }: Ctx) {
   const { date, time } = formatDepartureTime(ride.createdAt);
   const isPassenger = sessionUser.id === ride.passengerId;
   const isDriver = sessionUser.id === ride.driverId;
+  // Note du passager (v2.30) : le chauffeur la voit sur la carte de
+  // course — même source que les demandes entrantes.
+  if (isDriver && ride.passengerId) {
+    const { getPassengerRating } = await import('@/lib/rides');
+    ride.passengerRating = await getPassengerRating(ride.passengerId);
+  }
+  // Heure prévue d'une course planifiée (v2.30).
+  const scheduled = ride.scheduledAt ? formatDepartureTime(ride.scheduledAt) : null;
 
   // Note moyenne du chauffeur assigné.
-  let driver = row.driver
-    ? {
-        id: row.driver.id,
-        name: row.driver.full_name ?? 'Chauffeur Stacks Drive',
-        phone: row.driver.phone,
-        vehicleType: row.driver.vehicle_type,
-        vehicleLabel: [row.driver.vehicle_brand, row.driver.vehicle_model, row.driver.vehicle_color]
-          .filter(Boolean)
-          .join(' '),
-        plate: row.driver.plate,
-        seats: row.driver.seats,
-        isVerified: row.driver.is_verified,
-        isOnline: row.driver.is_online,
-        rating: null as number | null,
-        trips: 0,
-        area: row.driver.current_area,
-        lat: row.driver.last_lat ?? NEIGHBORHOOD_COORDS[row.driver.current_area as Neighborhood]?.lat ?? null,
-        lng: row.driver.last_lng ?? NEIGHBORHOOD_COORDS[row.driver.current_area as Neighborhood]?.lng ?? null,
-        isDemo: row.driver.is_demo,
-      }
-    : null;
+  // v2.20 : jamais de téléphone chauffeur sérialisé vers le passager
+  // (DriverCard est un composant client — ses props partent dans la
+  // page). La messagerie in-app remplace l'appel direct.
+  let driver = row.driver ? stripDriverPhone(mapDriverProfile(row.driver)) : null;
   if (driver) {
     const supabase = await createClient();
     const { data: rated } = await supabase
@@ -117,10 +119,18 @@ export default async function CoursePage({ params }: Ctx) {
     ride.distanceKm !== null && ride.durationMin !== null
       ? { distanceKm: ride.distanceKm, durationMin: ride.durationMin }
       : estimateTrip(ride.pickup as Neighborhood, ride.destination as Neighborhood);
+  // Itinéraire routier (v2.27) : durée et distance par la route
+  // (OSRM) — affichées en complément, le prix ne change pas. En cas
+  // d'indisponibilité d'OSRM, la route retombe sur la ligne droite :
+  // on n'affiche la ligne « Par la route » que si OSRM a répondu.
+  const roadRoute = await fetchRoadRoute(pickupCoords, destCoords);
   const passenger = row.passenger ?? null;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
+      <Suspense fallback={null}>
+        <AutoPrintOnParam />
+      </Suspense>
       <Header user={user} />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-stacks-green">
@@ -158,29 +168,69 @@ export default async function CoursePage({ params }: Ctx) {
           </ol>
         )}
 
-        {/* Code PIN (v2.2) — le passager le donne au chauffeur pour démarrer. */}
-        {isPassenger && ride.pinCode && ['acceptee', 'en_cours'].includes(ride.status) && (
-          <div className="bg-night-900 border border-white/10 rounded-3xl p-6 shadow-sm text-slate-100 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="font-black text-lg flex items-center gap-2">
-                <KeyRound size={20} className="text-gold" />
-                Ton code de démarrage
-              </p>
-              <p className="text-sm text-slate-300 mt-1">
-                Donne ce code à ton chauffeur quand il arrive — c’est lui qui
-                démarre le trajet avec. Ne le partage avec personne d’autre.
-              </p>
-            </div>
-            <p className="font-black text-5xl tracking-[0.3em] text-gold" aria-label={`Code : ${ride.pinCode.split('').join(' ')}`}>
-              {ride.pinCode}
+        {/* Course planifiée (v2.30) : heure prévue + envoi aux
+            chauffeurs ~15 min avant. Expirée = heure passée sans
+            chauffeur, relançable (bouton dans RideActions ci-dessous
+            via canCancel / relance). */}
+        {ride.status === 'planifiee' && scheduled && (
+          <div className="bg-violet-50 border border-violet-200 rounded-3xl p-5 shadow-sm">
+            <p className="text-sm font-black text-violet-900">
+              Course planifiée pour {scheduled.date} à {scheduled.time}
+            </p>
+            <p className="text-sm text-violet-800 mt-1">
+              Ta demande partira automatiquement aux chauffeurs proches environ 15 minutes avant
+              l’heure prévue. Tu peux encore l’annuler jusque-là.
             </p>
           </div>
         )}
+        {ride.status === 'expiree' && (
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+            <p className="text-sm font-black text-slate-900">
+              L’heure prévue est passée sans chauffeur disponible.
+            </p>
+            <p className="text-sm text-slate-600 mt-1">
+              Relance la même course maintenant, ou planifie une nouvelle heure depuis l’accueil.
+            </p>
+          </div>
+        )}
+
+        {/* Code PIN (v2.2, visible dès le matching v2.23) : affiché EN
+            GRAND sur la carte chauffeur ci-contre — le passager le
+            donne au chauffeur quand il arrive. */}
         {isPassenger && ride.pinLocked && ride.status === 'acceptee' && (
           <p role="alert" className="text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl p-4">
             Course verrouillée après 5 codes faux. Contacte Stacks Drive pour
             la débloquer, ou annule la course.
           </p>
+        )}
+
+        {/* Montant exact à payer (v2.23) : à l'arrivée, le prix figé —
+            zéro négociation au moment de payer. */}
+        {ride.status === 'en_cours' && ride.proposedPrice !== null && (
+          <AmountToPay
+            amountLabel={
+              ride.loyaltyFree ? '0 FCFA — course offerte' : formatFcfa(ride.proposedPrice)
+            }
+            paymentLabel={PAYMENT_LABELS[ride.paymentMethod]}
+            forDriver={isDriver}
+          />
+        )}
+
+        {/* Annulation (v2.23) : qui a annulé, avec quel motif. */}
+        {ride.status === 'annulee' && (
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-2">
+            <h2 className="font-black text-lg text-slate-900">Course annulée</h2>
+            <p className="text-sm text-slate-600">
+              {ride.cancelledBy
+                ? `Annulée par ${ride.cancelledBy === 'passager' ? 'le passager' : 'le chauffeur'}`
+                : 'Annulée'}
+              {ride.cancelReason ? ` — motif : ${ride.cancelReason}` : ' — aucun motif indiqué'}.
+              {ride.driverId && isPassenger
+                ? ' Ton chauffeur a été prévenu immédiatement.'
+                : ''}
+              {ride.driverId && isDriver ? ' Ton passager a été prévenu immédiatement.' : ''}
+            </p>
+          </div>
         )}
 
         {/* Vue chauffeur (v2.2) : passager, trajet, temps, distance, prix, paiement. */}
@@ -190,6 +240,11 @@ export default async function CoursePage({ params }: Ctx) {
             <p className="text-sm text-slate-600">
               Passager : <strong className="text-slate-900">{passenger?.full_name ?? 'Passager'}</strong>
               {passenger?.phone ? ` · ${passenger.phone}` : ''}
+              {/* Note du passager (v2.30) : moyenne des notes données
+                  par les chauffeurs après ses courses terminées. */}
+              {ride.passengerRating
+                ? ` · ★ ${ride.passengerRating.average}/5 (${ride.passengerRating.count} course${ride.passengerRating.count > 1 ? 's' : ''} notée${ride.passengerRating.count > 1 ? 's' : ''})`
+                : ' · nouveau passager'}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
               <div className="bg-slate-50 rounded-2xl p-3">
@@ -219,6 +274,14 @@ export default async function CoursePage({ params }: Ctx) {
                 <p className="text-xs text-slate-400">directement par le passager</p>
               </div>
             </div>
+            {/* Itinéraire routier (v2.27) : durée et distance par la
+                route (OSRM) — le prix, lui, ne change pas. */}
+            {roadRoute.source === 'osrm' && (
+              <p className="text-sm font-bold text-slate-600">
+                Par la route : ~{roadRoute.durationMin} min ·{' '}
+                {roadRoute.distanceKm.toFixed(1).replace('.', ',')} km
+              </p>
+            )}
             {ride.status === 'acceptee' && <PinEntry rideId={ride.id} refreshOnStart />}
           </div>
         )}
@@ -352,6 +415,7 @@ export default async function CoursePage({ params }: Ctx) {
                 driver={driver}
                 ride={ride}
                 etaMin={null}
+                pinCode={isPassenger ? ride.pinCode : null}
                 shareUrl={ride.shareToken ? `/suivi/${ride.shareToken}` : `/courses/${ride.id}`}
                 detailUrl={`/courses/${ride.id}`}
               />
@@ -388,20 +452,80 @@ export default async function CoursePage({ params }: Ctx) {
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
               <RideActions
                 rideId={ride.id}
+                myRole={isPassenger ? 'passager' : 'chauffeur'}
                 canStart={isDriver && ride.status === 'acceptee'}
                 canComplete={isDriver && ride.status === 'en_cours'}
                 canCancel={
                   (isPassenger || isDriver) &&
-                  ['recherche', 'propositions', 'acceptee'].includes(ride.status)
+                  ['recherche', 'propositions', 'acceptee', 'planifiee'].includes(ride.status)
                 }
+                canRelaunch={isPassenger && ride.status === 'expiree'}
               />
             </div>
+
+            {/* Partage automatique du suivi (v2.23) : au départ de la
+                course, le lien est envoyé aux contacts de confiance
+                (e-mail) — renvoi en 1 tap ici pour les autres. */}
+            {isPassenger && ['acceptee', 'en_cours'].includes(ride.status) && (
+              <TrustedSharePanel
+                shareUrl={ride.shareToken ? `/suivi/${ride.shareToken}` : `/courses/${ride.id}`}
+                pickup={ride.pickup}
+                destination={ride.destination}
+                driverName={driver?.name ?? null}
+                plate={driver?.plate ?? null}
+                priceLabel={
+                  ride.loyaltyFree
+                    ? '0 FCFA — 10e course offerte'
+                    : ride.proposedPrice !== null
+                      ? formatFcfa(ride.proposedPrice)
+                      : `estimation ${formatFcfa(ride.estimatedPrice)}`
+                }
+              />
+            )}
+
+            {/* Reçu détaillé (v2.23) : prix, distance, durée, chauffeur,
+                commission — montants figés à l'acceptation. */}
+            {ride.status === 'terminee' && (
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <RideReceiptCard
+                  receipt={buildRideReceipt({
+                    ride,
+                    driverName: driver?.name ?? null,
+                    vehicleLabel: driver?.vehicleLabel ?? null,
+                    plate: driver?.plate ?? null,
+                    paymentLabel: PAYMENT_LABELS[ride.paymentMethod],
+                  })}
+                />
+              </div>
+            )}
+
+            {/* RideCheck + audio du trajet (v2.34) : check-in passager
+                en cas d'anomalie (long arrêt, déviation, course trop
+                longue) + enregistrement audio chiffré, envoyé
+                uniquement en cas de litige. Visible pendant la course,
+                pour les deux parties. */}
+            {ride.status === 'en_cours' && (isPassenger || isDriver) && (
+              <RideCheckPanel rideId={ride.id} role={isPassenger ? 'passager' : 'chauffeur'} />
+            )}
 
             {/* Avis après course (v2.2) : note, plainte ou recommandation. */}
             {ride.status === 'terminee' && (
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
                 <h2 className="font-black text-slate-900">Ton avis sur cette course</h2>
                 <FeedbackForm rideId={ride.id} isPassenger={isPassenger} />
+              </div>
+            )}
+
+            {/* Litige (v2.15) : un problème sur la course — Stacks Drive
+                examine le dossier et tranche (ajustement si besoin). */}
+            {(ride.status === 'terminee' || ride.status === 'annulee') && (isPassenger || isDriver) && (
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                <h2 className="font-black text-slate-900">Un problème avec cette course ?</h2>
+                <DisputeForm
+                  rideId={ride.id}
+                  myRole={isPassenger ? 'passager' : 'chauffeur'}
+                  rideStatus={ride.status as 'terminee' | 'annulee'}
+                />
               </div>
             )}
 

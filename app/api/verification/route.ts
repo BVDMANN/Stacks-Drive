@@ -8,7 +8,7 @@ import {
   type ClientVerificationChecks,
 } from '@/lib/verification';
 import { logAudit } from '@/lib/audit';
-import { ADMIN_EMAIL, isEmailConfigured, sendVerificationTicketEmail } from '@/lib/email';
+import { ADMIN_EMAIL, isEmailConfigured, sendVerificationTicketEmail, sendWelcomeDriverEmail } from '@/lib/email';
 import { TICKET_KIND_LABELS } from '@/lib/tickets';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 Mo par fichier
@@ -247,6 +247,9 @@ export async function POST(request: NextRequest) {
     id_document_type: String(documentType),
     verification_status: nextStatus,
     verification_note: decision.note,
+    // Règle 2 (v2.17) : un chauffeur refusé ne reste pas en ligne —
+    // il doit renvoyer ses documents et être vérifié à nouveau.
+    ...(nextStatus === 'refuse' ? { is_online: false } : {}),
   };
   const fullUpdate = {
     ...legacyUpdate,
@@ -351,6 +354,27 @@ export async function POST(request: NextRequest) {
       } else if (isEmailConfigured()) {
         console.error('[api/verification] e-mail ticket non envoyé (Resend).');
       }
+    }
+  }
+
+  // Bienvenue chauffeur (v2.24) : une seule fois, quand la
+  // vérification passe à « vérifié » — la route refuse déjà les
+  // comptes déjà vérifiés (400 plus haut), donc ce passage est une
+  // transition. Ne bloque jamais la réponse.
+  if (decision.decision === 'verifie' && profile?.email) {
+    await sendWelcomeDriverEmail({
+      to: profile.email as string,
+      name: profile.full_name as string | null,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://stacks-drive.vercel.app',
+    });
+    // Parrainage (v2.25, lot C) : le chauffeur vérifié obtient son code
+    // unique — meilleur effort, jamais bloquant (la carte parrainage du
+    // tableau de bord le (re)crée aussi à la première visite).
+    try {
+      const { ensureReferralCode } = await import('@/lib/driver-lifecycle');
+      await ensureReferralCode(supabase, user.id, profile.full_name as string | null);
+    } catch {
+      // Sans migration v2.25 : pas de code, rien de bloquant.
     }
   }
 

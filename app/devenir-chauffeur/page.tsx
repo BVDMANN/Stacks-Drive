@@ -3,16 +3,67 @@ import { ArrowRight, BadgeCheck, Car, Gift, MapPin, ShieldCheck, Wallet } from '
 import { Header } from '@/components/shared/Header';
 import { Footer } from '@/components/shared/Footer';
 import { COMMISSION_RATE, COMMISSION_RATE_PERMANENT, COMMISSION_CAP } from '@/lib/commission';
+import { getSessionUser, hasDriverAccount } from '@/lib/supabase/server';
 
 /** Devenir chauffeur — page RIEN QUE pour les chauffeurs.
  *  L'accueil et « À propos » restent 100 % passager : c'est ici, et
  *  uniquement ici, qu'on parle de conduire. Ton soft, aucune promesse
- *  de revenu chiffrée — juste les règles du jeu, clairement. */
-export default function DevenirChauffeurPage() {
+ *  de revenu chiffrée — juste les règles du jeu, clairement.
+ *  La page connaît l'utilisateur connecté (v2.17, règle 2) : c'est la
+ *  destination du switch bloqué — un passager qui arrive ici y trouve
+ *  la marche à suivre (un compte chauffeur est un compte séparé), un
+ *  chauffeur déjà inscrit y trouve son tableau de bord. */
+export const dynamic = 'force-dynamic';
+
+export default async function DevenirChauffeurPage() {
+  const sessionUser = await getSessionUser();
+  const profile = sessionUser?.profile ?? null;
+  const isDriver = profile?.role === 'chauffeur';
+  const hasAccount = hasDriverAccount(profile);
+  const verified = profile?.is_verified ?? false;
+  const headerUser = sessionUser
+    ? {
+        id: sessionUser.id,
+        email: sessionUser.email,
+        role: profile?.role ?? 'passager',
+        isAdmin: profile?.is_admin ?? false,
+        canSwitchToDriver: hasAccount,
+      }
+    : null;
   return (
     <div className="min-h-screen bg-night-950 text-slate-100">
-      <Header user={null} />
+      <Header user={headerUser} />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-12">
+        {/* Règle 2 (v2.17) : un passager qui arrive ici depuis le switch
+            bloqué n'est pas dans une impasse — on lui dit comment créer
+            son compte chauffeur. Un chauffeur déjà inscrit n'a pas à se
+            réinscrire : on le renvoie vers son tableau de bord. */}
+        {sessionUser && !isDriver && (
+          <div className="bg-cyan/10 border border-cyan/30 rounded-3xl p-5 sm:p-6 space-y-2">
+            <p className="font-black text-white">
+              Tu es connecté en passager ({sessionUser.email}).
+            </p>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Le compte chauffeur est un compte séparé : crée-le avec une
+              autre adresse e-mail, puis fais-le vérifier (selfie + pièce
+              d’identité). Une fois vérifié, la bascule Passager / Chauffeur
+              s’ouvrira dans l’en-tête.
+            </p>
+          </div>
+        )}
+        {sessionUser && isDriver && (
+          <div className="bg-cyan/10 border border-cyan/30 rounded-3xl p-5 sm:p-6 space-y-2">
+            <p className="font-black text-white">Tu as déjà un compte chauffeur.</p>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              {verified
+                ? 'Ton compte est vérifié : bascule en mode Chauffeur dans l’en-tête pour te mettre en ligne.'
+                : 'Ton compte n’est pas encore vérifié : envoie ton selfie et ta pièce d’identité depuis ton tableau de bord, puis tu pourras te mettre en ligne.'}
+            </p>
+            <Link href="/tableau-de-bord" className="inline-block font-black text-cyan hover:underline">
+              Voir mon tableau de bord →
+            </Link>
+          </div>
+        )}
         <header className="space-y-4">
           <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-cyan bg-cyan/10 border border-cyan/30 rounded-full px-4 py-2">
             <Car size={14} /> Libreville — pour les chauffeurs

@@ -72,6 +72,15 @@ async function imageDimensions(file: File): Promise<{ width: number; height: num
   }
 }
 
+/** Contrôle de présence d'un visage sur UN selfie (v2.30, re-vérification
+ *  ponctuelle) : réutilise la détection v2.4 — simple présence,
+ *  jamais de reconnaissance faciale ni d'identification. */
+export async function detectSelfieFace(
+  file: File
+): Promise<'detecte' | 'absent' | 'indisponible'> {
+  return detectFace(file);
+}
+
 async function detectFace(file: File): Promise<'detecte' | 'absent' | 'indisponible'> {
   try {
     if (typeof window === 'undefined' || !window.FaceDetector) return 'indisponible';

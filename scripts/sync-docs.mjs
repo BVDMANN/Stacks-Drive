@@ -2,7 +2,7 @@
 /**
  * sync-docs.mjs — Synchronisation automatique des documentations Stacks Drive.
  *
- * Demande de Randy (14/11/2026) : « Toutes les documentations se mettent à
+ * Demande du propriétaire (14/11/2026) : « Toutes les documentations se mettent à
  * jour en temps réel après chaque modif — doc financier etc., tout. Ça doit
  * être automatisé. »
  *
@@ -215,8 +215,16 @@ const tierBody = objectBody(neighborhoodsSrc, 'NEIGHBORHOOD_LABEL_TIER', 'lib/ne
 const TIERS = {};
 for (const m of tierBody.matchAll(/(?:'([^']+)'|([A-Za-zÀ-ÿ][\wÀ-ÿ-]*))\s*:\s*([123])/g))
   TIERS[m[1] || m[2]] = Number(m[3]);
-const TIER1 = NAMED.filter((n) => TIERS[n] === 1).length;
-const TIER2_VISIBLE = NAMED.filter((n) => TIERS[n] === 1 || TIERS[n] === 2).length;
+// Libellés masqués (v2.16, NEIGHBORHOOD_NO_LABEL) : quartiers sans
+// libellé sur la carte (ex. Likouala, collé à l'ancre Centre-ville)
+// — ils comptent dans les quartiers nommés, pas dans les libellés.
+const NO_LABEL = [...neighborhoodsSrc.matchAll(/NEIGHBORHOOD_NO_LABEL[^=]*=\s*new Set\(\[([\s\S]*?)\]\)/g)]
+  .flatMap((m) => [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]));
+const TIER1 = NAMED.filter((n) => TIERS[n] === 1 && !NO_LABEL.includes(n)).length;
+const TIER2_VISIBLE = NAMED.filter(
+  (n) => (TIERS[n] === 1 || TIERS[n] === 2) && !NO_LABEL.includes(n)
+).length;
+const TIER_TOTAL = NAMED.filter((n) => !NO_LABEL.includes(n)).length;
 
 const POIS_BODY = arrayBody(poisSrc, 'POIS', 'lib/pois.ts');
 const NB_POIS = (POIS_BODY.match(/name:\s*'/g) || []).length;
@@ -359,7 +367,7 @@ const FORCE1_GAIN = Math.round(
   NB_POIS,
   TIER1,
   TIER2_VISIBLE,
-  TIER_TOTAL: NAMED.length,
+  TIER_TOTAL,
   DROP_OFFS,
   MAX_BITUME_PK,
   TRIPS, EXTRA, AIRPORT_TRIP, ANCHOR_TRIP,
@@ -544,7 +552,7 @@ ${x.SCENARIOS.map((s) => `| ${s.perDay} | ${x.fmt(s.perMonth)} | ${x.fmt(s.ca)} 
 
   'plan-vigilance': (x) => `8. **Bascule ${x.pct(x.C.rateLaunch)} → ${x.pct(x.C.ratePermanent)} après ${x.C.launchMonths} mois.** À annoncer aux chauffeurs à l'avance (impact : ${x.fmt(x.SWITCH_IMPACT)} FCFA sur une course à ${x.fmt(x.AIRPORT_TRIP.solo)} FCFA).`,
 
-  'plan-decisions': (x) => `- Commission : ${x.pct(x.C.rateLaunch)} (${x.C.launchMonths} mois) puis ${x.pct(x.C.ratePermanent)}, plafond ${x.pct(x.C.rateCap)} garanti. \`lib/commission.ts\` intouchable sans décision de Randy.
+  'plan-decisions': (x) => `- Commission : ${x.pct(x.C.rateLaunch)} (${x.C.launchMonths} mois) puis ${x.pct(x.C.ratePermanent)}, plafond ${x.pct(x.C.rateCap)} garanti. \`lib/commission.ts\` intouchable sans décision du propriétaire.
 - Prix : calculés et revalidés côté serveur uniquement. Estimation indicative au km (Solo ${x.fmt(x.P.baseSolo)} + ${x.fmt(x.P.perKmSolo)}/km, Groupe ${x.fmt(x.P.baseGroupe)} + ${x.fmt(x.P.perKmGroupe)}/km, Moto ×${String(x.MOTO_FACTOR).replace('.', ',')}), aucun tarif fixe, prix convenu entre passager et chauffeur puis figé à l'acceptation, **jamais de surge**.`,
 
   // -- README (repo) ---------------------------------------------------------
@@ -558,7 +566,7 @@ ${x.SCENARIOS.map((s) => `| ${s.perDay} | ${x.fmt(s.perMonth)} | ${x.fmt(s.ca)} 
   'readme-rules': (x) => `- **Règles métier :** \`lib/commission.ts\` (commission ${x.pct(x.C.rateLaunch)} / ${x.pct(x.C.ratePermanent)} / plafond ${x.pct(x.C.rateCap)}), \`lib/pricing.ts\` (estimation indicative au km : prise en charge + prix au km, AUCUN tarif fixe — le prix final est convenu entre le passager et le chauffeur, supplément route non bitumée ${x.fmt(x.P.unpaved)} FCFA), \`lib/neighborhoods.ts\` (${x.NB_QUARTIERS} quartiers, accès difficile, points de dépôt), \`lib/pois.ts\` (${x.NB_POIS} lieux sur la carte), \`lib/fare-guard.ts\` (sécurité des prix : bornes absolues ${x.fmt(x.FARE_MIN)}–${x.fmt(x.FARE_MAX)} FCFA validées côté serveur, audit).`,
 
   // -- État des lieux (repo) --------------------------------------------------
-  'etat-commission': (x) => `- **Commission validée par Randy :** ${x.pct(x.C.rateLaunch)} au lancement (${x.C.launchMonths} mois), puis ${x.pct(x.C.ratePermanent)} permanent, **plafond ${x.pct(x.C.rateCap)} garanti**. La commission est calculée sur le total de la course, supplément route non bitumée compris.`,
+  'etat-commission': (x) => `- **Commission validée par Stacks :** ${x.pct(x.C.rateLaunch)} au lancement (${x.C.launchMonths} mois), puis ${x.pct(x.C.ratePermanent)} permanent, **plafond ${x.pct(x.C.rateCap)} garanti**. La commission est calculée sur le total de la course, supplément route non bitumée compris.`,
 
   'etat-deposit': (x) => `- **Garde-fous contre les chauffeurs qui disparaissent sans payer :** **dépôt de garantie remboursable de ${x.fmt(x.DEPOSIT)} FCFA** à l'inscription (transfert P2P, gardé si le chauffeur part sans solder, remboursé s'il part proprement) + **plafond de dette d'environ ${x.fmt(x.DEBT_CAP)} FCFA** (au-delà, plus de nouvelles demandes tant que ce n'est pas réglé).`,
 
@@ -582,7 +590,7 @@ C'est l'argument n° 1 pour recruter. Yango est à 0 % de commission au lancemen
   'etat-weakness5': (x) => `**5. Fiabilité : l'estimation est calculée côté serveur, les prix convenus sont validés côté serveur, le circuit complet n'a jamais été testé en conditions réelles.**
 Depuis la v2.2 : estimation calculée côté serveur uniquement, bornes absolues de sécurité (${x.fmt(x.FARE_MIN)}–${x.fmt(x.FARE_MAX)} FCFA, pas de prix fou), pas de double commission (idempotence), journal d'audit, blocage + message clair en cas d'anomalie, page d'erreur de marque (« Service momentanément indisponible ») si ça plante vraiment. Reste vrai : le circuit complet (estimation → prix convenu → commission → règlement hebdo → dépôt → plafond) n'a jamais été testé avec de vrais chauffeurs et de vraies courses. Un bug de trop-perçu ou de double commission au lancement tuerait la confiance des chauffeurs en une semaine.`,
 
-  'etat-paperasse-commission': (x) => `${x.pct(x.C.rateLaunch)} / ${x.pct(x.C.ratePermanent)} / plafond ${x.pct(x.C.rateCap)}. Ne pas toucher aux taux sans décision de Randy.`,
+  'etat-paperasse-commission': (x) => `${x.pct(x.C.rateLaunch)} / ${x.pct(x.C.ratePermanent)} / plafond ${x.pct(x.C.rateCap)}. Ne pas toucher aux taux sans décision du propriétaire.`,
 
   'etat-paperasse-pricing': (x) => `Prise en charge + prix au km (Solo ${x.fmt(x.P.baseSolo)} + ${x.fmt(x.P.perKmSolo)}/km, Groupe ${x.fmt(x.P.baseGroupe)} + ${x.fmt(x.P.perKmGroupe)}/km, Moto ×${String(x.MOTO_FACTOR).replace('.', ',')}), AUCUN tarif fixe — le prix final est convenu entre le passager et le chauffeur, supplément route non bitumée ${x.fmt(x.P.unpaved)} FCFA.`,
 

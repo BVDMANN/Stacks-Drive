@@ -18,7 +18,7 @@
 --     gratuites (commission 0, coût plateforme = commission offerte),
 --     borne d'anomalie 400 FCFA (nouveau plancher Groupe).
 --
--- Modèle économique (décisions Randy, 13/11/2026) — inchangé :
+-- Modèle économique (décisions Stacks, 13/11/2026) — inchangé :
 --  commission 5 % au lancement puis 8 %, plafond 10 % ; le passager
 --  paie le chauffeur directement (espèces / Airtel / Moov) ; l'appli
 --  ne touche jamais l'argent, elle compte seulement ; dépôt 5 000 FCFA ;

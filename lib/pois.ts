@@ -3,7 +3,7 @@
  *  CONVENTION DU PROJET : les coordonnées sont APPROXIMATIVES (centres
  *  de quartier / positions estimées sur la carte) — elles servent à
  *  placer les marqueurs, pas à guider au mètre près. La liste exacte
- *  est à faire valider par Randy : noms, catégories et positions
+ *  est à faire valider par le propriétaire : noms, catégories et positions
  *  peuvent être corrigés, ajoutés ou retirés sans toucher au code
  *  (uniquement ce fichier).
  *
@@ -130,3 +130,43 @@ export const POIS: Poi[] = [
   { name: 'Gare Routière', category: 'gare', neighborhood: 'Petit Paris', lat: 0.385, lng: 9.451 },
   { name: 'Jardin Botanique', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.394, lng: 9.446 },
 ];
+
+/** Points de prise en charge principaux (v2.22) : les lieux où on
+ *  vient le plus souvent chercher un passager — aéroport, marchés,
+ *  stades, gares et lieux connus. Liste de noms, éditée ici sans
+ *  toucher au code : un nom doit correspondre à un lieu de POIS
+ *  (comparaison normalisée — accents, casse et apostrophes ignorés —
+ *  pour ne pas casser si un nom est recorrigé) ; un nom introuvable
+ *  est simplement ignoré, la liste ne plante jamais l'appli.
+ *  L'estimation affichée pour chaque point est INDICATIVE uniquement
+ *  (même modèle au km que l'estimation de course, lib/pricing.ts) :
+ *  la plateforme ne définit aucun prix fixe, le prix final se
+ *  négocie entre le passager et le chauffeur. Un vrai prix fixe par
+ *  zone serait une décision de modèle tarifaire à trancher avec le
+ *  propriétaire — pas implémenté ici. Déclaré APRÈS POIS (le bloc
+ *  lit POIS : le déclarer avant planterait l'appli au chargement). */
+export const PICKUP_POINT_NAMES = [
+  'Aéroport international Léon-Mba',
+  'Marché Mont-Bouët',
+  'Marché de Nzeng-Ayong',
+  'Stade de l’Amitié',
+  'Stade Omar Bongo',
+  'Gare d’Owendo',
+  'Gare Routière',
+  'Université Omar Bongo',
+  'CHU de Libreville',
+  'Radisson Blu Okoumé Palace',
+] as const;
+
+function normalizePoiName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+export const PICKUP_POINTS: Poi[] = PICKUP_POINT_NAMES.flatMap((name) => {
+  const poi = POIS.find((p) => normalizePoiName(p.name) === normalizePoiName(name));
+  return poi ? [poi] : [];
+});

@@ -1,6 +1,6 @@
 /** Vérification chauffeur AUTOMATISÉE (v2.4).
  *
- *  Chaîne de décision (Randy, 14/11/2026 : « Automatise le max de
+ *  Chaîne de décision (Stacks, 14/11/2026 : « Automatise le max de
  *  trucs » — il ne veut plus approuver manuellement chaque demande) :
  *  le client contrôle les photos (dimensions, visage, OCR de la pièce,
  *  empreintes SHA-256) puis le serveur applique des règles
@@ -142,7 +142,7 @@ export const TICKET_KIND_LABELS: Record<TicketKind, string> = {
 // Normalisation et comparaison de noms
 // ---------------------------------------------------------------------------
 
-/** « Boulingui, Gilchrist-Randy » → ['boulingui', 'gilchrist', 'randy']. */
+/** « Dupont, Jean-Marc » → ['dupont', 'jean', 'marc']. */
 export function normalizeNameTokens(name: string): string[] {
   return name
     .normalize('NFD')
@@ -432,7 +432,18 @@ const REFUSAL_NOTES: Record<string, string> = {
     'Votre selfie et votre pièce ne sont pas lisibles. Reprenez un selfie bien éclairé, visage visible, et photographiez votre pièce bien à plat, tous les textes lisibles.',
 };
 
-/** Applique les règles de décision aux contrôles + vérifications serveur. */
+/** Applique les règles de décision aux contrôles + vérifications serveur.
+ *
+ *  Revue de sécurité — invariant : la décision `verifie` / `refuse`
+ *  n'est jamais prise sur la seule parole du client. Le serveur re-parse
+ *  le texte OCR brut (le client peut se tromper ou mentir sur les champs
+ *  extraits), re-calcule les empreintes d'images, et vérifie les
+ *  doublons en base ; un désaccord ou un signal manquant bascule en
+ *  `ambigu` (ticket admin), jamais en `verifie` par défaut. Cas limite :
+ *  sans aucun contrôle client, la fonction ne tranche rien — ticket.
+ *  Le trigger anti-escalade exige en plus que la décision automatique
+ *  écrite en base soit cohérente avec la charge utile stockée
+ *  (`verification_auto_payload_consistent`, migration v2.4). */
 export function decideVerification(input: DecisionInput): Decision {
   const { checks, accountName, duplicateDoc, duplicateImage, imageHashVerified } = input;
   const reasons: string[] = [];

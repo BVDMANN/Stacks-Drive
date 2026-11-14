@@ -3,10 +3,12 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { splitFare } from '@/lib/commission';
+import { roundAcceptedPrice } from '@/lib/price-rounding';
 import { estimateTrip } from '@/lib/pricing';
 import { validateAcceptedPrice, validateProposedPrice, validateSplit } from '@/lib/fare-guard';
 import { getDriverTier } from '@/lib/earnings';
 import { rollDoubleRide } from '@/lib/gamification';
+import { occupySeat } from '@/lib/seats';
 import { logAudit } from '@/lib/audit';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -24,7 +26,7 @@ const ActionSchema = z.object({
  *  Fidélité : la 10e course du passager est offerte (il paie 0, le
  *  chauffeur touche l'intégralité du tarif, la plateforme absorbe).
  *
- *  Modèle exact (v2.11, décision de Randy 14/11/2026) : le prix final se
+ *  Modèle exact (v2.11, décision du propriétaire 14/11/2026) : le prix final se
  *  décide entre le passager et le chauffeur — le chauffeur propose, le
  *  passager peut contre-proposer, le chauffeur peut accepter la
  *  contre-proposition ou proposer un autre prix. Une fois accepté, le
@@ -139,7 +141,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   // Acceptation (passager : le prix proposé par le chauffeur ;
   // chauffeur : la contre-proposition du passager). Le prix convenu
   // entre les deux devient le prix figé de la course.
-  const price =
+  let price =
     action === 'accept_counter' ? (proposal.counter_price as number | null) : proposal.proposed_price;
   if (price === null || price === undefined) {
     return NextResponse.json(
@@ -191,6 +193,17 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       unpavedAccepted,
     });
     return NextResponse.json({ error: fareCheck.message }, { status: 400 });
+  }
+  // Arrondi v2.34 (⚠️ À CONFIRMER PAR LE PROPRIÉTAIRE AVANT LE PUSH) :
+  // le prix convenu est arrondi à 50 FCFA près, côté serveur, avant
+  // la découpe commission / part chauffeur — qui se calcule sur le
+  // montant ARRONDI. Le montant arrondi est affiché avant acceptation
+  // (carte de proposition). Bornes revalidées après arrondi.
+  const agreedPrice = price;
+  price = roundAcceptedPrice(price);
+  const roundedCheck = validateAcceptedPrice(price);
+  if (!roundedCheck.ok) {
+    return NextResponse.json({ error: roundedCheck.message }, { status: 400 });
   }
 
   // Taux de commission du chauffeur (v2.3) : le niveau ne change plus
@@ -283,6 +296,11 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     .update({ unpaved_accepted: unpavedAccepted })
     .eq('id', ride.id);
 
+  // Places libres (v2.19) : l'acceptation occupe une place — Groupe
+  // − 1, Solo → 0 (véhicule entier pris). La place se libère à la fin
+  // ou à l'annulation de la course (PATCH /api/rides/[id]).
+  await occupySeat(supabase, proposal.driver_id, ride.ride_type as 'solo' | 'groupe');
+
   // Les autres propositions en attente sont refusées.
   await supabase
     .from('ride_proposals')
@@ -311,5 +329,12 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     });
   }
 
-  return NextResponse.json({ ok: true, loyaltyFree, pinCode, isDoubleRide });
+  return NextResponse.json({
+    ok: true,
+    loyaltyFree,
+    pinCode,
+    isDoubleRide,
+    agreedPrice,
+    roundedPrice: price,
+  });
 }

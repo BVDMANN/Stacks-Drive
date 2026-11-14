@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation';
 import { PageShell } from '@/components/shared/PageShell';
 import { ModeToggle } from '@/components/shared/ModeToggle';
 import { DriverDashboard } from '@/components/driver/DriverDashboard';
-import { getSessionUser } from '@/lib/supabase/server';
+import { TutoReplayButton } from '@/components/tuto/TutoReplayButton';
+import { getSessionUser, hasDriverAccount } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,13 +20,14 @@ export default async function TableauDeBordPage() {
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
           <p className="text-slate-600">
             Cette page est réservée aux chauffeurs. Ton compte actuel est en
-            mode passager — bascule en mode Chauffeur (en haut de page) pour
-            te mettre en ligne, ou inscris-toi en chauffeur.
+            mode passager — et passer en mode Chauffeur demande un compte
+            chauffeur : crée-le, puis fais-le vérifier (selfie + pièce
+            d’identité), et la bascule s’ouvrira.
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <ModeToggle currentRole="passager" />
-            <Link href="/inscription" className="inline-block px-6 py-3.5 bg-stacks-green text-white font-bold rounded-full hover:bg-stacks-greenLight transition-colors">
-              Créer un compte chauffeur
+            <ModeToggle currentRole="passager" canSwitchToDriver={hasDriverAccount(sessionUser.profile)} />
+            <Link href="/devenir-chauffeur" className="inline-block px-6 py-3.5 bg-stacks-green text-white font-bold rounded-full hover:bg-stacks-greenLight transition-colors">
+              Devenir chauffeur
             </Link>
           </div>
         </div>
@@ -39,12 +41,16 @@ export default async function TableauDeBordPage() {
       subtitle={`Bonjour ${sessionUser.profile?.full_name ?? ''} — mets-toi en ligne et reçois des demandes.`}
       user={{ id: sessionUser.id, email: sessionUser.email }}
       actions={
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-stacks-navy font-bold rounded-full hover:border-stacks-green/40 transition-colors"
-        >
-          ← Voir la carte
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Formation chauffeur (v2.21) : rejouable depuis le tableau de bord. */}
+          <TutoReplayButton kind="chauffeur" label="Revoir la formation" />
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-stacks-navy font-bold rounded-full hover:border-stacks-green/40 transition-colors"
+          >
+            ← Voir la carte
+          </Link>
+        </div>
       }
     >
       <DriverDashboard profile={sessionUser.profile} />

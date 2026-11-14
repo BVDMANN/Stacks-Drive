@@ -8,6 +8,7 @@ import { getBrowserClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { PremiumButton } from '@/components/shared/PremiumButton';
+import { TUTO_DRIVER_PENDING_KEY } from '@/components/tuto/steps';
 import { cn } from '@/lib/utils';
 
 type Role = 'passager' | 'chauffeur';
@@ -43,6 +44,10 @@ function InscriptionForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('passager');
+  // Parrainage chauffeurs (v2.25, lot C) : code du parrain, facultatif,
+  // visible uniquement pour le rôle chauffeur — jamais annoncé sur les
+  // pages publiques (le parrainage n'apparaît qu'ici et côté chauffeur).
+  const [referralCode, setReferralCode] = useState('');
 
   // Lien direct « Devenir chauffeur » (/inscription?role=chauffeur) :
   // on présélectionne le rôle chauffeur au montage. Défaut : passager.
@@ -67,7 +72,16 @@ function InscriptionForm() {
       email,
       password,
       options: {
-        data: { full_name: fullName.trim(), phone: phone.trim(), role },
+        data: {
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+          role,
+          // Parrainage (v2.25) : le trigger `handle_new_user` retrouve
+          // le parrain depuis ce code (chauffeurs uniquement).
+          ...(role === 'chauffeur' && referralCode.trim()
+            ? { referral_code: referralCode.trim().toUpperCase() }
+            : {}),
+        },
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
@@ -75,6 +89,18 @@ function InscriptionForm() {
     if (error) {
       setError(translateError(error.message));
       return;
+    }
+    // Formation chauffeur (v2.21) : compte chauffeur créé — le
+    // tutoriel s'ouvrira au premier passage sur le tableau de bord
+    // (la confirmation e-mail peut retarder ce passage, le drapeau
+    // reste posé jusque-là).
+    if (role === 'chauffeur') {
+      try {
+        window.localStorage.setItem(TUTO_DRIVER_PENDING_KEY, '1');
+      } catch {
+        // Stockage indisponible : la formation reste rejouable depuis
+        // le tableau de bord.
+      }
     }
     // Si la confirmation e-mail est activée, il n'y a pas encore de session :
     // l'utilisateur doit cliquer sur le lien reçu par e-mail.
@@ -224,6 +250,27 @@ function InscriptionForm() {
             className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
           />
         </div>
+
+        {/* Parrainage chauffeurs (v2.25, lot C) : code du parrain,
+            facultatif — visible uniquement pour le rôle chauffeur. */}
+        {role === 'chauffeur' && (
+          <div className="space-y-1.5">
+            <label htmlFor="referral-code" className="text-xs font-black uppercase tracking-widest text-slate-400">
+              Code de parrainage (facultatif)
+            </label>
+            <input
+              id="referral-code"
+              type="text"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              placeholder="Ex : SD-MARTIN-8F3A"
+              className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+            />
+            <p className="text-xs text-slate-500">
+              Si un chauffeur t’a parrainé, colle son code ici.
+            </p>
+          </div>
+        )}
 
         <PremiumButton variant="or" type="submit" isLoading={loading} className="w-full justify-center py-4">
           Créer mon compte

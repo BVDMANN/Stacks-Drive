@@ -1,5 +1,6 @@
 import type {
   DriverProfile,
+  DriverStatus,
   IdDocumentType,
   ProposalStatus,
   Ride,
@@ -25,6 +26,10 @@ export interface ProfileRow {
   vehicle_color: string | null;
   plate: string | null;
   seats: number | null;
+  /** v2.19 — places libres déclarées (NULL = jamais déclarées). */
+  free_seats: number | null;
+  /** v2.19 — statut dérivé (chauffeur), joint par getAdminStats. */
+  driver_status?: DriverStatus | null;
   is_online: boolean;
   is_verified: boolean;
   is_admin: boolean;
@@ -39,6 +44,19 @@ export interface ProfileRow {
   verification_doc_hash: string | null;
   verification_image_hash: string | null;
   verification_auto_decision: 'verifie' | 'refuse' | 'ambigu' | null;
+  /** v2.30 — lieux favoris (quartier + précision libre, effaçables). */
+  home_neighborhood: string | null;
+  home_detail: string | null;
+  work_neighborhood: string | null;
+  work_detail: string | null;
+  /** v2.30 — re-vérification selfie ponctuelle. */
+  selfie_recheck_required: boolean | null;
+  selfie_recheck_reason: string | null;
+  last_selfie_check_at: string | null;
+  /** v2.34 — climatisation (Confort) + destination de retour. */
+  has_air_conditioning: boolean | null;
+  return_destination: string | null;
+  return_filter_enabled: boolean | null;
   current_area: Neighborhood | null;
   last_lat: number | null;
   last_lng: number | null;
@@ -54,6 +72,11 @@ export interface RideRow {
   pickup: string;
   destination: string;
   ride_type: RideType;
+  /** v2.34 — classe Confort (Solo + clim + 4,5★). */
+  comfort: boolean | null;
+  /** v2.34 — chauffeur favori prioritaire + fin d'exclusivité. */
+  preferred_driver_id: string | null;
+  preferred_until: string | null;
   vehicle_preference: 'voiture' | 'moto' | 'tous';
   seats: number;
   estimated_price: number;
@@ -65,6 +88,9 @@ export interface RideRow {
   unpaved_requested: boolean | null;
   drop_off_point: string | null;
   unpaved_accepted: boolean | null;
+  /** v2.30 — course planifiée : heure prévue + heure d'envoi réel. */
+  scheduled_at: string | null;
+  dispatched_at: string | null;
   proposed_price: number | null;
   first_stop: string | null;
   payment_method: PaymentMethod;
@@ -191,6 +217,9 @@ export function mapRideRow(row: RideRow): Ride {
     pickup: row.pickup,
     destination: row.destination,
     rideType: row.ride_type,
+    comfort: row.comfort ?? false,
+    preferredDriverId: row.preferred_driver_id ?? null,
+    preferredUntil: row.preferred_until ?? null,
     vehiclePreference: row.vehicle_preference,
     seats: row.seats,
     estimatedPrice: row.estimated_price,
@@ -207,8 +236,13 @@ export function mapRideRow(row: RideRow): Ride {
     driverShare: row.driver_share ?? 0,
     ratingDriver: row.rating_driver,
     ratingPassenger: row.rating_passenger,
+    passengerRating: null,
+    scheduledAt: row.scheduled_at ?? null,
+    dispatchedAt: row.dispatched_at ?? null,
     loyaltyFree: row.loyalty_free ?? false,
     shareToken: row.share_token,
+    cancelledBy: (row.cancelled_by as 'passager' | 'chauffeur' | null) ?? null,
+    cancelReason: row.cancel_reason ?? null,
     pinCode: row.pin_code ?? null,
     pinAttempts: row.pin_attempts ?? 0,
     pinLocked: row.pin_locked ?? false,
@@ -239,6 +273,12 @@ export function mapDriverProfile(row: ProfileRow): DriverProfile {
     vehicleLabel,
     plate: row.plate,
     seats: row.seats,
+    // v2.19 — places libres déclarées (NULL = capacité entière libre).
+    // Le statut dérivé n'est pas calculé ici : il faut les courses en
+    // cours du chauffeur (voir `lib/seats.ts`).
+    freeSeats: row.free_seats ?? row.seats ?? null,
+    hasAirConditioning: row.has_air_conditioning ?? null,
+    status: null,
     isVerified: row.is_verified,
     isOnline: row.is_online,
     rating: null,
@@ -247,6 +287,44 @@ export function mapDriverProfile(row: ProfileRow): DriverProfile {
     lat: row.last_lat ?? coords?.lat ?? null,
     lng: row.last_lng ?? coords?.lng ?? null,
     isDemo: row.is_demo,
+  };
+}
+
+/** Profil chauffeur SANS téléphone (v2.20 — confidentialité chauffeur) :
+ *  le numéro de téléphone d'un chauffeur n'est JAMAIS rendu côté
+ *  passager — ni avant, ni pendant, ni après la course. La
+ *  communication passe par la messagerie in-app uniquement. À
+ *  appliquer sur chaque profil chauffeur sérialisé vers le passager
+ *  (propositions, course, suivi public, liste des chauffeurs en
+ *  ligne). Côté chauffeur / admin, le téléphone reste disponible. */
+export function stripDriverPhone(driver: DriverProfile | null): DriverProfile | null {
+  if (!driver) return null;
+  return { ...driver, phone: null };
+}
+
+/** Chauffeur anonyme pour la carte passager AVANT matching (v2.20) :
+ *  la carte, le radar et le compteur n'ont besoin que de la position
+ *  et du type de véhicule (moto / voiture, pour le filtre Solo et
+ *  l'ETA). Nom, véhicule, plaque, note et téléphone ne sont PAS
+ *  sérialisés vers le passager avant une proposition : ils ne peuvent
+ *  donc pas fuir, même dans le code source de la page. L'identité
+ *  complète n'arrive qu'avec une proposition (`/api/proposals`) ou
+ *  une fois la course acceptée (`/api/rides/[id]`). */
+export interface AnonymousMapDriver {
+  id: string;
+  lat: number | null;
+  lng: number | null;
+  vehicleType: VehicleType | null;
+  isDemo: boolean;
+}
+
+export function toAnonymousMapDriver(driver: DriverProfile): AnonymousMapDriver {
+  return {
+    id: driver.id,
+    lat: driver.lat,
+    lng: driver.lng,
+    vehicleType: driver.vehicleType,
+    isDemo: driver.isDemo,
   };
 }
 

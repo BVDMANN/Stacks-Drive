@@ -148,7 +148,7 @@ create policy "Driver updates live location"
 -- (on delete cascade).
 
 -- ---------- 4. Prix convenu entre passager et chauffeur (v2.11) ----------
--- Modèle exact (décision de Randy, 14/11/2026) : le passager voit une
+-- Modèle exact (décision du propriétaire, 14/11/2026) : le passager voit une
 -- estimation indicative avant la course (calculée côté serveur, jamais
 -- un prix fixe) ; le prix final se décide entre les deux parties —
 -- le chauffeur propose, le passager peut proposer son prix à la demande

@@ -1,21 +1,35 @@
 'use client';
 
 import { useState } from 'react';
-import { BadgeCheck, Car, Clock, MapPin, Star, Users } from 'lucide-react';
+import { BadgeCheck, Car, Clock, Loader2, MapPin, Star, Users } from 'lucide-react';
 import type { RideProposal } from '@/types';
 import { formatFcfa } from '@/lib/commission';
+import { roundAcceptedPrice } from '@/lib/price-rounding';
+import { driverFirstName } from '@/lib/proposal-events';
 import { cn } from '@/lib/utils';
+import { useRoadRoute } from '@/lib/use-road-route';
+import type { RoutePoint } from '@/lib/routing';
 
 /** Une proposition de chauffeur : prix, places, premier arrêt, compte à
  *  rebours de 60 s — le passager accepte, refuse, ou contre-propose
  *  son prix (v2.11 : le prix final se décide entre les deux parties,
- *  puis il est figé à l'acceptation). */
+ *  puis il est figé à l'acceptation).
+ *
+ *  Confidentialité (v2.20) : c'est ICI, au matching, que l'identité du
+ *  chauffeur apparaît pour la première fois — prénom + initiale
+ *  (photo), véhicule, plaque, note. Pas de nom complet, jamais de
+ *  téléphone. La « photo » est l'initiale : le selfie de vérification
+ *  est un document d'identité privé, il n'est jamais affiché au
+ *  passager. */
 export function ProposalCard({
   proposal,
   rideType,
   estimatePrice,
   estimateBreakdown,
+  distanceKm,
+  durationMin,
   etaMin,
+  pickup,
   secondsLeft,
   busy,
   dropOffPoint,
@@ -35,7 +49,15 @@ export function ProposalCard({
    *  n'est pas un prix : le prix final est convenu entre le passager
    *  et le chauffeur. */
   estimateBreakdown?: string;
+  /** Distance / durée du trajet (v2.23) : le récapitulatif écrit
+   *  avant acceptation — prix, distance, durée. */
+  distanceKm?: number | null;
+  durationMin?: number | null;
   etaMin: number | null;
+  /** Point de départ : sert à l'ETA routière (P0b) — position du
+   *  chauffeur → pickup par la route. Sans lui, on garde l'ETA à vol
+   *  d'oiseau (`etaMin`). */
+  pickup?: RoutePoint | null;
   secondsLeft: number;
   busy: boolean;
   /** Point de dépôt quand la destination est à accès difficile (v2.6).
@@ -49,9 +71,35 @@ export function ProposalCard({
   onCounter: (id: string, price: number) => Promise<boolean>;
 }) {
   const driver = proposal.driver;
+  // ETA routière (P0b) : dès la proposition reçue, si la position du
+  // chauffeur est connue, durée + distance par la route (OSRM) vers
+  // le pickup — recalculée quand il bouge (hook partagé, cache 5
+  // min). Sinon, l'ETA à vol d'oiseau (`etaMin`) reste affichée.
+  const driverPos: RoutePoint | null =
+    driver && driver.lat !== null && driver.lng !== null
+      ? { lat: driver.lat, lng: driver.lng }
+      : null;
+  const { route: roadEtaRoute } = useRoadRoute(driverPos, pickup ?? null, {
+    enabled: !!driverPos && !!pickup,
+  });
+  const roadEtaMin = roadEtaRoute?.durationMin ?? null;
+  const roadEtaKm = roadEtaRoute?.distanceKm ?? null;
+  const etaText =
+    roadEtaMin !== null
+      ? ` · arrive dans ~${roadEtaMin} min${roadEtaKm !== null ? ` (${roadEtaKm.toFixed(1).replace('.', ',')} km par la route)` : ''}`
+      : etaMin !== null
+        ? ` · arrive dans ~${etaMin} min`
+        : '';
+  // Prénom uniquement (v2.20) : le nom complet n'apparaît qu'une fois
+  // la course acceptée (carte chauffeur, suivi, historique).
+  const driverDisplayName = driver ? driverFirstName(proposal) : 'Chauffeur';
   const urgent = secondsLeft <= 15;
   const cheaper = proposal.proposedPrice < estimatePrice;
   const pricier = proposal.proposedPrice > estimatePrice;
+  // Arrondi v2.34 (à confirmer par le propriétaire avant le push) :
+  // le prix figé à l'acceptation est arrondi à 50 FCFA près — le
+  // montant arrondi est affiché AVANT l'acceptation, quand il diffère.
+  const roundedPrice = roundAcceptedPrice(proposal.proposedPrice);
 
   // Contre-proposition (v2.11) : le passager propose son prix au
   // chauffeur — qui peut l'accepter ou proposer un autre prix.
@@ -91,11 +139,11 @@ export function ProposalCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-11 h-11 rounded-full bg-or text-night-900 font-black flex items-center justify-center shrink-0">
-            {driver?.name?.trim().charAt(0) ?? 'C'}
+            {driverDisplayName.trim().charAt(0) ?? 'C'}
           </span>
           <div className="min-w-0">
             <p className="font-black text-white flex flex-wrap items-center gap-1.5">
-              <span className="truncate">{driver?.name ?? 'Chauffeur'}</span>
+              <span className="truncate">{driverDisplayName}</span>
               {driver?.isVerified && (
                 <span className="inline-flex items-center gap-0.5 text-xs font-black text-cyan shrink-0">
                   <BadgeCheck size={14} /> Vérifié
@@ -135,7 +183,7 @@ export function ProposalCard({
               : pricier
                 ? `au-dessus de l'estimation indicative (${formatFcfa(estimatePrice)})`
                 : `égal à l'estimation indicative (${formatFcfa(estimatePrice)})`}
-            {etaMin !== null ? ` · arrive dans ~${etaMin} min` : ''}
+            {etaText}
           </p>
           {estimateBreakdown && (
             <p className="text-[11px] text-slate-500 mt-0.5">{estimateBreakdown}</p>
@@ -233,14 +281,31 @@ export function ProposalCard({
         </button>
       )}
 
+      {/* Récapitulatif écrit avant acceptation (v2.23) : prix, distance,
+          durée — le passager sait exactement ce qu'il accepte, le prix
+          accepté est ensuite figé. */}
+      <p className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-2xl px-3.5 py-2.5">
+        Récapitulatif avant acceptation :{' '}
+        <strong className="text-slate-200">{formatFcfa(proposal.proposedPrice)}</strong>
+        {distanceKm !== null && distanceKm !== undefined ? ` · ~${Math.max(1, Math.round(distanceKm))} km` : ''}
+        {durationMin !== null && durationMin !== undefined ? ` · ~${durationMin} min` : ''}
+        {etaMin !== null ? ` · chauffeur à ~${etaMin} min` : ''} — prix figé une fois accepté.
+        {roundedPrice !== proposal.proposedPrice && (
+          <> Prix figé après arrondi à 50 FCFA près : <strong className="text-slate-200">{formatFcfa(roundedPrice)}</strong>.</>
+        )}
+      </p>
+
       <div className="flex gap-2">
         <button
           type="button"
           disabled={busy}
           onClick={() => onAccept(proposal.id)}
-          className="flex-1 bg-or text-night-900 font-black py-3 rounded-full shadow-md shadow-or/30 hover:bg-or-light active:scale-[0.98] transition-all disabled:opacity-50"
+          className="flex-1 inline-flex items-center justify-center gap-2 bg-or text-night-900 font-black py-3 rounded-full shadow-md shadow-or/30 hover:bg-or-light active:scale-[0.98] transition-all disabled:opacity-50"
         >
-          Accepter
+          {/* Règle 1 (v2.17) : l'acceptation d'un prix attend le serveur
+              — le bouton le montre, il n'est pas juste grisé. */}
+          {busy && <Loader2 size={16} className="animate-spin" />}
+          {busy ? 'Acceptation…' : 'Accepter'}
         </button>
         <button
           type="button"

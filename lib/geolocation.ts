@@ -101,3 +101,41 @@ export async function reverseGeocodeNominatim(
     return null;
   }
 }
+
+/** Ville + pays d'une position GPS, via Nominatim (v2.32, écran hors
+ *  zone). Best-effort : null en cas d'échec — l'e-mail « préviens-moi »
+ *  est enregistré sans ville ni pays plutôt que bloqué. Seuls la ville
+ *  et le pays sont renvoyés : jamais de coordonnées précises, jamais
+ *  d'adresse — c'est tout ce qui est conservé côté serveur. */
+export async function reverseGeocodeCityCountry(
+  lat: number,
+  lng: number,
+  timeoutMs = 5000
+): Promise<{ city: string | null; country: string | null } | null> {
+  try {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+      { signal: controller.signal, headers: { Accept: 'application/json' } }
+    );
+    window.clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      address?: {
+        city?: string;
+        town?: string;
+        village?: string;
+        municipality?: string;
+        state?: string;
+        country?: string;
+      };
+    };
+    const a = data.address;
+    if (!a) return null;
+    const city = a.city ?? a.town ?? a.village ?? a.municipality ?? a.state ?? null;
+    return { city, country: a.country ?? null };
+  } catch {
+    return null;
+  }
+}

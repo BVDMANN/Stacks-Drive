@@ -1,16 +1,17 @@
 import type { DriverProfile } from '@/types';
-import { NEIGHBORHOOD_COORDS } from './neighborhoods';
 
 /** Les 6 chauffeurs démo — anciens « courses démo » de la v1, convertis
  *  en chauffeurs en ligne autour de Libreville. Ils font vivre la carte
  *  tant qu'aucun vrai chauffeur n'est en ligne : le radar les trouve,
  *  l'estimation et les propositions fonctionnent avec eux.
- *  Données 100 % statiques (aucun compte, aucune course en base). */
-
-const at = (area: keyof typeof NEIGHBORHOOD_COORDS, dLat: number, dLng: number) => ({
-  lat: NEIGHBORHOOD_COORDS[area].lat + dLat,
-  lng: NEIGHBORHOOD_COORDS[area].lng + dLng,
-});
+ *  Données 100 % statiques (aucun compte, aucune course en base).
+ *
+ *  Positions SUR LES ROUTES (lot du 14/11/2026) : chaque position est le
+ *  milieu du trajet routier du chauffeur dans `lib/demo-routes.ts`
+ *  (géométrie OSRM, chaque point vérifié à 0,0 m de la route la plus
+ *  proche). Avant, la position était le centre du quartier + un décalage
+ *  arbitraire — les véhicules atterrissaient sur les maisons, et la
+ *  dérive en orbite les faisait traverser les îlots. */
 
 export const DEMO_DRIVERS: DriverProfile[] = [
   {
@@ -21,12 +22,15 @@ export const DEMO_DRIVERS: DriverProfile[] = [
     vehicleLabel: 'Toyota Corolla blanche',
     plate: 'LL 351 AA',
     seats: 4,
+    freeSeats: 4,
+    status: 'vide',
     isVerified: true,
     isOnline: true,
     rating: 4.9,
     trips: 128,
     area: 'Centre-ville',
-    ...at('Centre-ville', 0.004, 0.003),
+    lat: 0.389412,
+    lng: 9.442717,
     isDemo: true,
   },
   {
@@ -37,12 +41,15 @@ export const DEMO_DRIVERS: DriverProfile[] = [
     vehicleLabel: 'Kia Picanto grise',
     plate: 'LL 208 BC',
     seats: 4,
+    freeSeats: 4,
+    status: 'vide',
     isVerified: true,
     isOnline: true,
     rating: 4.8,
     trips: 96,
     area: 'Glass',
-    ...at('Glass', -0.003, 0.004),
+    lat: 0.377779,
+    lng: 9.455701,
     isDemo: true,
   },
   {
@@ -53,12 +60,15 @@ export const DEMO_DRIVERS: DriverProfile[] = [
     vehicleLabel: 'Hyundai Tucson noire',
     plate: 'LL 774 KD',
     seats: 6,
+    freeSeats: 6,
+    status: 'vide',
     isVerified: true,
     isOnline: true,
     rating: 4.9,
     trips: 210,
     area: 'Charbonnages',
-    ...at('Charbonnages', 0.003, -0.004),
+    lat: 0.43374,
+    lng: 9.446786,
     isDemo: true,
   },
   {
@@ -69,12 +79,15 @@ export const DEMO_DRIVERS: DriverProfile[] = [
     vehicleLabel: 'Toyota Yaris bleue',
     plate: 'LL 512 MN',
     seats: 4,
+    freeSeats: 4,
+    status: 'vide',
     isVerified: true,
     isOnline: true,
     rating: 4.7,
     trips: 74,
     area: 'Nzeng-Ayong',
-    ...at('Nzeng-Ayong', -0.004, -0.003),
+    lat: 0.428929,
+    lng: 9.471604,
     isDemo: true,
   },
   {
@@ -85,12 +98,15 @@ export const DEMO_DRIVERS: DriverProfile[] = [
     vehicleLabel: 'Toyota RAV4 blanche',
     plate: 'LL 903 RT',
     seats: 6,
+    freeSeats: 6,
+    status: 'vide',
     isVerified: true,
     isOnline: true,
     rating: 5.0,
     trips: 167,
     area: 'Akanda',
-    ...at('Akanda', 0.002, 0.005),
+    lat: 0.497596,
+    lng: 9.483026,
     isDemo: true,
   },
   {
@@ -101,12 +117,15 @@ export const DEMO_DRIVERS: DriverProfile[] = [
     vehicleLabel: 'Yamaha YBR rouge',
     plate: 'LL 118 YB',
     seats: 1,
+    freeSeats: 1,
+    status: 'vide',
     isVerified: true,
     isOnline: true,
     rating: 4.8,
     trips: 342,
     area: 'Owendo',
-    ...at('Owendo', 0.005, -0.002),
+    lat: 0.337464,
+    lng: 9.497977,
     isDemo: true,
   },
 ];

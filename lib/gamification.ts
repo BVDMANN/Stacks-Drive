@@ -1,13 +1,13 @@
 /** Gamification Stacks Drive — TOUS les chiffres réglables sont ici.
  *
- *  Principe validé par Randy (13/11/2026) : même un petit prix doit
+ *  Principe validé par Stacks (13/11/2026) : même un petit prix doit
  *  donner l'impression d'une grande victoire — célébrations, pourcentages,
  *  flashs, confettis. Les montants affichés sont toujours VRAIS
  *  (le chauffeur garde vraiment 92-95 % de chaque course, contre
  *  70-85 % chez Yango / Gozem) : on met en scène des gains réels,
  *  on n'invente pas de chiffres.
  *
- *  Points (v2.3, décision Randy 13/11/2026) : plus d'argent direct.
+ *  Points (v2.3, décision Stacks 13/11/2026) : plus d'argent direct.
  *  Le chauffeur gagne des POINTS par course terminée (100, 200 sur une
  *  Course Double, bonus de quête en points) et les échange contre des
  *  courses sans commission (10 000 points = 5 courses où il garde 100 %).

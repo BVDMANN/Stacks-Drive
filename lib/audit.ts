@@ -34,7 +34,28 @@ export type AuditEvent =
   | 'verification_auto_verified' // vérification auto : dossier vérifié sans admin (v2.4)
   | 'verification_auto_refused' // vérification auto : dossier refusé sans admin (v2.4)
   | 'verification_ticket_created' // dossier ambigu → ticket pour l'admin (v2.4)
-  | 'verification_ticket_resolved'; // ticket résolu par l'admin (v2.4)
+  | 'verification_ticket_resolved' // ticket résolu par l'admin (v2.4)
+  | 'dispute_opened' // litige ouvert par une partie de la course (v2.15)
+  | 'complaint_auto_replied' // plainte standard : réponse auto immédiate, sans humain (v2.29)
+  | 'complaint_escalated' // plainte escaladée en litige après réponse auto rejetée (v2.29)
+  | 'dispute_status_changed' // litige : ouvert → en cours → résolu (v2.15)
+  | 'dispute_decided' // décision admin sur un litige : ajustement dette / commission (v2.15)
+  | 'settlement_declared' // chauffeur : « J'ai payé » (déclaration, non validée) (v2.15)
+  | 'settlement_validated' // admin : déclaration validée en 1 clic → règlement (v2.15)
+  | 'weekly_settlements_generated' // relevés hebdo générés par la route cron (v2.15)
+  | 'weekly_report_sent' // rapport hebdo généré + e-mail admin (v2.15)
+  | 'ride_cancelled' // course annulée (motif, auteur) (v2.23)
+  | 'sos_triggered' // bouton SOS déclenché pendant une course (v2.23)
+  | 'trusted_share_sent' // lien de suivi envoyé auto aux contacts de confiance (v2.23)
+  | 'fraud_blocked' // suspicion de fraude : dossier ouvert, compte bloqué temporairement ou signalé (v2.26)
+  | 'fraud_unblocked' // compte débloqué par l'admin après contrôle (v2.26)
+  | 'data_cleanup' // nettoyage hebdo RGPD : positions, propositions expirées, comptes inactifs comptés (v2.26)
+  | 'ride_relaunched' // course planifiée expirée relancée par le passager (v2.30)
+  | 'selfie_recheck_passed' // re-vérification selfie : visage détecté, drapeau levé (v2.30)
+  | 'selfie_recheck_ambiguous' // re-vérification selfie : aucun visage, ticket admin (v2.30)
+  | 'ridecheck_checkin' // RideCheck : signal confirmé, check-in ouvert au passager (v2.34)
+  | 'ridecheck_answer' // RideCheck : réponse du passager au check-in (v2.34)
+  | 'ridecheck_no_response'; // RideCheck : check-in sans réponse, alerte admin (v2.34)
 
 /** Consigne un événement d'audit. Ne lève jamais d'exception. */
 export async function logAudit(
@@ -87,6 +108,21 @@ export const AUDIT_LABELS: Record<string, string> = {
   verification_auto_refused: 'Vérification auto : refusé',
   verification_ticket_created: 'Ticket de vérification créé',
   verification_ticket_resolved: 'Ticket de vérification résolu',
+  dispute_opened: 'Litige ouvert',
+  complaint_auto_replied: 'Plainte standard — réponse auto',
+  complaint_escalated: 'Plainte escaladée après réponse auto',
+  dispute_status_changed: 'Statut de litige changé',
+  dispute_decided: 'Décision de litige (ajustement)',
+  settlement_declared: 'Règlement déclaré (« J’ai payé »)',
+  settlement_validated: 'Règlement validé par l’admin',
+  weekly_settlements_generated: 'Relevés hebdo générés',
+  weekly_report_sent: 'Rapport hebdo envoyé',
+  ride_cancelled: 'Course annulée',
+  sos_triggered: 'SOS déclenché',
+  trusted_share_sent: 'Suivi partagé aux contacts de confiance',
+  fraud_blocked: 'Suspicion de fraude — compte signalé / bloqué',
+  fraud_unblocked: 'Compte débloqué après contrôle fraude',
+  data_cleanup: 'Nettoyage hebdo des données (RGPD)',
 };
 
 /** Derniers événements d'audit (admin). [] si la table n'existe pas. */

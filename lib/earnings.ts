@@ -47,6 +47,10 @@ export interface EarningRow {
   questBonus: number;
   platformCost: number;
   day: string;
+  /** Détail par course (v2.30) : trajet et date réelle de fin. */
+  pickup: string | null;
+  destination: string | null;
+  completedAt: string | null;
 }
 
 export interface DriverEarningsSummary {
@@ -108,6 +112,24 @@ const EMPTY_PERIOD: PeriodStats = {
   questBonus: 0,
   platformCost: 0,
 };
+
+/** Ajustements de dette par chauffeur (v2.15, décisions de litige) :
+ *  montant signé — négatif = le chauffeur doit moins. Lecture défensive :
+ *  table absente (migration v2.15 non appliquée) = aucun ajustement,
+ *  jamais de crash, jamais de « dû » remis à zéro par erreur. */
+async function getDebtAdjustmentsByDriver(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<Map<string, number>> {
+  const byDriver = new Map<string, number>();
+  const { data, error } = await supabase
+    .from('driver_debt_adjustments')
+    .select('driver_id, amount_fcfa');
+  if (error || !data) return byDriver;
+  (data as { driver_id: string; amount_fcfa: number }[]).forEach((r) =>
+    byDriver.set(r.driver_id, (byDriver.get(r.driver_id) ?? 0) + (r.amount_fcfa ?? 0))
+  );
+  return byDriver;
+}
 
 function emptySummary(): DriverEarningsSummary {
   return {
@@ -275,6 +297,28 @@ export async function getDriverEarningsSummary(
   summary.week = fold(rows.filter((r) => r.period_week === week));
   summary.month = fold(rows.filter((r) => r.period_month === month));
   summary.completedRides = rows.length;
+  // Détail par course (v2.30) : trajet + date de fin depuis `rides`
+  // (meilleur effort — sans jointure, les montants restent ceux de
+  // driver_earnings, source de vérité).
+  const recentIds = rows.slice(0, 10).map((r) => r.ride_id);
+  const rideDetails = new Map<
+    string,
+    { pickup: string | null; destination: string | null; completedAt: string | null }
+  >();
+  if (recentIds.length > 0) {
+    const { data: rideRows } = await supabase
+      .from('rides')
+      .select('id, pickup, destination, completed_at')
+      .in('id', recentIds);
+    (rideRows ?? []).forEach(
+      (r: { id: string; pickup: string | null; destination: string | null; completed_at: string | null }) =>
+        rideDetails.set(r.id, {
+          pickup: r.pickup,
+          destination: r.destination,
+          completedAt: r.completed_at,
+        })
+    );
+  }
   summary.recent = rows.slice(0, 10).map((r) => ({
     rideId: r.ride_id,
     fare: r.fare_amount,
@@ -285,10 +329,15 @@ export async function getDriverEarningsSummary(
     questBonus: r.quest_bonus,
     platformCost: r.platform_cost,
     day: r.period_day,
+    pickup: rideDetails.get(r.ride_id)?.pickup ?? null,
+    destination: rideDetails.get(r.ride_id)?.destination ?? null,
+    completedAt: rideDetails.get(r.ride_id)?.completedAt ?? null,
   }));
   summary.streakDays = computeStreak(new Set(rows.map((r) => r.period_day)), day);
 
   // 2. Règlements → montant dû + rappel hebdomadaire (v2.4).
+  // Dû = commissions − règlements + ajustements de dette (v2.15 :
+  // décisions de litige — négatif = le chauffeur doit moins).
   const totalCommission = rows.reduce((s, r) => s + r.commission_amount, 0);
   const { data: settlements } = await supabase
     .from('driver_settlements')
@@ -298,7 +347,9 @@ export async function getDriverEarningsSummary(
     (s: number, r: { amount: number }) => s + (r.amount ?? 0),
     0
   );
-  const owed = Math.max(0, totalCommission - totalSettled);
+  const adjustmentsByDriver = await getDebtAdjustmentsByDriver(supabase);
+  const totalAdjustments = adjustmentsByDriver.get(driverId) ?? 0;
+  const owed = Math.max(0, totalCommission - totalSettled + totalAdjustments);
   summary.owed = owed;
   // Dernier règlement : rappel affiché quand il y a un dû et que le
   // dernier règlement date de plus de 7 jours (ou qu'il n'y en a aucun).
@@ -460,7 +511,9 @@ export async function getDriverOwed(driverId: string): Promise<number> {
     (s: number, r: { amount: number }) => s + (r.amount ?? 0),
     0
   );
-  return Math.max(0, total - settled);
+  // Ajustements de dette v2.15 (décisions de litige, signés).
+  const adjustmentsByDriver = await getDebtAdjustmentsByDriver(supabase);
+  return Math.max(0, total - settled + (adjustmentsByDriver.get(driverId) ?? 0));
 }
 
 /** Niveau réel d'un chauffeur (depuis ses stats) — utilisé à
@@ -550,6 +603,8 @@ export async function getAdminDriverMoney(): Promise<AdminDriverMoney[]> {
     .from('rides')
     .select('driver_id')
     .eq('status', 'terminee');
+  // Ajustements de dette v2.15 (décisions de litige, signés).
+  const adjustmentsByDriver = await getDebtAdjustmentsByDriver(supabase);
   const commissionByDriver = new Map<string, number>();
   (earnings ?? []).forEach((r: { driver_id: string; commission_amount: number }) =>
     commissionByDriver.set(r.driver_id, (commissionByDriver.get(r.driver_id) ?? 0) + (r.commission_amount ?? 0))
@@ -573,6 +628,7 @@ export async function getAdminDriverMoney(): Promise<AdminDriverMoney[]> {
   }[]).map((d) => {
     const totalCommission = commissionByDriver.get(d.id) ?? 0;
     const totalSettled = settledByDriver.get(d.id) ?? 0;
+    const totalAdjustments = adjustmentsByDriver.get(d.id) ?? 0;
     return {
       driverId: d.id,
       name: d.full_name,
@@ -580,7 +636,7 @@ export async function getAdminDriverMoney(): Promise<AdminDriverMoney[]> {
       tier: d.tier ?? 'Bronze',
       depositPaid: d.deposit_paid ?? false,
       depositAmount: d.deposit_amount ?? 0,
-      owed: Math.max(0, totalCommission - totalSettled),
+      owed: Math.max(0, totalCommission - totalSettled + totalAdjustments),
       totalCommission,
       totalSettled,
       completedRides: ridesByDriver.get(d.id) ?? 0,

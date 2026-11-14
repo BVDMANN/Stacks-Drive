@@ -1,6 +1,6 @@
 # Automatisation de la vérification chauffeur — v2.4 (interne)
 
-> Document interne (jamais publié sur le site). Décision de Randy,
+> Document interne (jamais publié sur le site). Décision du propriétaire,
 > 14/11/2026 : « Je dois pas approuver manuellement chaque demande de
 > chauffeur » + « Automatise le max de trucs. Si c'est ambigu, je reçois
 > le ticket sur mon mail avec explication et compte rendu du souci et
@@ -70,7 +70,7 @@ chauffeurs ») résout aussi les tickets ouverts du chauffeur.
 
 La clé `RESEND_API_KEY` est configurée dans Vercel (Production) : les
 e-mails de tickets partent. Destinataire : `ADMIN_EMAIL` (défaut :
-stacks.markett@gmail.com — boîte Stacks Market, lue par Randy). Objet :
+stacks.markett@gmail.com — boîte Stacks Market, lue par l’administrateur). Objet :
 `[Stacks Drive] Ticket vérification — <urgence> — <nom chauffeur>`.
 Corps : explication, compte rendu des contrôles, niveau d'urgence, lien
 vers /admin. Expéditeur par défaut : `onboarding@resend.dev` (plan
@@ -79,7 +79,7 @@ Resend : si le premier ticket n'arrive pas dans la boîte Stacks Market,
 vérifier le domaine dans Resend ou remettre l'e-mail du compte Resend
 en `ADMIN_EMAIL` dans Vercel). Sans clé (en local) : log serveur +
 bandeau dans /admin. Voir
-SETUP.md (§1) pour les variables d'environnement — **c'est Randy qui a
+SETUP.md (§1) pour les variables d'environnement — **c'est le propriétaire qui a
 créé le compte Resend**.
 
 ### 5. Deux petites automatisations (même release)

@@ -38,6 +38,8 @@ export interface SessionProfile {
   vehicle_color: string | null;
   plate: string | null;
   seats: number | null;
+  /** v2.19 — places libres déclarées (NULL = jamais déclarées). */
+  free_seats: number | null;
   is_online: boolean;
   is_verified: boolean;
   is_admin: boolean;
@@ -47,10 +49,46 @@ export interface SessionProfile {
   id_document_url: string | null;
   id_document_type: string | null;
   verification_note: string | null;
+  /** v2.30 — lieux favoris (quartier + précision libre, effaçables). */
+  home_neighborhood: string | null;
+  home_detail: string | null;
+  work_neighborhood: string | null;
+  work_detail: string | null;
+  /** v2.30 — re-vérification selfie ponctuelle. */
+  selfie_recheck_required: boolean;
+  selfie_recheck_reason: string | null;
+  last_selfie_check_at: string | null;
   current_area: string | null;
   last_lat: number | null;
   last_lng: number | null;
   created_at: string;
+}
+
+/** Règle 2 (v2.17) — « compte chauffeur créé » : le compte a un
+ *  dossier chauffeur. C'est le cas quand le rôle est déjà chauffeur,
+ *  ou quand un dossier de vérification existe (en attente, vérifié ou
+ *  refusé — un tel dossier ne peut exister que via le parcours
+ *  chauffeur, la vérification exigeant le rôle chauffeur), ou quand
+ *  des documents de vérification sont enregistrés. Un passager sans
+ *  aucun dossier chauffeur n'a PAS de compte chauffeur : le switch
+ *  vers le mode Chauffeur lui est interdit (voir ModeToggle et
+ *  PATCH /api/profile) — il doit d'abord créer son compte chauffeur
+ *  via « Devenir chauffeur » (inscription chauffeur + vérification).
+ *  À ne pas confondre avec « vérifié » (is_verified) : un chauffeur
+ *  refusé ou en attente garde son compte chauffeur (il peut repasser
+ *  en mode Chauffeur pour renvoyer ses documents) mais ne peut pas
+ *  se mettre en ligne tant qu'il n'est pas vérifié. */
+export function hasDriverAccount(
+  profile:
+    | Pick<SessionProfile, 'role' | 'verification_status' | 'selfie_url' | 'id_document_url'>
+    | null
+    | undefined
+): boolean {
+  if (!profile) return false;
+  if (profile.role === 'chauffeur') return true;
+  if ((profile.verification_status ?? 'non_verifie') !== 'non_verifie') return true;
+  if (profile.selfie_url !== null || profile.id_document_url !== null) return true;
+  return false;
 }
 
 /** Utilisateur connecté + son profil public. Retourne null si non connecté

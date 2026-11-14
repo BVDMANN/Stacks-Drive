@@ -3,8 +3,10 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { LIBREVILLE_CENTER, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_LABEL_OFFSET, NEIGHBORHOOD_LABEL_TIER, type Neighborhood } from '@/lib/neighborhoods';
+import { LIBREVILLE_CENTER, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_LABEL_OFFSET, NEIGHBORHOOD_LABEL_TIER, NEIGHBORHOOD_NO_LABEL, type Neighborhood } from '@/lib/neighborhoods';
+import { DRIVERS_AROUND_RADIUS_KM, MAP_INITIAL_ZOOM, MAP_MIN_ZOOM, SERVICE_BOUNDS } from '@/lib/geo';
 import { POIS, POI_CATEGORY_LABELS, type Poi, type PoiCategory } from '@/lib/pois';
+import { DEMO_ROUTES, type DemoRoutePoint } from '@/lib/demo-routes';
 
 export interface MapDriver {
   id: string;
@@ -28,6 +30,38 @@ export interface UserLocationPoint {
   lng: number;
   label: string;
 }
+
+/** Point d'un itinéraire routier (géométrie OSRM — `lib/routing.ts`). */
+export interface RouteGeometryPoint {
+  lat: number;
+  lng: number;
+}
+
+/** Signalement trafic affiché sur la carte (v2.27) : type, position,
+ *  mise en évidence si confirmé par plusieurs chauffeurs. Aucune
+ *  donnée personnelle (ni auteur, ni téléphone). */
+export interface TrafficMapMarker {
+  id: string;
+  type: 'embouteillage' | 'accident' | 'travaux' | 'route_fermee';
+  lat: number;
+  lng: number;
+  confirmed: boolean;
+  expiresAt: string;
+}
+
+export const TRAFFIC_MARKER_LABELS: Record<TrafficMapMarker['type'], string> = {
+  embouteillage: 'Embouteillage',
+  accident: 'Accident',
+  travaux: 'Travaux',
+  route_fermee: 'Route fermée',
+};
+
+export const TRAFFIC_MARKER_EMOJIS: Record<TrafficMapMarker['type'], string> = {
+  embouteillage: '🚗',
+  accident: '💥',
+  travaux: '🚧',
+  route_fermee: '⛔',
+};
 
 export interface FocusPoint {
   lat: number;
@@ -65,33 +99,78 @@ const POI_SVG: Record<PoiCategory, string> = {
   gare: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="13" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg>`,
 };
 
-/** Dérive lente des chauffeurs démo : ils « roulent » autour de leur
- *  quartier (orbite sinusoïdale, ~150 m d'amplitude) pour donner une
- *  sensation de direct. Les vrais chauffeurs restent à leur position
- *  de base (mise à jour par le serveur). */
-function demoDrift(
-  baseLat: number,
-  baseLng: number,
-  t: number,
-  phase: number,
-  speed: number
+/** Chauffeurs démo : ils ROULENT le long de leur trajet routier
+ *  (`lib/demo-routes.ts`, géométrie OSRM — chaque point est sur une
+ *  vraie route de Libreville), en aller-retour à vitesse urbaine
+ *  (~29 km/h, 8 m/s). L'ancienne dérive en orbite sinusoïdale (~180 m
+ *  d'amplitude autour du quartier) les faisait traverser les maisons
+ *  et les parcs : c'est le bug signalé le 14/11/2026 (« les véhicules
+ *  se balancent même sur les maisons »). Les vrais chauffeurs ne
+ *  passent jamais ici : leur position vient de leur GPS et leur
+ *  marqueur reste fixe entre deux mises à jour serveur. */
+const DEMO_SPEED_MPS = 8;
+
+function haversineM(a: DemoRoutePoint, b: DemoRoutePoint): number {
+  const R = 6371000;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const la1 = (a.lat * Math.PI) / 180;
+  const la2 = (b.lat * Math.PI) / 180;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/** Longueurs cumulées le long d'un trajet (mètres), point 0 = 0. */
+function routeCumLengths(route: DemoRoutePoint[]): number[] {
+  const cum: number[] = [0];
+  for (let i = 1; i < route.length; i++) {
+    cum.push(cum[i - 1] + haversineM(route[i - 1], route[i]));
+  }
+  return cum;
+}
+
+/** Position + cap à `s` mètres le long du trajet (0 <= s <= total). */
+function routePointAt(
+  route: DemoRoutePoint[],
+  cum: number[],
+  s: number
 ): { lat: number; lng: number; heading: number } {
-  const ampLat = 0.0016;
-  const ampLng = 0.0016;
-  const lat = baseLat + ampLat * Math.sin(t * speed + phase);
-  const lng = baseLng + ampLng * Math.cos(t * speed * 0.85 + phase * 1.7);
-  // Cap dérivé analytique → direction lisse, sans bruit d'échantillonnage.
-  const dLat = ampLat * speed * Math.cos(t * speed + phase);
-  const dLng = -ampLng * speed * 0.85 * Math.sin(t * speed * 0.85 + phase * 1.7);
-  const heading = (Math.atan2(dLng, dLat) * 180) / Math.PI;
+  const total = cum[cum.length - 1];
+  const clamped = Math.max(0, Math.min(total, s));
+  let i = 1;
+  while (i < cum.length - 1 && cum[i] < clamped) i++;
+  const segLen = cum[i] - cum[i - 1] || 1;
+  const f = (clamped - cum[i - 1]) / segLen;
+  const a = route[i - 1];
+  const b = route[i];
+  const lat = a.lat + f * (b.lat - a.lat);
+  const lng = a.lng + f * (b.lng - a.lng);
+  // Cap : 0° = nord, 90° = est (même convention que l'ancienne dérive).
+  const heading = (Math.atan2(b.lng - a.lng, b.lat - a.lat) * 180) / Math.PI;
   return { lat, lng, heading };
+}
+
+/** Distance le long du trajet en aller-retour (onde triangulaire) :
+ *  0 → total → 0 → total… : le véhicule fait demi-tour aux deux bouts
+ *  de son trajet au lieu de « sauter » d'un bout à l'autre. */
+function pingPongDistance(distance: number, total: number): number {
+  if (total <= 0) return 0;
+  const cycle = 2 * total;
+  const d = ((distance % cycle) + cycle) % cycle;
+  return d <= total ? d : cycle - d;
 }
 
 function driverIcon(d: MapDriver, isAssigned: boolean, isSelected: boolean) {
   const isMoto = d.vehicleType === 'Moto';
   // Badge note (★ 4.8) : hors du glyph, il ne tourne pas avec le cap.
+  // Confidentialité chauffeur (v2.20) : la note n'apparaît QUE pour le
+  // chauffeur assigné (course acceptée) — jamais sur les marqueurs
+  // anonymes avant le matching.
   const badge =
-    d.rating != null ? `<span class="map-driver-badge">★ ${d.rating.toFixed(1)}</span>` : '';
+    isAssigned && d.rating != null
+      ? `<span class="map-driver-badge">★ ${d.rating.toFixed(1)}</span>`
+      : '';
   // Anneau qui s'étend (v2.7) : la carte respire. Décalage stable par
   // chauffeur (dérivé de l'id) pour que les 6 anneaux ne battent pas
   // en chœur.
@@ -105,23 +184,62 @@ function driverIcon(d: MapDriver, isAssigned: boolean, isSelected: boolean) {
   });
 }
 
+/** Infobulle d'un marqueur chauffeur (v2.20 — confidentialité).
+ *  Avant le matching, le marqueur reste ANONYME : ni nom, ni véhicule,
+ *  ni note — juste « Chauffeur disponible » (et « Solo uniquement »
+ *  pour la moto, dont le glyph est déjà distinctif). L'identité
+ *  complète n'apparaît que pour le chauffeur assigné, une fois la
+ *  course acceptée — le seul cas où le passager doit le reconnaître. */
+function driverTooltip(d: MapDriver, isAssigned: boolean): string {
+  if (isAssigned) {
+    return `${d.name} · ${d.vehicleLabel}${d.vehicleType === 'Moto' ? ' · Solo uniquement' : ''}${d.rating ? ` · ★ ${d.rating.toFixed(1)}` : ''}${d.isDemo ? ' · Démo' : ''}`;
+  }
+  return d.vehicleType === 'Moto' ? 'Chauffeur disponible · Solo uniquement' : 'Chauffeur disponible';
+}
+
 interface DriverMarkerEntry {
   marker: L.Marker;
   baseLat: number;
   baseLng: number;
-  phase: number;
-  speed: number;
+  /** Trajet routier du chauffeur démo (null = pas de trajet : marqueur
+   *  fixe — cas des vrais chauffeurs et des démos sans trajet). */
+  route: DemoRoutePoint[] | null;
+  cum: number[];
+  total: number;
+  /** Décalage de départ le long du trajet (mètres, stable par id) pour
+   *  que les 6 démos ne partent pas toutes du même bout. */
+  offset: number;
   isDemo: boolean;
   lastIconKey: string;
 }
 
-/** Carte de Libreville « la nuit » (Leaflet + tuiles Esri World Street
- *  Map assombries par filtre CSS, gratuites, sans clé API — v2.7 : le
- *  fond « World Dark Gray » précédent était quasi vide à Libreville).
- *  Composant client uniquement — importé avec `next/dynamic` + ssr:false,
- *  Leaflet ne tourne jamais côté serveur. Zoom initial 12 : à 13, le
- *  chauffeur d'Akanda (le plus au nord) sortait du champ et la carte
- *  n'affichait que 5 marqueurs. */
+/** Zooms de la carte (v2.18 — correctif « satellite en zoom fort »).
+ *  Cause trouvée par curl le 14/11/2026 (tuiles Esri servies en
+ *  HTTP 200, JPEG 256×256, Centre-ville 0,3901/9,4544 + Akanda,
+ *  Owendo, Melen, Nzeng-Ayong, Aéroport) :
+ *  - World Imagery (satellite) : tuiles RÉELLES jusqu'au zoom 18
+ *    (z18 Centre-ville : 13 551 o, 17 218 couleurs ; grille 3×3
+ *    autour du centre : 9 tuiles distinctes). Au zoom 19 et au-delà,
+ *    Esri renvoie partout la MÊME tuile grise « pas de données »
+ *    (2 521 o, md5 f27d9de7f8, 123 couleurs, gris 205 — identique
+ *    en z19 et z20, au Centre-ville comme à Akanda) : c'est elle que
+ *    l'utilisateur voyait (« on ne voit plus rien en zoomant »).
+ *    Zoom natif max satellite à Libreville : 18.
+ *  - World Street Map (plan) : z19 réelle au Centre-ville seulement
+ *    (6 005 o, 2 394 couleurs) ; à Akanda c'est la même tuile grise
+ *    « pas de données », à Melen / Nzeng-Ayong une tuile beige
+ *    uniforme sans rue. Le zoom 18 est réel partout : natif max
+ *    plan retenu : 18 aussi, pour qu'aucun des deux modes n'affiche
+ *    de vide au zoom max.
+ *  Correctif Leaflet : `maxNativeZoom: 18` sur la couche (au-delà,
+ *  Leaflet agrandit les tuiles z18 au lieu de demander des tuiles
+ *  z19+ inexistantes) et `maxZoom: 20` sur la carte comme sur la
+ *  couche — à z19 les tuiles sont agrandies ×2, à z20 ×4 : les
+ *  bâtiments restent visibles, jamais de fond vide. Ne pas remonter
+ *  `maxNativeZoom` sans re-vérifier les tuiles par curl d'abord. */
+const MAP_MAX_ZOOM = 20;
+const SATELLITE_MAX_NATIVE_ZOOM = 18;
+const PLAN_MAX_NATIVE_ZOOM = 18;
 export function LibrevilleMap({
   drivers,
   pickup,
@@ -137,6 +255,9 @@ export function LibrevilleMap({
   onPoiClick,
   onMapClick,
   selectedPoi,
+  routeGeometry,
+  trafficReports,
+  perimeterCenter,
   className,
 }: {
   drivers: MapDriver[];
@@ -159,12 +280,26 @@ export function LibrevilleMap({
   onMapClick?: () => void;
   /** Lieu sélectionné : son pictogramme est mis en surbrillance. */
   selectedPoi?: Poi | null;
+  /** Itinéraire routier (v2.27) : géométrie OSRM entre le départ et
+   *  la destination. Sans elle (chargement ou OSRM indisponible),
+   *  la carte trace l'ancienne ligne droite. */
+  routeGeometry?: RouteGeometryPoint[] | null;
+  /** Signalements trafic actifs (v2.27) : marqueurs sur la carte des
+   *  passagers ET des chauffeurs (suivi de course). */
+  trafficReports?: TrafficMapMarker[] | null;
+  /** Centre du cercle périmètre 5 km (v2.31) : l'ancre — position GPS
+   *  de la personne par défaut, quartier de départ si elle le change
+   *  manuellement. Null = pas de cercle (suivi de course, mode
+   *  chauffeur). Rayon = `DRIVERS_AROUND_RADIUS_KM` (5 km, la même
+   *  valeur que le matching) — jamais un second chiffre. */
+  perimeterCenter?: MapPoint | null;
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const routeLayersRef = useRef<L.LayerGroup | null>(null);
   const driverLayerRef = useRef<L.LayerGroup | null>(null);
+  const trafficLayerRef = useRef<L.LayerGroup | null>(null);
   const driverMarkersRef = useRef<Map<string, DriverMarkerEntry>>(new Map());
   const radarRef = useRef<{ circle: L.Circle; timer: ReturnType<typeof setInterval> } | null>(null);
   const onDriverClickRef = useRef(onDriverClick);
@@ -175,13 +310,36 @@ export function LibrevilleMap({
   onMapClickRef.current = onMapClick;
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const poiMarkersRef = useRef<Map<string, L.Marker>>(new Map());
+  const perimeterRef = useRef<L.Circle | null>(null);
 
   // Création de la carte (une seule fois).
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
+      // Vue d'ouverture = zoom quartier (v2.31, `MAP_INITIAL_ZOOM` =
+      // 14) centrée sur l'ancre (Centre-ville par défaut — le parent
+      // vole ensuite vers la position GPS ou le départ choisi, voir
+      // `focusPoint`) : jamais toute la ville au premier chargement.
+      // La vue ville (zoom 12, 12 libellés) reste accessible en
+      // dézoomant — `minZoom` l'autorise, et rien en dessous.
       center: [LIBREVILLE_CENTER.lat, LIBREVILLE_CENTER.lng],
-      zoom: 12,
+      zoom: MAP_INITIAL_ZOOM,
+      minZoom: MAP_MIN_ZOOM,
+      // Bornes (v2.31) : on ne peut pas défiler hors de la zone de
+      // service (`SERVICE_BOUNDS`, Grand Libreville) — `viscosity: 1`
+      // = bornes fermes, la carte rebondit au lieu de glisser dehors.
+      // Le centre reste dans le rectangle ; la vue ville (zoom 12)
+      // y tient entièrement.
+      maxBounds: L.latLngBounds(
+        [SERVICE_BOUNDS.south, SERVICE_BOUNDS.west],
+        [SERVICE_BOUNDS.north, SERVICE_BOUNDS.east]
+      ),
+      maxBoundsViscosity: 1.0,
+      // Zoom max 20 (v2.18) : au-delà du natif 18, Leaflet agrandit
+      // les tuiles z18 (voir constantes ci-dessus) — sans ce plafond
+      // explicite, la carte s'arrêtait au maxZoom de la couche (19)
+      // et le satellite demandait des tuiles z19 inexistantes.
+      maxZoom: MAP_MAX_ZOOM,
       zoomControl: false,
       attributionControl: false,
       scrollWheelZoom: true,
@@ -209,7 +367,11 @@ export function LibrevilleMap({
     tileLayerRef.current = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
       {
-        maxZoom: 19,
+        // v2.18 : maxZoom 20 + maxNativeZoom 18 — sans maxNativeZoom,
+        // Leaflet demandait des tuiles au zoom affiché, donc des
+        // tuiles z19 inexistantes en satellite (tuile grise vide).
+        maxZoom: MAP_MAX_ZOOM,
+        maxNativeZoom: PLAN_MAX_NATIVE_ZOOM,
         className: 'map-tiles-dark',
         attribution:
           'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -219,17 +381,21 @@ export function LibrevilleMap({
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     routeLayersRef.current = L.layerGroup().addTo(map);
     driverLayerRef.current = L.layerGroup().addTo(map);
+    trafficLayerRef.current = L.layerGroup().addTo(map);
     // Libellés de quartiers (v2.5, 3 tiers depuis la v2.8) : permanents,
     // discrets, non interactifs, sous les marqueurs chauffeurs
     // (zIndexOffset négatif). Tier 1 dès le zoom 11, tier 2 dès le
     // zoom 13, tier 3 seulement à partir du zoom 14 — aux zooms bas,
     // les petits quartiers sont masqués pour ne pas surcharger la
-    // carte. 'Autre' n'est pas un lieu : pas de libellé.
+    // carte. La vue d'ouverture est le zoom 14 (v2.31) : les 69
+    // libellés sont donc visibles dès l'arrivée ; en dézoomant vers
+    // la vue ville (zoom 12), seuls les 12 du tier 1 restent.
+    // 'Autre' n'est pas un lieu : pas de libellé.
     const labelMajor = L.layerGroup().addTo(map);
     const labelMid = L.layerGroup();
     const labelMinor = L.layerGroup();
     (Object.keys(NEIGHBORHOOD_COORDS) as Neighborhood[]).forEach((n) => {
-      if (n === 'Autre') return;
+      if (n === 'Autre' || NEIGHBORHOOD_NO_LABEL.has(n)) return;
       const c = NEIGHBORHOOD_COORDS[n];
       const o = NEIGHBORHOOD_LABEL_OFFSET[n];
       const icon = L.divIcon({
@@ -338,6 +504,13 @@ export function LibrevilleMap({
         ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
         : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
     );
+    // v2.18 : le zoom natif dépend du fond (18 satellite comme plan
+    // à Libreville — voir constantes en tête de fichier). Leaflet
+    // relit `options.maxNativeZoom` à chaque demande de tuile, donc
+    // la mise à jour ici suffit ; retirer / remettre la couche
+    // force le rechargement des tuiles au bon niveau natif.
+    layer.options.maxNativeZoom = satellite ? SATELLITE_MAX_NATIVE_ZOOM : PLAN_MAX_NATIVE_ZOOM;
+    layer.options.maxZoom = MAP_MAX_ZOOM;
     layer.options.className = satellite ? '' : 'map-tiles-dark';
     layer.options.attribution = satellite
       ? 'Esri, Maxar, Earthstar Geographics, and the GIS User Community'
@@ -358,28 +531,26 @@ export function LibrevilleMap({
     layers.clearLayers();
 
     // Itinéraire : halo large discret + pointillés animés par-dessus.
+    // Géométrie routière OSRM (v2.27) quand elle est là — sinon
+    // l'ancienne ligne droite (repli : OSRM indisponible ou en cours
+    // de chargement).
     if (pickup && destination) {
-      L.polyline(
-        [
-          [pickup.lat, pickup.lng],
-          [destination.lat, destination.lng],
-        ],
-        { color: '#FFC700', weight: 9, opacity: 0.18 }
-      ).addTo(layers);
-      L.polyline(
-        [
-          [pickup.lat, pickup.lng],
-          [destination.lat, destination.lng],
-        ],
-        {
-          color: '#ffd60a',
-          weight: 4,
-          dashArray: '2 10',
-          lineCap: 'round',
-          opacity: 0.95,
-          className: 'route-animated',
-        }
-      ).addTo(layers);
+      const line: [number, number][] =
+        routeGeometry && routeGeometry.length >= 2
+          ? routeGeometry.map((p) => [p.lat, p.lng] as [number, number])
+          : [
+              [pickup.lat, pickup.lng],
+              [destination.lat, destination.lng],
+            ];
+      L.polyline(line, { color: '#FFC700', weight: 9, opacity: 0.18 }).addTo(layers);
+      L.polyline(line, {
+        color: '#ffd60a',
+        weight: 4,
+        dashArray: '2 10',
+        lineCap: 'round',
+        opacity: 0.95,
+        className: 'route-animated',
+      }).addTo(layers);
     }
 
     // « Vous êtes ici » (géolocalisation) : pastille cyan pulsante.
@@ -439,7 +610,31 @@ export function LibrevilleMap({
         { animate: true }
       );
     }
-  }, [pickup, destination, userLocation]);
+  }, [pickup, destination, userLocation, routeGeometry]);
+
+  // Signalements trafic (v2.27) : marqueurs sur la carte des
+  // passagers ET des chauffeurs. Un signalement confirmé par plusieurs
+  // chauffeurs est mis en évidence (anneau doré + libellé « Confirmé ») ;
+  // les autres restent discrets jusqu'à expiration (30–60 min).
+  useEffect(() => {
+    const layer = trafficLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    (trafficReports ?? []).forEach((r) => {
+      const icon = L.divIcon({
+        className: 'map-traffic-icon',
+        html: `<div class="map-traffic-marker${r.confirmed ? ' confirmed' : ''}">${TRAFFIC_MARKER_EMOJIS[r.type]}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+      L.marker([r.lat, r.lng], { icon, keyboard: false, zIndexOffset: 500 })
+        .bindTooltip(
+          `${TRAFFIC_MARKER_LABELS[r.type]}${r.confirmed ? ' · Confirmé par plusieurs chauffeurs' : ' · Signalé par un chauffeur'}`,
+          { direction: 'top', offset: [0, -16], className: 'map-tooltip' }
+        )
+        .addTo(layer);
+    });
+  }, [trafficReports]);
 
   // Marqueurs chauffeurs : synchronisés par id (création / suppression /
   // mise à jour d'icône), jamais recréés en boucle — l'animation de
@@ -463,28 +658,39 @@ export function LibrevilleMap({
           existing.marker.setIcon(driverIcon(d, isAssigned, isSelected));
           existing.lastIconKey = iconKey;
         }
+        // L'infobulle suit le statut : anonyme avant le matching,
+        // identité complète une fois le chauffeur assigné (v2.20).
+        existing.marker.setTooltipContent(driverTooltip(d, isAssigned));
         return;
       }
       const marker = L.marker([d.lat, d.lng], {
         icon: driverIcon(d, isAssigned, isSelected),
       });
-      marker.bindTooltip(
-        `${d.name} · ${d.vehicleLabel}${d.vehicleType === 'Moto' ? ' · Solo uniquement' : ''}${d.rating ? ` · ★ ${d.rating.toFixed(1)}` : ''}${d.isDemo ? ' · Démo' : ''}`,
-        { direction: 'top', offset: [0, -24], className: 'map-tooltip' }
-      );
+      marker.bindTooltip(driverTooltip(d, isAssigned), {
+        direction: 'top',
+        offset: [0, -24],
+        className: 'map-tooltip',
+      });
       marker.on('click', () => onDriverClickRef.current?.(d.id));
       marker.addTo(layer);
-      // Phase et vitesse pseudo-aléatoires mais stables par chauffeur
-      // (dérivées de l'id, pas de l'index : l'ordre du tableau peut
-      // changer quand un vrai chauffeur se connecte, sans faire
-      // « sauter » les démos d'une orbite à l'autre).
+      // Trajet routier du chauffeur démo (géométrie OSRM) : le marqueur
+      // roulera le long de ce trajet. Décalage de départ pseudo-aléatoire
+      // mais stable par chauffeur (dérivé de l'id, pas de l'index : l'ordre
+      // du tableau peut changer quand un vrai chauffeur se connecte, sans
+      // faire « sauter » les démos d'un bout à l'autre de leur trajet).
+      // Les vrais chauffeurs n'ont pas de trajet : marqueur fixe.
       const hash = [...d.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      const route = d.isDemo ? (DEMO_ROUTES[d.id] ?? null) : null;
+      const cum = route ? routeCumLengths(route) : [];
+      const total = cum.length > 0 ? cum[cum.length - 1] : 0;
       entries.set(d.id, {
         marker,
         baseLat: d.lat,
         baseLng: d.lng,
-        phase: ((hash % 628) / 100) % (Math.PI * 2),
-        speed: 0.05 + ((hash * 37) % 10) / 100,
+        route: route && route.length >= 2 && total > 0 ? route : null,
+        cum,
+        total,
+        offset: total > 0 ? ((hash % 100) / 100) * total : 0,
         isDemo: d.isDemo,
         lastIconKey: iconKey,
       });
@@ -497,25 +703,22 @@ export function LibrevilleMap({
     });
   }, [drivers, selectedDriverId, assignedDriverId]);
 
-  // Animation des chauffeurs démo : dérive lente + rotation de la voiture
-  // selon le cap. requestAnimationFrame uniquement, pas de librairie.
+  // Animation des chauffeurs démo : ils roulent le long de leur trajet
+  // routier (aller-retour), cap = direction du tronçon. requestAnimationFrame
+  // uniquement, pas de librairie. Les vrais chauffeurs restent fixes
+  // entre deux mises à jour serveur.
   useEffect(() => {
     let raf = 0;
     let lastTick = 0;
     const step = (now: number) => {
-      // ~30 images/s suffisent pour une dérive lente : on saute des frames.
+      // ~30 images/s suffisent pour une conduite à 29 km/h : on saute des frames.
       if (now - lastTick > 66) {
         lastTick = now;
         const t = now / 1000;
         driverMarkersRef.current.forEach((entry) => {
-          if (!entry.isDemo) return;
-          const { lat, lng, heading } = demoDrift(
-            entry.baseLat,
-            entry.baseLng,
-            t,
-            entry.phase,
-            entry.speed
-          );
+          if (!entry.isDemo || !entry.route) return;
+          const s = pingPongDistance(t * DEMO_SPEED_MPS + entry.offset, entry.total);
+          const { lat, lng, heading } = routePointAt(entry.route, entry.cum, s);
           entry.marker.setLatLng([lat, lng]);
           // Rotation du glyph seul (le badge ★ reste droit).
           const el = entry.marker.getElement()?.querySelector('.map-driver-glyph') as HTMLElement | null;
@@ -566,6 +769,40 @@ export function LibrevilleMap({
       radarRef.current = null;
     };
   }, [radarActive, radarCenter]);
+
+  // Cercle périmètre 5 km (v2.31) : cercle STATIQUE et subtil, style
+  // « Nuit dorée » (trait or pointillé, remplissage or très léger),
+  // autour de l'ancre — il visualise la zone « chauffeurs autour de
+  // toi » (rayon de matching, `DRIVERS_AROUND_RADIUS_KM`). Il suit
+  // l'ancre quand elle change (position GPS → quartier de départ
+  // choisi manuellement). À ne pas confondre avec le radar ci-dessus :
+  // le radar est cyan, pulsé (100 → 1 600 m en boucle) et actif
+  // seulement pendant la recherche ; le périmètre est or, fixe, et
+  // visible en permanence sur l'accueil.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (perimeterRef.current) {
+      perimeterRef.current.remove();
+      perimeterRef.current = null;
+    }
+    if (!perimeterCenter) return;
+    const circle = L.circle([perimeterCenter.lat, perimeterCenter.lng], {
+      radius: DRIVERS_AROUND_RADIUS_KM * 1000,
+      color: '#FFD60A',
+      weight: 1.5,
+      dashArray: '6 6',
+      opacity: 0.55,
+      fillColor: '#FFD60A',
+      fillOpacity: 0.05,
+      interactive: false,
+    }).addTo(map);
+    perimeterRef.current = circle;
+    return () => {
+      circle.remove();
+      perimeterRef.current = null;
+    };
+  }, [perimeterCenter]);
 
   return <div ref={containerRef} className={className ?? 'h-full w-full'} aria-label="Carte de Libreville" />;
 }

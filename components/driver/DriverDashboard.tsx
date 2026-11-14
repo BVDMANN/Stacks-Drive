@@ -2,18 +2,31 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Car, Clock, Flame, MapPin, Phone, ShieldAlert, Users, Wallet } from 'lucide-react';
+import { BadgeCheck, Car, Clock, Flame, Loader2, MapPin, Phone, ShieldAlert, Users, Wallet } from 'lucide-react';
 import type { SessionProfile } from '@/lib/supabase/server';
-import type { Ride, RideProposal } from '@/types';
+import type { PassengerRating, Ride, RideProposal } from '@/types';
 import { RequestPopup } from './RequestPopup';
+import { SeatsPopup } from './SeatsPopup';
+import { DriverStatusBadge } from './DriverStatusBadge';
+import type { DriverStatus } from '@/types';
 import { PinEntry } from './PinEntry';
 import { CelebrationPopup, type CelebrationData } from './CelebrationPopup';
 import { DriverEarnings } from './DriverEarnings';
+import { DriverNotices } from './DriverNotices';
+import { DriverReferralCard } from './DriverReferralCard';
+import { DriverBeyondPanel } from './DriverBeyondPanel';
+import { TrafficReport } from './TrafficReport';
+import { DriverTutorial } from '@/components/tuto/DriverTutorial';
+import { SelfieRecheckCard } from '@/components/driver/SelfieRecheckCard';
+import { DemandHeatmap } from '@/components/driver/DemandHeatmap';
+import { isSelfieRecheckDue } from '@/lib/selfie-recheck';
 import { ToastStack, useToastStack } from '@/components/shared/Toast';
 import { detectProposalEvents, type ProposalSnapshot } from '@/lib/proposal-events';
+import { pollingIntervalMs, useRealtimeSubscription } from '@/lib/realtime';
 import { VerificationStatusBadge } from '@/components/shared/StatusBadge';
-import { NEIGHBORHOODS, PAYMENT_LABELS, type Neighborhood } from '@/lib/neighborhoods';
+import { SELECTABLE_NEIGHBORHOODS, PAYMENT_LABELS, type Neighborhood } from '@/lib/neighborhoods';
 import { formatFcfa } from '@/lib/commission';
+import { computeReliability } from '@/lib/cancellations';
 import { estimateTrip } from '@/lib/pricing';
 import { formatDepartureTime, timeAgo } from '@/lib/dates';
 import { cn } from '@/lib/utils';
@@ -21,6 +34,8 @@ import { cn } from '@/lib/utils';
 interface IncomingRide {
   ride: Ride;
   passenger: { name: string | null; phone: string | null } | null;
+  /** Note moyenne du passager (v2.30) — jointe par /api/rides. */
+  passengerRating?: PassengerRating | null;
 }
 
 interface MyProposal extends RideProposal {
@@ -49,6 +64,15 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
   const [celebration, setCelebration] = useState<CelebrationData | null>(null);
   const [offlineConfirm, setOfflineConfirm] = useState<{ remaining: number; bonus: number } | null>(null);
   const [debtBlocked, setDebtBlocked] = useState<{ amount: number; cap: number } | null>(null);
+  // Places libres + statut (v2.19) : déclarées à la mise en ligne
+  // (pop-up) et modifiables à tout moment (« Mes places »).
+  const [seatsInfo, setSeatsInfo] = useState<{
+    capacity: number | null;
+    freeSeats: number;
+    status: DriverStatus;
+    activeRideTypes: string[];
+  } | null>(null);
+  const [seatsPopupOpen, setSeatsPopupOpen] = useState(false);
   const seenRef = useRef<Set<string>>(new Set());
   const proposedRef = useRef<Set<string>>(new Set());
   // Contre-propositions (v2.11) : nouveau prix tapé par le chauffeur
@@ -91,6 +115,25 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       list.forEach((i) => seenRef.current.add(i.ride.id));
     } catch {
       // Réseau instable : prochain sondage.
+    }
+  }, []);
+
+  // Places libres + statut (v2.19) : lus depuis le serveur — le
+  // statut est dérivé des places libres et des courses en cours.
+  const fetchSeats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/driver/seats');
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        setSeatsInfo({
+          capacity: data.capacity as number | null,
+          freeSeats: data.freeSeats as number,
+          status: data.status as DriverStatus,
+          activeRideTypes: (data.activeRideTypes ?? []) as string[],
+        });
+      }
+    } catch {
+      // Réessaie au prochain tour.
     }
   }, []);
 
@@ -167,19 +210,37 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
 
   useEffect(() => {
     fetchMine();
-  }, [fetchMine]);
+    fetchSeats();
+  }, [fetchMine, fetchSeats]);
+
+  // Temps réel (v2.24) : nouvelles demandes et changements de mes
+  // propositions arrivent instantanément ; les sondages (10 s / 15 s)
+  // ne restent qu'en repli, plus un rafraîchissement de sécurité
+  // toutes les 60 s.
+  const { live: incomingLive } = useRealtimeSubscription({
+    table: 'rides',
+    enabled: isOnline && verified,
+    onChange: fetchIncoming,
+  });
+  const { live: mineLive } = useRealtimeSubscription({
+    table: 'ride_proposals',
+    filter: `driver_id=eq.${profile.id}`,
+    enabled: true,
+    onChange: fetchMine,
+  });
 
   useEffect(() => {
     if (!isOnline || !verified) return;
     fetchIncoming();
-    const t = window.setInterval(fetchIncoming, 10000);
+    const t = window.setInterval(fetchIncoming, pollingIntervalMs(incomingLive, 10000));
     return () => window.clearInterval(t);
-  }, [isOnline, verified, fetchIncoming]);
+  }, [isOnline, verified, fetchIncoming, incomingLive]);
 
   useEffect(() => {
-    const t = window.setInterval(fetchMine, 15000);
+    fetchMine();
+    const t = window.setInterval(fetchMine, pollingIntervalMs(mineLive, 15000));
     return () => window.clearInterval(t);
-  }, [fetchMine]);
+  }, [fetchMine, mineLive]);
 
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 1000);
@@ -197,12 +258,16 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
     }
     // Nudge (v2.2) : la quête du jour est presque finie — on prévient
     // le chauffeur avant qu'il se déconnecte.
+    // Règle 1 (v2.17) : la barre de chargement couvre TOUTE l'attente,
+    // y compris la vérification du nudge avant la déconnexion.
     if (!next) {
+      setSaving(true);
       try {
         const res = await fetch('/api/driver/earnings');
         const data = await res.json().catch(() => null);
         const nudge = data?.summary?.nudge as { show: boolean; remaining: number; bonus: number } | null;
         if (nudge?.show) {
+          setSaving(false);
           setOfflineConfirm({ remaining: nudge.remaining, bonus: nudge.bonus });
           return;
         }
@@ -230,7 +295,14 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       return;
     }
     setIsOnline(next);
-    if (next) fetchIncoming();
+    if (next) {
+      fetchIncoming();
+      // Pop-up places libres (v2.19) : à chaque mise en ligne, le
+      // chauffeur déclare combien de places libres il propose — ce
+      // nombre décide quelles demandes il reçoit (Groupe / Solo).
+      await fetchSeats();
+      if ((profile.seats ?? null) !== null) setSeatsPopupOpen(true);
+    }
   }
 
   async function changeArea(next: Neighborhood) {
@@ -302,16 +374,35 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
     // Célébration (v2.2) : confettis + montant gardé après chaque course.
     if (data?.celebration) setCelebration(data.celebration as CelebrationData);
     fetchMine();
+    fetchSeats();
   }
 
   const activeRide = myRides.find((r) => r.status === 'acceptee' || r.status === 'en_cours') ?? null;
   const pastRides = myRides.filter((r) => ['terminee', 'annulee'].includes(r.status));
+  // Fiabilité (v2.23) : annulations comptées, même règle que l'admin.
+  const reliability = computeReliability(
+    pastRides.filter((r) => r.status === 'terminee').length,
+    pastRides.filter((r) => r.status === 'annulee').length,
+    pastRides.filter((r) => r.status === 'annulee' && r.cancelledBy === 'chauffeur').length
+  );
   const paidRides = myRides.filter((r) => ['acceptee', 'en_cours', 'terminee'].includes(r.status));
   const earnings = paidRides.reduce((s, r) => s + (r.driverShare ?? 0), 0);
   const fees = paidRides.reduce((s, r) => s + (r.platformFee ?? 0), 0);
 
   return (
     <div className="space-y-6">
+      {/* Messages in-app chauffeur (v2.25, lot C) : bienvenue, dossier
+          incomplet, inactivité, dette au plafond (« régularise pour
+          reprendre »). */}
+      <DriverNotices />
+      {/* Formation chauffeur (v2.21) : après la création du compte, au
+          premier passage ici ; rejouable avec « Revoir la formation ». */}
+      <DriverTutorial />
+      {/* Re-vérification selfie ponctuelle (v2.30) : selfie à refaire
+          avant la mise en ligne quand le contrôle est dû (drapeau
+          admin / signalement, ou dernier contrôle vieux de plus de
+          30 jours). */}
+      <SelfieRecheckCard required={isSelfieRecheckDue(profile)} />
       {/* Notifications pop-up de négociation (v2.12). */}
       <ToastStack toasts={toasts} onClose={dismissToast} />
 
@@ -353,7 +444,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       )}
 
       {/* En ligne */}
-      <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+      <section id="mise-en-ligne" className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 scroll-mt-24">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="font-black text-lg text-slate-900">
@@ -369,6 +460,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             type="button"
             role="switch"
             aria-checked={isOnline}
+            aria-busy={saving}
             disabled={saving || !verified}
             onClick={() => toggleOnline(!isOnline)}
             className={cn(
@@ -384,6 +476,40 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             />
           </button>
         </div>
+        {/* Règle 1 (v2.17) : pendant l'enregistrement du statut en
+            ligne, un indicateur visible (comme sur l'accueil chauffeur)
+            — plus de toggle juste grisé sans explication. */}
+        {saving && (
+          <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+            <Loader2 size={13} className="animate-spin" /> Mise à jour…
+          </p>
+        )}
+        {/* Places libres + statut (v2.19) : le statut décide quelles
+            demandes arrivent — Groupe avec des places libres, Solo
+            seulement si le véhicule est totalement vide. */}
+        {verified && seatsInfo && seatsInfo.capacity !== null && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+            <DriverStatusBadge
+              status={seatsInfo.status}
+              freeSeats={seatsInfo.freeSeats}
+              capacity={seatsInfo.capacity}
+            />
+            <button
+              type="button"
+              onClick={() => setSeatsPopupOpen(true)}
+              className="text-xs font-black text-stacks-green hover:underline"
+            >
+              Mes places →
+            </button>
+          </div>
+        )}
+        {verified && (profile.seats ?? null) === null && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+            Déclare ton véhicule (capacité) dans{' '}
+            <Link href="/compte" className="font-bold underline">Mon compte</Link>{' '}
+            pour indiquer tes places libres.
+          </p>
+        )}
         <label className="flex flex-wrap items-center gap-3">
           <span className="text-xs font-black uppercase tracking-widest text-slate-500">
             Quartier où tu te trouves
@@ -394,7 +520,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             className="flex-1 min-w-[200px] px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold focus:border-stacks-green focus:outline-none"
           >
             <option value="">Choisir un quartier…</option>
-            {NEIGHBORHOODS.filter((n) => n !== 'Autre').map((n) => (
+            {SELECTABLE_NEIGHBORHOODS.map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
@@ -437,7 +563,21 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       </p>
 
       {/* Gains, dette, quête, niveau (v2.2) */}
-      <DriverEarnings />
+      <div id="gains" className="scroll-mt-24">
+        <DriverEarnings />
+      </div>
+
+      {/* Heatmap de demande (v2.30) : zones chaudes des 7 derniers
+          jours — info seulement, sans surge ni promesse de gain. */}
+      <DemandHeatmap />
+
+      {/* Parrainage chauffeurs (v2.25, lot C) — visible uniquement ici
+          et côté admin, jamais sur les pages publiques. */}
+      <DriverReferralCard />
+
+      {/* Options chauffeur « Au-delà » (v2.34) : climatisation
+          (Confort), destination de retour, file aéroport. */}
+      <DriverBeyondPanel />
 
       {/* Course en cours — vue chauffeur (v2.2) : trajet, temps estimé,
           distance, prix, mode de paiement, code PIN pour démarrer. */}
@@ -511,6 +651,13 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
               </button>
             )}
           </div>
+          {/* Trafic communautaire (v2.27) : signalement pendant la
+              course + signalements actifs autour (à confirmer). */}
+          <TrafficReport
+            rideId={activeRide.id}
+            fallbackLat={profile.last_lat ?? null}
+            fallbackLng={profile.last_lng ?? null}
+          />
         </section>
       )}
 
@@ -649,6 +796,25 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
           commission et gain net de chaque course. Que tes courses. */}
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-black text-lg text-slate-900">Historique ({pastRides.length})</h2>
+        {/* Fiabilité (v2.23) : tes annulations comptent — l'admin voit
+            le même indicateur ; les annulations répétées sont
+            signalées. */}
+        {pastRides.length > 0 && (
+          <p className="text-sm text-slate-600">
+            Fiabilité :{' '}
+            <strong className="text-slate-900">
+              {reliability.completed} course{reliability.completed > 1 ? 's' : ''} terminée
+              {reliability.completed > 1 ? 's' : ''}
+            </strong>
+            {' · '}
+            {reliability.cancelled} annulée{reliability.cancelled > 1 ? 's' : ''}
+            {reliability.flagged && (
+              <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black bg-red-100 text-red-700">
+                À surveiller — annulations répétées
+              </span>
+            )}
+          </p>
+        )}
         {pastRides.length === 0 ? (
           <p className="text-sm text-slate-500">Aucune course terminée pour le moment.</p>
         ) : (
@@ -679,6 +845,13 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
                     {date} · {time} · {typeLabel}
                     {ridePassengers[r.id] ? ` · Passager : ${ridePassengers[r.id]}` : ''}
                     {r.ratingPassenger ? ` · Ta note : ${r.ratingPassenger}/5` : ''}
+                    {r.status === 'annulee' && r.cancelReason ? ` · Annulée — ${r.cancelReason}` : ''}
+                    {r.status === 'terminee' && (
+                      <>
+                        {r.distanceKm !== null ? ` · ~${Math.max(1, Math.round(r.distanceKm))} km` : ''}
+                        {r.durationMin !== null ? ` · ~${r.durationMin} min` : ''}
+                      </>
+                    )}
                   </p>
                   {r.status !== 'annulee' && (
                     <p className="text-xs text-slate-500">
@@ -697,12 +870,28 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
         <RequestPopup
           ride={popupRide.ride}
           passenger={popupRide.passenger}
+          passengerRating={popupRide.passengerRating ?? null}
           driverSeats={profile.seats}
+          freeSeats={seatsInfo?.freeSeats ?? profile.seats}
           onClose={() => setPopupRide(null)}
           onProposed={(rideId) => {
             proposedRef.current.add(rideId);
             setPopupRide(null);
             fetchMine();
+            fetchSeats();
+          }}
+        />
+      )}
+
+      {/* Pop-up places libres (v2.19) : à la mise en ligne + « Mes places ». */}
+      {seatsPopupOpen && (profile.seats ?? null) !== null && (
+        <SeatsPopup
+          capacity={profile.seats as number}
+          freeSeats={seatsInfo?.freeSeats ?? null}
+          onClose={() => setSeatsPopupOpen(false)}
+          onSaved={() => {
+            setSeatsPopupOpen(false);
+            fetchSeats();
           }}
         />
       )}

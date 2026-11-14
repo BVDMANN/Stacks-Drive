@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigation } from 'lucide-react';
 import { TrackingMap } from './TrackingMap';
+import { DriverNavigation } from './DriverNavigation';
 import type { MapDriver, MapPoint } from '@/components/map/LibrevilleMap';
 import { haversineKm } from '@/lib/geo';
+import { useRoadRoute } from '@/lib/use-road-route';
 
 /** Vitesse moyenne retenue pour l'ETA en ville (Libreville) : 30 km/h.
  *  L'ETA est une estimation affichée au passager, jamais un engagement. */
@@ -31,6 +33,22 @@ interface LivePosition {
  *    seul au pickup (la page se recharge avec le statut 'en_cours').
  *  - Autres statuts : carte statique (itinéraire + chauffeur assigné).
  *
+ *  ETA routière (P0b) : dès que la position du chauffeur est connue
+ *  (en direct, sinon celle du profil), l'ETA est calculée sur la
+ *  distance ROUTIÈRE OSRM chauffeur → passager (durée + distance par
+ *  la route, via `/api/route`, recalculée quand le chauffeur bouge
+ *  d'environ 100 m ou toutes les 30 s — pas de nouveau sondage
+ *  agressif : on réutilise le sondage 5 s / le partage existants).
+ *  Si OSRM est indisponible, on retombe sur l'estimation à vol
+ *  d'oiseau (30 km/h) — jamais d'écran vide. Le PRIX ne change pas.
+ *
+ *  Navigation guidée (P0b, chauffeur uniquement) : pendant la course,
+ *  itinéraire routier vers le pickup puis vers la destination, avec
+ *  instructions virage par virage et bouton « Ouvrir dans l'app
+ *  Cartes » (Google Maps, gratuit, sans compte). La géolocalisation
+ *  du navigateur reste active en 'en_cours' pour le guidage local —
+ *  sans envoi serveur (le partage s'arrête au pickup).
+ *
  *  Confidentialité : la position n'est partagée et visible que pendant
  *  la course acceptée, entre ses deux parties — jamais hors course. */
 export function RideLiveTracking({
@@ -54,6 +72,7 @@ export function RideLiveTracking({
   const lastSentRef = useRef(0);
 
   const isTracking = status === 'acceptee';
+  const isNavigating = status === 'acceptee' || status === 'en_cours';
 
   // --- Côté passager : lecture de la position du chauffeur (5 s). ---
   useEffect(() => {
@@ -84,9 +103,11 @@ export function RideLiveTracking({
     };
   }, [isTracking, role, rideId]);
 
-  // --- Côté chauffeur : partage de la position (~10 s). ---
+  // --- Côté chauffeur : partage de la position (~10 s, 'acceptee'
+  //  uniquement) + géolocalisation locale pour la navigation guidée
+  //  ('acceptee' puis 'en_cours', sans envoi serveur après le pickup). ---
   useEffect(() => {
-    if (!isTracking || role !== 'chauffeur') return;
+    if (!isNavigating || role !== 'chauffeur') return;
     if (!('geolocation' in navigator)) {
       setSharing('unavailable');
       return;
@@ -113,6 +134,8 @@ export function RideLiveTracking({
           lng: pos.coords.longitude,
           updatedAt: new Date().toISOString(),
         });
+        // Envoi serveur uniquement avant le pickup.
+        if (status !== 'acceptee') return;
         const now = Date.now();
         // Envoi immédiat au premier fix, puis toutes les 10 s max.
         if (now - lastSentRef.current < 10000 && lastSentRef.current !== 0) return;
@@ -123,7 +146,7 @@ export function RideLiveTracking({
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [isTracking, role, rideId]);
+  }, [isNavigating, role, rideId, status]);
 
   // Position du chauffeur affichée : en direct si disponible (position
   // partagée côté passager, position du navigateur côté chauffeur),
@@ -135,14 +158,54 @@ export function RideLiveTracking({
         ? { ...driver, lat: selfLive.lat, lng: selfLive.lng }
         : driver;
 
-  // ETA passager : distance restante / 30 km/h. Moins de 200 m = arrivé.
+  // Position de départ de l'ETA / de la navigation : en direct, sinon
+  // navigateur, sinon profil (quartier) — l'ETA s'affiche donc dès
+  // l'acceptation, même avant le premier fix GPS.
+  const driverPos =
+    live ?? selfLive ?? (driver && driver.lat !== null && driver.lng !== null
+      ? { lat: driver.lat, lng: driver.lng }
+      : null);
+
+  // Cible : le pickup tant que la course n'a pas démarré, puis la
+  // destination. Côté passager, la cible n'existe qu'en 'acceptee'
+  // (pas de position en direct en 'en_cours').
+  const navTarget =
+    status === 'acceptee' ? pickup : status === 'en_cours' && role === 'chauffeur' ? destination : null;
+
+  // Itinéraire routier chauffeur → cible (P0b) : recalculé quand le
+  // chauffeur bouge d'environ 100 m ou toutes les 30 s (hook partagé,
+  // cache 5 min — aucun sondage supplémentaire).
+  const { route: roadRoute } = useRoadRoute(driverPos, navTarget, {
+    enabled: !!driverPos && !!navTarget && (role === 'chauffeur' ? isNavigating : isTracking),
+    refreshMs: 30000,
+  });
+
+  // ETA : routière (OSRM) quand elle est là, sinon à vol d'oiseau
+  // (30 km/h). Moins de 200 m = arrivé (position en direct only).
   let etaMin: number | null = null;
+  let etaDistanceKm: number | null = null;
+  let etaIsRoad = false;
   let arrived = false;
-  if (role === 'passager' && isTracking && live && pickup) {
-    const distKm = haversineKm(live.lat, live.lng, pickup.lat, pickup.lng);
-    if (distKm < 0.2) arrived = true;
-    else etaMin = Math.max(1, Math.round((distKm / CITY_SPEED_KMH) * 60));
+  if (driverPos && navTarget) {
+    if (roadRoute) {
+      etaMin = roadRoute.durationMin;
+      etaDistanceKm = roadRoute.distanceKm;
+      etaIsRoad = roadRoute.source === 'osrm';
+    } else {
+      const distKm = haversineKm(driverPos.lat, driverPos.lng, navTarget.lat, navTarget.lng);
+      etaDistanceKm = distKm;
+      etaMin = Math.max(1, Math.round((distKm / CITY_SPEED_KMH) * 60));
+    }
+    if (role === 'passager' && isTracking && live) {
+      const distKm = haversineKm(live.lat, live.lng, navTarget.lat, navTarget.lng);
+      if (distKm < 0.2) arrived = true;
+    }
   }
+
+  const etaLabel =
+    etaMin !== null
+      ? `~${etaMin} min${etaDistanceKm !== null ? ` · ${etaDistanceKm.toFixed(1).replace('.', ',')} km${etaIsRoad ? ' par la route' : ''}` : ''}`
+      : null;
 
   return (
     <div className="space-y-3">
@@ -152,9 +215,9 @@ export function RideLiveTracking({
           <Navigation size={18} className="text-gold shrink-0" />
           {arrived ? (
             <p className="text-sm font-black">Ton chauffeur est arrivé au point de départ !</p>
-          ) : etaMin !== null ? (
+          ) : etaLabel !== null ? (
             <p className="text-sm">
-              <strong className="font-black">Ton chauffeur arrive</strong> — Arrivée dans ~{etaMin} min
+              <strong className="font-black">Ton chauffeur arrive</strong> — Arrivée dans {etaLabel}
             </p>
           ) : (
             <p className="text-sm text-slate-300">
@@ -164,14 +227,14 @@ export function RideLiveTracking({
         </div>
       )}
 
-      {/* Bandeau partage (chauffeur, course acceptée). */}
+      {/* Bandeau partage + ETA (chauffeur, course acceptée). */}
       {role === 'chauffeur' && isTracking && (
         <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex items-center gap-3">
           <Navigation size={18} className="text-stacks-green shrink-0" />
           {sharing === 'active' ? (
             <p className="text-sm text-green-800">
               <strong className="font-black">Partage de position actif</strong> — ton passager te voit arriver
-              en direct. Le partage s’arrête quand tu démarres la course.
+              en direct{etaLabel !== null ? ` — arrivée au point de départ dans ${etaLabel}` : ''}.
             </p>
           ) : sharing === 'denied' ? (
             <p className="text-sm text-amber-800">
@@ -188,9 +251,36 @@ export function RideLiveTracking({
         </div>
       )}
 
+      {/* Bandeau ETA destination (chauffeur, course en cours). */}
+      {role === 'chauffeur' && status === 'en_cours' && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+          <Navigation size={18} className="text-stacks-green shrink-0" />
+          <p className="text-sm text-green-800">
+            <strong className="font-black">Course en cours</strong>
+            {etaLabel !== null ? ` — arrivée à destination dans ${etaLabel}.` : ' — itinéraire ci-dessous.'}
+          </p>
+        </div>
+      )}
+
       <div className="h-[380px] sm:h-[440px] rounded-3xl overflow-hidden border border-slate-200 shadow-sm relative">
-        <TrackingMap pickup={pickup} destination={destination} driver={shownDriver} />
+        <TrackingMap
+          pickup={pickup}
+          destination={destination}
+          driver={shownDriver}
+          navRoute={role === 'chauffeur' && isNavigating ? roadRoute : null}
+        />
       </div>
+
+      {/* Navigation guidée (chauffeur) : pickup puis destination. */}
+      {role === 'chauffeur' && isNavigating && navTarget && (
+        <DriverNavigation
+          route={roadRoute}
+          phase={status === 'en_cours' ? 'destination' : 'pickup'}
+          from={driverPos}
+          to={navTarget}
+          toLabel={navTarget.label}
+        />
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 -- Dashboard Supabase > SQL Editor, après le déploiement de la v2.
 -- Ne JAMAIS réexécuter schema.sql (v1, déjà en production).
 --
--- Changements de modèle (correction de Randy, 13/11/2026) :
+-- Changements de modèle (correction du propriétaire, 13/11/2026) :
 -- - Les chauffeurs ne publient RIEN : ils se mettent en ligne et
 --   PROPOSENT un prix sur les demandes des passagers (modèle Uber).
 -- - La table `rides` devient des DEMANDES créées par le passager

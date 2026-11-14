@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, MapPin, Route, Users, X } from 'lucide-react';
-import type { Ride } from '@/types';
+import { Clock, MapPin, Route, Star, Users, X } from 'lucide-react';
+import type { PassengerRating, Ride } from '@/types';
 import { formatFcfa } from '@/lib/commission';
 import { UNPAVED_ROAD_SUPPLEMENT, estimateTrip } from '@/lib/pricing';
 import { timeAgo } from '@/lib/dates';
@@ -14,29 +14,45 @@ import { dropOffPointFor, isDifficultAccess, type Neighborhood } from '@/lib/nei
 export function RequestPopup({
   ride,
   passenger,
+  passengerRating,
   driverSeats,
+  freeSeats,
   onClose,
   onProposed,
 }: {
   ride: Ride;
   passenger: { name: string | null; phone: string | null } | null;
+  /** Note moyenne du passager (v2.30) — ce que le chauffeur voit
+   *  pour décider d'accepter. Null = nouveau passager, aucune course
+   *  notée (jamais 0 inventé). */
+  passengerRating?: PassengerRating | null;
   /** Places dans le véhicule du chauffeur (son profil) : en Solo,
    *  le véhicule est entièrement libre, donc toutes ses places sont
    *  disponibles. Null = inconnu (repli : 1). */
   driverSeats?: number | null;
+  /** Places libres déclarées (v2.19) : borne les places proposées —
+   *  on ne promet jamais plus de places qu'on en a de libres. Null =
+   *  jamais déclarées = capacité entière libre. */
+  freeSeats?: number | null;
   onClose: () => void;
   onProposed: (rideId: string) => void;
 }) {
+  // Places libres effectives : déclarées, sinon capacité entière.
+  const effectiveFreeSeats = Math.min(
+    9,
+    Math.max(freeSeats ?? driverSeats ?? 1, 0)
+  );
   // Prix de départ de la proposition : le prix proposé par le passager
   // s'il en a mis un (v2.11), sinon l'estimation indicative — jamais
   // un prix imposé : le chauffeur propose librement son prix.
   const [price, setPrice] = useState(ride.offeredPrice ?? ride.estimatedPrice);
   // Places restantes dans son véhicule : en Groupe, le chauffeur
   // déclare combien de places libres il propose (1 minimum — le
-  // passager en prend une) ; en Solo, le véhicule est entièrement
-  // libre, donc toutes les places du véhicule sont disponibles.
+  // passager en prend une), bornées par ses places libres réelles ;
+  // en Solo, le véhicule est entièrement libre, donc toutes les
+  // places libres sont disponibles.
   const [seatsLeft, setSeatsLeft] = useState(
-    ride.rideType === 'solo' ? Math.min(9, Math.max(driverSeats ?? 1, 1)) : 1
+    ride.rideType === 'solo' ? effectiveFreeSeats : 1
   );
   const [firstStop, setFirstStop] = useState(ride.pickup);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +125,16 @@ export function RequestPopup({
               {passenger?.name ?? 'Passager'} · {passenger?.phone ?? ''} ·{' '}
               {ride.rideType === 'groupe' ? 'Groupe · 1 place' : 'Solo · véhicule entier'}
               {' '}· {ride.paymentMethod === 'especes' ? 'Espèces' : ride.paymentMethod === 'airtel' ? 'Airtel Money' : 'Moov Money'}
+            </p>
+            {/* Note du passager (v2.30) : moyenne des notes données
+                par les chauffeurs après ses courses terminées — pour
+                décider d'accepter. « Nouveau passager » = aucune
+                course notée, pas une mauvaise note. */}
+            <p className="text-sm font-bold text-slate-700 mt-1.5 flex items-center gap-1.5">
+              <Star size={15} className="text-stacks-amber fill-stacks-amber shrink-0" />
+              {passengerRating
+                ? `Note du passager : ${passengerRating.average}/5 (${passengerRating.count} course${passengerRating.count > 1 ? 's' : ''} notée${passengerRating.count > 1 ? 's' : ''})`
+                : 'Nouveau passager — aucune course notée pour l’instant'}
             </p>
           </div>
           <button
@@ -214,12 +240,19 @@ export function RequestPopup({
                   id="seats-left"
                   type="number"
                   min={1}
-                  max={9}
+                  max={Math.max(1, effectiveFreeSeats)}
                   required
                   value={seatsLeft}
-                  onChange={(e) => setSeatsLeft(Number(e.target.value))}
+                  onChange={(e) =>
+                    setSeatsLeft(
+                      Math.min(Math.max(1, Number(e.target.value) || 1), Math.max(1, effectiveFreeSeats))
+                    )
+                  }
                   className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-black focus:border-stacks-green focus:outline-none"
                 />
+                <p className="text-xs text-slate-400">
+                  {effectiveFreeSeats} place{effectiveFreeSeats > 1 ? 's' : ''} libre{effectiveFreeSeats > 1 ? 's' : ''} dans ton véhicule.
+                </p>
               </div>
             )}
             <div className={ride.rideType === 'solo' ? 'col-span-2 space-y-1.5' : 'space-y-1.5'}>
@@ -245,10 +278,19 @@ export function RequestPopup({
             En Groupe, le premier arrêt donne l’ordre des prises en charge.
           </p>
 
+          {/* Plus de place libre (v2.19) : la demande a été vue avant
+              que le véhicule se remplisse — on ne propose plus, on
+              renvoie vers « Mes places ». */}
+          {effectiveFreeSeats <= 0 && (
+            <p role="alert" className="text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              Tu n’as plus de place libre : modifie tes places (« Mes places » sur ton accueil) avant de proposer.
+            </p>
+          )}
+
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || effectiveFreeSeats <= 0}
               className="flex-1 bg-stacks-green text-white font-black py-4 rounded-full shadow-lg shadow-stacks-green/20 hover:bg-stacks-greenLight transition-colors disabled:opacity-50"
             >
               {loading ? 'Envoi…' : `Proposer ${formatFcfa(price)}`}
