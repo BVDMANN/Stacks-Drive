@@ -1,0 +1,38 @@
+# Stacks Drive — intégration continue (v2.26, lot D)
+#
+# À chaque push et chaque pull request sur main : build + contrôle
+# des documentations. Gratuit (dépôt public, runners GitHub).
+# Aucun secret dans ce workflow : `npm run build` et
+# `npm run docs:check` n'ont besoin d'aucune variable
+# d'environnement (sans Supabase configuré, le build passe et les
+# pages qui dépendent de la base restent vides — c'est le
+# comportement prévu en local comme en CI).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Contrôle des documentations
+        run: npm run docs:check
