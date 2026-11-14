@@ -17,17 +17,16 @@ export default async function MentionsLegalesPage() {
           <p>
             Le site Stacks Drive est édité par <strong>Stacks</strong>, entreprise
             individuelle immatriculée au Registre National des Entreprises (RNE),
-            SIREN <strong>104 314 687</strong>, dont le siège est situé au{' '}
-            <strong>5 allée Xavier Bichat, 77420 Champs-sur-Marne, France</strong>.
+            SIREN <strong>104 314 687</strong>.
           </p>
           <p>
             Contact :{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
-              boulinguirandy12@gmail.com
+            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+              stacks.markett@gmail.com
             </a>
           </p>
           <p>
-            Directeur de la publication : Gilchrist Randy Boulingui.
+            Directeur de la publication : Stacks.
           </p>
         </section>
 

@@ -17,8 +17,9 @@ export function Footer() {
               <span className="text-xl font-black text-white tracking-tight">Stacks Drive</span>
             </div>
             <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
-              La solution du peuple pour se déplacer à Libreville : prix fixe,
-              chauffeurs vérifiés, paiement en espèces ou Mobile Money.
+              La solution du peuple pour se déplacer à Libreville : estimation
+              indicative, prix figé une fois accepté, chauffeurs vérifiés,
+              paiement en espèces ou Mobile Money.
             </p>
             <p className="text-slate-400 text-sm">
               Un service de <strong className="text-slate-200">Stacks</strong> — SIREN 104 314 687.

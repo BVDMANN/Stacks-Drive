@@ -57,6 +57,9 @@ export interface RideRow {
   vehicle_preference: 'voiture' | 'moto' | 'tous';
   seats: number;
   estimated_price: number;
+  /** v2.11 — prix proposé directement par le passager à la demande
+   *  (null = le passager n'a pas proposé de prix). */
+  passenger_offered_price: number | null;
   /** v2.6 — route non bitumée : demande du passager, point de dépôt,
    *  choix du chauffeur (figé à l'acceptation). */
   unpaved_requested: boolean | null;
@@ -100,6 +103,8 @@ export interface RideProposalRow {
   ride_id: string;
   driver_id: string;
   proposed_price: number;
+  /** v2.11 — contre-proposition du passager (null = aucune). */
+  counter_price: number | null;
   /** v2.6 — le chauffeur prend la route non bitumée (true) ou s'arrête
    *  au point de dépôt (false). */
   unpaved_accepted: boolean | null;
@@ -111,6 +116,70 @@ export interface RideProposalRow {
   /** Chauffeur joint. */
   driver?: ProfileRow | null;
   profiles?: ProfileRow | null;
+}
+
+/** Message de course (table `ride_messages`, v2.10) : échange in-app
+ *  entre le passager et le chauffeur d'UNE course, pendant qu'elle est
+ *  en cours. Aucun numéro de téléphone n'est exposé. */
+export interface RideMessageRow {
+  id: string;
+  ride_id: string;
+  sender_id: string;
+  sender_role: 'passager' | 'chauffeur';
+  body: string;
+  created_at: string;
+}
+
+export interface RideMessage {
+  id: string;
+  rideId: string;
+  senderId: string;
+  senderRole: 'passager' | 'chauffeur';
+  body: string;
+  createdAt: string;
+}
+
+export function mapRideMessageRow(row: RideMessageRow): RideMessage {
+  return {
+    id: row.id,
+    rideId: row.ride_id,
+    senderId: row.sender_id,
+    senderRole: row.sender_role,
+    body: row.body,
+    createdAt: row.created_at,
+  };
+}
+
+/** Dernière position connue du chauffeur pour une course acceptée
+ *  (table `driver_locations`, v2.10) : une seule ligne par course,
+ *  visible uniquement par son passager, uniquement avant le pickup. */
+export interface DriverLocationRow {
+  ride_id: string;
+  driver_id: string;
+  lat: number;
+  lng: number;
+  accuracy_m: number | null;
+  updated_at: string;
+}
+
+export interface DriverLocation {
+  rideId: string;
+  driverId: string;
+  lat: number;
+  lng: number;
+  accuracyM: number | null;
+  updatedAt: string;
+}
+
+export function mapDriverLocationRow(row: DriverLocationRow): DriverLocation {
+  return {
+    rideId: row.ride_id,
+    driverId: row.driver_id,
+    lat: row.lat,
+    lng: row.lng,
+    accuracyM: row.accuracy_m,
+    updatedAt: row.updated_at,
+  };
 }
 
 /** Convertit une ligne `rides` en `Ride` (forme utilisée par l'interface). */
@@ -125,6 +194,7 @@ export function mapRideRow(row: RideRow): Ride {
     vehiclePreference: row.vehicle_preference,
     seats: row.seats,
     estimatedPrice: row.estimated_price,
+    offeredPrice: row.passenger_offered_price ?? null,
     unpavedRequested: row.unpaved_requested ?? false,
     dropOffPoint: row.drop_off_point ?? null,
     unpavedAccepted: row.unpaved_accepted ?? null,
@@ -188,6 +258,7 @@ export function mapProposalRow(row: RideProposalRow): RideProposal {
     rideId: row.ride_id,
     driverId: row.driver_id,
     proposedPrice: row.proposed_price,
+    counterPrice: row.counter_price ?? null,
     unpavedAccepted: row.unpaved_accepted ?? false,
     seatsLeft: row.seats_left,
     firstStop: row.first_stop,

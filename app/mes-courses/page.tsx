@@ -87,7 +87,11 @@ export default async function MesCoursesPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                       <p className="text-sm">
                         <span className="font-black text-slate-900">
-                          {ride.loyaltyFree ? '0 FCFA — 10e course offerte' : formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
+                          {ride.loyaltyFree
+                            ? '0 FCFA — 10e course offerte'
+                            : ride.proposedPrice !== null
+                              ? formatFcfa(ride.proposedPrice)
+                              : `En attente des propositions (estimation : ${formatFcfa(ride.estimatedPrice)})`}
                         </span>
                         {ride.proposedPrice !== null && !ride.loyaltyFree && (
                           <span className="text-slate-500">
@@ -128,7 +132,11 @@ export default async function MesCoursesPage() {
                     </div>
                     <p className="text-sm border-t border-slate-100 pt-3">
                       <span className="font-black text-slate-900">
-                        {ride.loyaltyFree ? '0 FCFA — 10e course offerte' : formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
+                        {ride.loyaltyFree
+                          ? '0 FCFA — 10e course offerte'
+                          : ride.proposedPrice !== null
+                            ? formatFcfa(ride.proposedPrice)
+                            : '—'}
                       </span>
                       {ride.loyaltyFree && (
                         <span className="inline-flex items-center gap-1 text-xs font-black text-stacks-amber ml-2">

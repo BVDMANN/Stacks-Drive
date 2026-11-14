@@ -127,6 +127,117 @@ export async function getRideRequestById(
   return { ride: mapRideRow(row), row };
 }
 
+/** Historique du passager (v2.10) : courses terminées ou annulées, avec
+ *  le nom du chauffeur. Le passager ne voit QUE ses propres courses.
+ *  Ni code PIN, ni position, ni messages dans l'historique. */
+export async function getPassengerRideHistory(
+  userId: string,
+  limit = 20
+): Promise<{ ride: Ride; driverName: string | null }[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('rides')
+    .select('*')
+    .eq('passenger_id', userId)
+    .in('status', ['terminee', 'annulee'])
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error('[stacks-drive] getPassengerRideHistory:', error.message);
+    return [];
+  }
+  const rows = (data ?? []) as RideRow[];
+  const driverIds = [...new Set(rows.map((r) => r.driver_id).filter(Boolean))] as string[];
+  const names = new Map<string, string>();
+  if (driverIds.length > 0) {
+    const { data: drivers } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', driverIds);
+    (drivers ?? []).forEach((d: { id: string; full_name: string | null }) =>
+      names.set(d.id, d.full_name ?? 'Chauffeur')
+    );
+  }
+  return rows.map((row) => ({
+    ride: mapRideRow(row),
+    driverName: row.driver_id ? names.get(row.driver_id) ?? null : null,
+  }));
+}
+
+/** Historique du chauffeur (v2.10) : courses terminées ou annulées, avec
+ *  le nom du passager et les gains de la course (driver_earnings quand
+ *  disponible, sinon les montants figés dans la course : commission et
+ *  part gardée). Le chauffeur ne voit QUE ses propres courses. */
+export async function getDriverRideHistory(
+  userId: string,
+  limit = 30
+): Promise<{
+  ride: Ride;
+  passengerName: string | null;
+  earning: { fare: number; commission: number; kept: number } | null;
+}[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('rides')
+    .select('*')
+    .eq('driver_id', userId)
+    .in('status', ['terminee', 'annulee'])
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error('[stacks-drive] getDriverRideHistory:', error.message);
+    return [];
+  }
+  const rows = (data ?? []) as RideRow[];
+  const passengerIds = [...new Set(rows.map((r) => r.passenger_id).filter(Boolean))] as string[];
+  const names = new Map<string, string>();
+  if (passengerIds.length > 0) {
+    const { data: passengers } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', passengerIds);
+    (passengers ?? []).forEach((p: { id: string; full_name: string | null }) =>
+      names.set(p.id, p.full_name ?? 'Passager')
+    );
+  }
+  // Gains par course (table driver_earnings, 1 ligne par course terminée).
+  // Si la table n'existe pas encore (migration v2.2 non appliquée), on
+  // se replie sur les montants figés dans la course.
+  const earnings = new Map<string, { fare: number; commission: number; kept: number }>();
+  const rideIds = rows.map((r) => r.id);
+  if (rideIds.length > 0) {
+    const { data: earn, error: earnError } = await supabase
+      .from('driver_earnings')
+      .select('ride_id, fare_amount, commission_amount, driver_kept_amount')
+      .in('ride_id', rideIds);
+    if (!earnError && earn) {
+      (earn as { ride_id: string; fare_amount: number; commission_amount: number; driver_kept_amount: number }[]).forEach(
+        (e) =>
+          earnings.set(e.ride_id, {
+            fare: e.fare_amount,
+            commission: e.commission_amount,
+            kept: e.driver_kept_amount,
+          })
+      );
+    }
+  }
+  return rows.map((row) => {
+    const ride = mapRideRow(row);
+    return {
+      ride,
+      passengerName: row.passenger_id ? names.get(row.passenger_id) ?? null : null,
+      earning:
+        earnings.get(row.id) ?? {
+          fare: ride.proposedPrice ?? ride.estimatedPrice,
+          commission: ride.platformFee,
+          kept: ride.driverShare,
+        },
+    };
+  });
+}
+
 /** Demandes du passager connecté (actives puis historique). */
 export async function getMyRideRequests(userId: string): Promise<Ride[]> {
   if (!isSupabaseConfigured()) return [];

@@ -64,11 +64,14 @@ type Phase = 'idle' | 'searching' | 'proposals' | 'confirmed' | 'done';
 
 const DRAFT_KEY = 'stacks-drive-draft-v2';
 
-/** Tarifs fixes mis en avant (trajets les plus demandés) — v2.3, baisse de 24 %. */
-const FIXED_FARES: { pickup: Neighborhood; destination: Neighborhood; label: string }[] = [
-  { pickup: 'Centre-ville', destination: 'Aéroport Léon-Mba', label: 'Aéroport · 3 800 FCFA' },
-  { pickup: 'Nzeng-Ayong', destination: 'Centre-ville', label: 'Nzeng-Ayong → Centre-ville · 700 FCFA' },
-  { pickup: 'Glass', destination: 'Nzeng-Ayong', label: 'Glass → Nzeng-Ayong · 900 FCFA' },
+/** Raccourcis d'itinéraire (trajets les plus demandés) — SANS prix :
+ *  la plateforme ne définit aucun tarif fixe (v2.11). Le passager
+ *  voit une estimation indicative après avoir choisi son trajet ; le
+ *  prix final se décide avec le chauffeur. */
+const ROUTE_SHORTCUTS: { pickup: Neighborhood; destination: Neighborhood; label: string }[] = [
+  { pickup: 'Aéroport Léon-Mba', destination: 'Centre-ville', label: 'Aéroport → Centre-ville' },
+  { pickup: 'Nzeng-Ayong', destination: 'Centre-ville', label: 'Nzeng-Ayong → Centre-ville' },
+  { pickup: 'Glass', destination: 'Nzeng-Ayong', label: 'Glass → Nzeng-Ayong' },
 ];
 
 const SELECTABLE = NEIGHBORHOODS.filter((n) => n !== 'Autre');
@@ -87,6 +90,8 @@ interface Draft {
   vehiclePreference: VehiclePreference;
   seats: number;
   paymentMethod: PaymentMethod;
+  /** Prix proposé par le passager à la demande (v2.11, optionnel). */
+  offeredPrice: number | null;
 }
 
 function readDraft(): Draft | null {
@@ -146,9 +151,21 @@ function AnimatedPrice({
   );
 }
 
+/** Petite barre de chargement du prix (v2.11) : shimmer or/cyan qui
+ *  remplace le chiffre pendant le (re)calcul de l'estimation. */
+function PriceSkeleton({ className }: { className?: string }) {
+  return (
+    <span
+      aria-label="Calcul du prix…"
+      role="status"
+      className={cn('price-skeleton block rounded-lg', className ?? 'h-7 w-28')}
+    />
+  );
+}
+
 /** Écran d'accueil map-first « Libreville la nuit » : carte sombre plein
  *  écran + feuille de demande draggable en bas (départ géolocalisable,
- *  destination, type de course, prix fixe, commander). */
+ *  destination, type de course, estimation indicative, commander). */
 export function HomeScreen({
   user,
   profile,
@@ -170,6 +187,10 @@ export function HomeScreen({
   const [vehiclePref, setVehiclePref] = useState<VehiclePreference>('tous');
   const [seats, setSeats] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('especes');
+  // Prix proposé directement par le passager (v2.11, optionnel) : les
+  // chauffeurs le voient et peuvent l'accepter ou contre-proposer. Vide
+  // = le passager attend les propositions des chauffeurs.
+  const [offeredPrice, setOfferedPrice] = useState('');
   // Route non bitumée (v2.6) : le passager demande la continuité
   // jusqu'à un quartier à accès difficile (+ supplément). Remis à zéro
   // à chaque changement de destination.
@@ -249,6 +270,7 @@ export function HomeScreen({
       setVehiclePref(d.vehiclePreference);
       setSeats(d.seats);
       setPaymentMethod(d.paymentMethod);
+      setOfferedPrice(d.offeredPrice !== null && d.offeredPrice !== undefined ? String(d.offeredPrice) : '');
       window.localStorage.removeItem(DRAFT_KEY);
     }
   }, []);
@@ -286,6 +308,23 @@ export function HomeScreen({
         : null,
     [pickup, destination, unpavedRoad, validTrip]
   );
+
+  // Barre de chargement du prix (v2.11) : quand le départ, la
+  // destination, le type ou le véhicule change, le prix « se calcule »
+  // 300 ms — une petite barre shimmer remplace le chiffre, puis le
+  // prix apparaît avec sa décomposition. Le calcul lui-même est
+  // instantané (local) ; le délai rend le changement lisible et
+  // évite le chiffre qui saute à chaque frappe.
+  const [estimating, setEstimating] = useState(false);
+  useEffect(() => {
+    if (!validTrip) {
+      setEstimating(false);
+      return;
+    }
+    setEstimating(true);
+    const t = window.setTimeout(() => setEstimating(false), 300);
+    return () => window.clearTimeout(t);
+  }, [pickup, destination, rideType, vehiclePref, unpavedRoad, validTrip]);
 
   // Tous les chauffeurs en ligne : réels + démos. La carte et le compteur
   // « chauffeurs autour de toi » les montrent TOUS, Moto comprise : la
@@ -434,7 +473,15 @@ export function HomeScreen({
   );
 
   function saveDraft() {
-    const draft: Draft = { pickup, destination, rideType, vehiclePreference: vehiclePref, seats, paymentMethod };
+    const draft: Draft = {
+      pickup,
+      destination,
+      rideType,
+      vehiclePreference: vehiclePref,
+      seats,
+      paymentMethod,
+      offeredPrice: offeredPrice.trim() === '' ? null : Number(offeredPrice),
+    };
     try {
       window.localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch {
@@ -553,6 +600,14 @@ export function HomeScreen({
   async function commander() {
     setError(null);
     if (!validTrip || !estimate) return;
+    // Prix proposé par le passager (v2.11, optionnel) : entre 400 et
+    // 50 000 FCFA, comme les bornes du garde-fou serveur.
+    const offered =
+      offeredPrice.trim() === '' ? null : Math.round(Number(offeredPrice));
+    if (offered !== null && (!Number.isFinite(offered) || offered < 400 || offered > 50000)) {
+      setError('Ton prix proposé doit être entre 400 et 50 000 FCFA.');
+      return;
+    }
     if (!user) {
       saveDraft();
       router.push('/connexion?next=/');
@@ -574,6 +629,7 @@ export function HomeScreen({
         seats: rideType === 'groupe' ? seats : 1,
         paymentMethod,
         unpavedRoad,
+        offeredPrice: offered,
       }),
     });
     const data = await res.json().catch(() => null);
@@ -625,6 +681,28 @@ export function HomeScreen({
     setProposals((prev) => prev.filter((p) => p.id !== proposalId));
   }
 
+  /** Contre-proposition du passager (v2.11) : propose ton prix au
+   *  chauffeur — il peut l'accepter ou proposer un autre prix. Renvoie
+   *  true si le serveur l'a enregistrée (la carte affiche alors le
+   *  montant envoyé). */
+  async function contreProposer(proposalId: string, price: number): Promise<boolean> {
+    const res = await fetch(`/api/proposals/${proposalId}/counter`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ counterPrice: price }),
+    }).catch(() => null);
+    if (!res?.ok) return false;
+    const data = await res.json().catch(() => null);
+    setProposals((prev) =>
+      prev.map((p) =>
+        p.id === proposalId
+          ? { ...p, counterPrice: price, expiresAt: (data?.expiresAt as string) ?? p.expiresAt }
+          : p
+      )
+    );
+    return true;
+  }
+
   async function annulerCourse() {
     if (!rideId) return;
     setBusy(true);
@@ -673,17 +751,21 @@ export function HomeScreen({
         onDriverClick={(id) => setSelectedDriverId(id)}
       />
 
-      {/* Compteur de chauffeurs autour — passagers seulement, s'efface
-          quand la feuille se déplie */}
-      {phase === 'idle' && !isChauffeurMode && (
+      {/* Compteur de chauffeurs autour — passagers seulement. En idle il
+          s'efface quand la feuille se déplie ; pendant la recherche et
+          les propositions, le radar reste visible : « X chauffeurs
+          détectés autour de toi » (v2.11). */}
+      {phase !== 'confirmed' && phase !== 'done' && !isChauffeurMode && (
         <div
           className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none transition-all duration-500 ${
-            sheetExpanded ? 'opacity-0 -translate-y-2' : 'opacity-100'
+            phase === 'idle' && sheetExpanded ? 'opacity-0 -translate-y-2' : 'opacity-100'
           }`}
         >
           <span className="inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/10 shadow-xl shadow-black/40 rounded-full px-4 py-2 text-xs font-black text-slate-100">
             <span className="w-2 h-2 rounded-full bg-cyan animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
-            {driversNearPickup} chauffeur{driversNearPickup > 1 ? 's' : ''} autour de toi
+            {phase === 'idle'
+              ? `${driversNearPickup} chauffeur${driversNearPickup > 1 ? 's' : ''} autour de toi`
+              : `Radar · ${driversNearPickup} chauffeur${driversNearPickup > 1 ? 's' : ''} détecté${driversNearPickup > 1 ? 's' : ''} autour de toi`}
           </span>
         </div>
       )}
@@ -883,13 +965,14 @@ export function HomeScreen({
                 )}
               </div>
 
-              {/* Tarifs fixes */}
+              {/* Trajets fréquents — raccourcis d'itinéraire, SANS prix :
+                  la plateforme ne définit aucun tarif fixe (v2.11). */}
               <div className="space-y-1.5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                  <ShieldCheck size={13} className="text-cyan" /> Tarifs fixes — prix garanti, jamais de surge
+                  <ShieldCheck size={13} className="text-cyan" /> Trajets fréquents — estimation indicative, prix figé une fois accepté
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {FIXED_FARES.map((f) => (
+                  {ROUTE_SHORTCUTS.map((f) => (
                     <button
                       key={f.label}
                       type="button"
@@ -909,10 +992,11 @@ export function HomeScreen({
                 </div>
               </div>
 
-              {/* Types de course */}
+              {/* Types de course — les montants affichés sont des
+                  estimations indicatives, pas des prix (v2.11). */}
               <div className="space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Type de course
+                  Type de course · estimation indicative
                 </p>
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
@@ -936,10 +1020,14 @@ export function HomeScreen({
                       Partagée, comme le taxi — prix divisé par passager, arrêts dans l’ordre.
                     </span>
                     <span className="block font-black text-lg text-white mt-2">
-                      <AnimatedPrice
-                        value={validTrip ? estimateGroupe?.price ?? null : null}
-                        suffix={<span className="text-xs font-bold text-slate-400"> / passager</span>}
-                      />
+                      {estimating ? (
+                        <PriceSkeleton />
+                      ) : (
+                        <AnimatedPrice
+                          value={validTrip ? estimateGroupe?.price ?? null : null}
+                          suffix={<span className="text-xs font-bold text-slate-400"> / passager</span>}
+                        />
+                      )}
                     </span>
                     <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
                       <Clock size={12} />
@@ -964,10 +1052,14 @@ export function HomeScreen({
                       Privée et directe, sans arrêt — pour toi seul ou ton petit groupe.
                     </span>
                     <span className="block font-black text-lg text-white mt-2">
-                      <AnimatedPrice
-                        value={validTrip ? estimateSolo?.price ?? null : null}
-                        suffix={<span className="text-xs font-bold text-slate-400"> la course</span>}
-                      />
+                      {estimating ? (
+                        <PriceSkeleton />
+                      ) : (
+                        <AnimatedPrice
+                          value={validTrip ? estimateSolo?.price ?? null : null}
+                          suffix={<span className="text-xs font-bold text-slate-400"> la course</span>}
+                        />
+                      )}
                     </span>
                     <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
                       <Clock size={12} />
@@ -1053,12 +1145,37 @@ export function HomeScreen({
                 </select>
               </label>
 
+              {/* Ton prix proposé (v2.11, optionnel) : propose directement
+                  ton prix — les chauffeurs le voient et peuvent
+                  l'accepter ou contre-proposer. Vide = tu attends leurs
+                  propositions. */}
+              <div className="space-y-1.5">
+                <label htmlFor="offered-price" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Ton prix proposé — optionnel (FCFA)
+                </label>
+                <input
+                  id="offered-price"
+                  type="number"
+                  min={400}
+                  max={50000}
+                  step={50}
+                  inputMode="numeric"
+                  placeholder="Ex : 1 500 — laisse vide pour attendre les propositions"
+                  value={offeredPrice}
+                  onChange={(e) => setOfferedPrice(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white placeholder:text-slate-500 placeholder:font-normal focus:border-cyan focus:outline-none"
+                />
+                <p className="text-xs text-slate-500">
+                  Le prix final se décide avec ton chauffeur — une fois accepté, il est figé, jamais de surge.
+                </p>
+              </div>
+
               {/* Estimation + Commander */}
               {estimate && (
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center justify-between gap-3 rise-in">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      Prix estimé — fixe
+                      Estimation — indicative
                     </p>
                     <p className="text-2xl font-black text-white leading-tight">
                       <AnimatedPrice
@@ -1071,9 +1188,14 @@ export function HomeScreen({
                       />
                     </p>
                     <p className="text-xs text-slate-400">{estimate.breakdown}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Ce n’est pas le prix de la course : les chauffeurs proposent leur prix, tu choisis — le prix accepté est figé.
+                    </p>
                   </div>
                   <span className="text-right text-xs font-bold text-cyan">
-                    Prix garanti
+                    Prix figé
+                    <br />
+                    une fois accepté
                   </span>
                 </div>
               )}
@@ -1088,9 +1210,7 @@ export function HomeScreen({
                   ? 'Envoi…'
                   : !user
                     ? 'Se connecter pour commander'
-                    : estimate
-                      ? `Commander · ${formatFcfa(estimate.price)}`
-                      : 'Commander'}
+                    : 'Commander'}
               </button>
 
               <p className="text-[11px] text-slate-500 text-center">
@@ -1135,7 +1255,11 @@ export function HomeScreen({
                 </h2>
                 <p className="text-sm text-slate-400">
                   {pickup} → {destination} · {rideType === 'groupe' ? 'Groupe' : 'Solo'} ·{' '}
-                  {estimate ? formatFcfa(estimate.price) : ''} · prix fixe
+                  estimation indicative : {estimate ? formatFcfa(estimate.price) : '—'}
+                  {offeredPrice.trim() !== '' && ` · tu proposes ${formatFcfa(Number(offeredPrice))}`}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Les chauffeurs proposent leur prix — tu choisis, le prix accepté est figé.
                 </p>
                 {widened && (
                   <p className="text-sm font-bold text-gold bg-gold/10 border border-gold/30 rounded-xl p-2.5 mt-2">
@@ -1154,6 +1278,7 @@ export function HomeScreen({
                       key={p.id}
                       proposal={p}
                       estimatePrice={estimate?.price ?? p.proposedPrice}
+                      estimateBreakdown={estimate?.breakdown}
                       etaMin={etaForProposal(p)}
                       secondsLeft={p.secondsLeft ?? 0}
                       busy={busyProposalId !== null}
@@ -1161,6 +1286,7 @@ export function HomeScreen({
                       destinationLabel={destination}
                       onAccept={accepter}
                       onDecline={refuser}
+                      onCounter={contreProposer}
                     />
                   ))}
                   <p className="text-xs text-slate-500 text-center">
@@ -1169,7 +1295,18 @@ export function HomeScreen({
                 </div>
               ) : (
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center text-sm text-slate-400">
-                  Les chauffeurs en ligne autour de {pickup} reçoivent ta demande…
+                  {/* Barre de chargement (v2.11) : pendant l'attente des
+                      propositions des chauffeurs, un shimmer or/cyan
+                      remplace le prix — les prix apparaissent avec les
+                      propositions. */}
+                  <span
+                    className="price-skeleton block h-2.5 w-48 mx-auto rounded-full"
+                    role="status"
+                    aria-label="Recherche de chauffeurs…"
+                  />
+                  <p className="mt-3">
+                    Les chauffeurs en ligne autour de {pickup} reçoivent ta demande…
+                  </p>
                   <span className="block text-xs text-slate-500 mt-1">
                     Le radar cherche jusqu’à 10 km, puis élargit à 25 km.
                   </span>
@@ -1218,6 +1355,13 @@ export function HomeScreen({
                 onCancel={acceptedRide.status === 'acceptee' ? annulerCourse : undefined}
                 cancelling={busy}
               />
+              {/* Messagerie (v2.10) : écrire au chauffeur, le voir arriver. */}
+              <Link
+                href={`/courses/${acceptedRide.id}#messages`}
+                className="block w-full text-center bg-white/10 hover:bg-white/15 text-white text-sm font-black py-3 rounded-full transition-colors"
+              >
+                Écrire à ton chauffeur
+              </Link>
               <button
                 type="button"
                 onClick={resetToIdle}

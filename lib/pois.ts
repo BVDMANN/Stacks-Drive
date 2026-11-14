@@ -48,26 +48,36 @@ export const POIS: Poi[] = [
   { name: 'Prix Import', category: 'supermarche', neighborhood: 'Nzeng-Ayong', lat: 0.431, lng: 9.471 },
   { name: 'CK2', category: 'supermarche', neighborhood: 'Mont-Bouët', lat: 0.397, lng: 9.466 },
   { name: 'Casino Supermarché', category: 'supermarche', neighborhood: 'Centre-ville', lat: 0.3905, lng: 9.452 },
+  { name: 'Cecado', category: 'supermarche', neighborhood: 'Glass', lat: 0.404, lng: 9.441 },
 
   // --- Marchés ---
   { name: 'Marché Mont-Bouët', category: 'marche', neighborhood: 'Mont-Bouët', lat: 0.396, lng: 9.468 },
   { name: 'Marché de Nzeng-Ayong', category: 'marche', neighborhood: 'Nzeng-Ayong', lat: 0.429, lng: 9.47 },
   { name: 'Marché de Louis', category: 'marche', neighborhood: 'Louis', lat: 0.41, lng: 9.45 },
   { name: 'Marché d’Owendo', category: 'marche', neighborhood: 'Owendo', lat: 0.341, lng: 9.498 },
+  { name: 'Marché de Nkembo', category: 'marche', neighborhood: 'Nkembo', lat: 0.441, lng: 9.452 },
+  { name: 'Marché d’Akébé', category: 'marche', neighborhood: 'Akébé', lat: 0.406, lng: 9.461 },
 
   // --- Stations-service ---
   { name: 'TotalEnergies Centre-ville', category: 'station', neighborhood: 'Centre-ville', lat: 0.389, lng: 9.456 },
   { name: 'TotalEnergies Glass', category: 'station', neighborhood: 'Glass', lat: 0.403, lng: 9.443 },
   { name: 'OLA Nzeng-Ayong', category: 'station', neighborhood: 'Nzeng-Ayong', lat: 0.428, lng: 9.468 },
   { name: 'TotalEnergies Aéroport', category: 'station', neighborhood: 'Aéroport Léon-Mba', lat: 0.456, lng: 9.414 },
+  { name: 'TotalEnergies Owendo', category: 'station', neighborhood: 'Owendo', lat: 0.338, lng: 9.502 },
+  { name: 'TotalEnergies Akanda', category: 'station', neighborhood: 'Akanda', lat: 0.452, lng: 9.488 },
 
   // --- Pharmacies ---
   { name: 'Pharmacie du Centre', category: 'pharmacie', neighborhood: 'Centre-ville', lat: 0.391, lng: 9.453 },
   { name: 'Pharmacie de Glass', category: 'pharmacie', neighborhood: 'Glass', lat: 0.402, lng: 9.444 },
   { name: 'Pharmacie Mont-Bouët', category: 'pharmacie', neighborhood: 'Mont-Bouët', lat: 0.397, lng: 9.467 },
+  { name: 'Pharmacie de Nzeng-Ayong', category: 'pharmacie', neighborhood: 'Nzeng-Ayong', lat: 0.429, lng: 9.472 },
+  { name: 'Pharmacie d’Owendo', category: 'pharmacie', neighborhood: 'Owendo', lat: 0.34, lng: 9.499 },
+  { name: 'Pharmacie de Louis', category: 'pharmacie', neighborhood: 'Louis', lat: 0.409, lng: 9.451 },
 
   // --- Hôtels ---
   { name: 'Radisson Blu Okoumé Palace', category: 'hotel', neighborhood: 'Centre-ville', lat: 0.398, lng: 9.436 },
+  { name: 'Le Méridien Re-Ndama', category: 'hotel', neighborhood: 'Centre-ville', lat: 0.393, lng: 9.45 },
+  { name: 'Hôtel Tropicana', category: 'hotel', neighborhood: 'Centre-ville', lat: 0.388, lng: 9.453 },
 
   // --- Santé ---
   { name: 'CHU de Libreville', category: 'sante', neighborhood: 'Nzeng-Ayong', lat: 0.44, lng: 9.47 },
@@ -79,4 +89,13 @@ export const POIS: Poi[] = [
   { name: 'Université Omar Bongo', category: 'lieu', neighborhood: 'Lalala', lat: 0.425, lng: 9.465 },
   { name: 'Cathédrale Sainte-Marie', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.392, lng: 9.451 },
   { name: 'Gare d’Owendo', category: 'lieu', neighborhood: 'Owendo', lat: 0.33, lng: 9.505 },
+  { name: 'Aéroport international Léon-Mba', category: 'lieu', neighborhood: 'Aéroport Léon-Mba', lat: 0.458, lng: 9.412 },
+  { name: 'Port d’Owendo', category: 'lieu', neighborhood: 'Owendo', lat: 0.335, lng: 9.505 },
+  { name: 'Port de Libreville', category: 'lieu', neighborhood: 'Petit Paris', lat: 0.386, lng: 9.447 },
+  { name: 'Stade Omar Bongo', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.397, lng: 9.452 },
+  { name: 'Musée National du Gabon', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.392, lng: 9.45 },
+  { name: 'Plage de la Sablière', category: 'lieu', neighborhood: 'Sablière', lat: 0.419, lng: 9.468 },
+  { name: 'Plage d’Angondjé', category: 'lieu', neighborhood: 'Angondjé', lat: 0.517, lng: 9.44 },
+  { name: 'Gare Routière', category: 'lieu', neighborhood: 'Petit Paris', lat: 0.385, lng: 9.451 },
+  { name: 'Jardin Botanique', category: 'lieu', neighborhood: 'Centre-ville', lat: 0.394, lng: 9.446 },
 ];

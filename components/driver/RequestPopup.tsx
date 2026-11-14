@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Clock, MapPin, Route, Users, X } from 'lucide-react';
 import type { Ride } from '@/types';
 import { formatFcfa } from '@/lib/commission';
-import { UNPAVED_ROAD_SUPPLEMENT, estimateFare } from '@/lib/pricing';
+import { UNPAVED_ROAD_SUPPLEMENT, estimateTrip } from '@/lib/pricing';
 import { timeAgo } from '@/lib/dates';
 import { dropOffPointFor, isDifficultAccess, type Neighborhood } from '@/lib/neighborhoods';
 
@@ -22,7 +22,10 @@ export function RequestPopup({
   onClose: () => void;
   onProposed: (rideId: string) => void;
 }) {
-  const [price, setPrice] = useState(ride.estimatedPrice);
+  // Prix de départ de la proposition : le prix proposé par le passager
+  // s'il en a mis un (v2.11), sinon l'estimation indicative — jamais
+  // un prix imposé : le chauffeur propose librement son prix.
+  const [price, setPrice] = useState(ride.offeredPrice ?? ride.estimatedPrice);
   const [seatsLeft, setSeatsLeft] = useState(Math.max(ride.seats, 1));
   const [firstStop, setFirstStop] = useState(ride.pickup);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +47,7 @@ export function RequestPopup({
 
   // Trajet estimé (v2.2) : le chauffeur voit la distance et la durée
   // avant de proposer son prix.
-  const tripEstimate = estimateFare(
-    ride.pickup as Neighborhood,
-    ride.destination as Neighborhood,
-    ride.rideType,
-    ride.vehiclePreference
-  );
+  const tripEstimate = estimateTrip(ride.pickup as Neighborhood, ride.destination as Neighborhood);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -113,7 +111,7 @@ export function RequestPopup({
         </div>
 
         <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5 flex items-center justify-between gap-3">
-          <span className="text-sm font-bold text-slate-600">Prix estimé (fixe)</span>
+          <span className="text-sm font-bold text-slate-600">Estimation indicative</span>
           <span className="font-black text-stacks-navy text-lg">
             {formatFcfa(ride.estimatedPrice)}
             {ride.rideType === 'groupe' && (
@@ -121,6 +119,13 @@ export function RequestPopup({
             )}
           </span>
         </div>
+        {/* Prix proposé par le passager (v2.11) : le chauffeur peut
+            l'accepter en proposant ce prix, ou proposer un autre montant. */}
+        {ride.offeredPrice !== null && (
+          <p className="text-sm font-bold text-stacks-green bg-green-50 border border-green-200 rounded-2xl px-3.5 py-2.5">
+            Le passager propose {formatFcfa(ride.offeredPrice)} — tu peux l’accepter tel quel ou proposer un autre prix.
+          </p>
+        )}
 
         <p className="text-sm text-slate-600 flex items-center gap-1.5">
           <Route size={15} className="text-stacks-green shrink-0" />
@@ -174,8 +179,8 @@ export function RequestPopup({
             <input
               id="proposal-price"
               type="number"
-              min={100}
-              max={100000}
+              min={400}
+              max={50000}
               step={50}
               required
               value={price}

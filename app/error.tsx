@@ -44,7 +44,7 @@ export default function Error({
         </Link>
       </div>
       <p className="text-xs text-slate-500 mt-6">
-        Le problème persiste ? Écris à Stacks Drive : boulinguirandy12@gmail.com
+        Le problème persiste ? Écris à Stacks Drive : stacks.markett@gmail.com
       </p>
     </div>
   );

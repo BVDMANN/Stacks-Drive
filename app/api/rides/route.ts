@@ -10,7 +10,6 @@ import {
   type Neighborhood,
 } from '@/lib/neighborhoods';
 import { estimateFare } from '@/lib/pricing';
-import { isFareInBounds } from '@/lib/fare-guard';
 import { getDriverOwed } from '@/lib/earnings';
 import { DEBT_CAP_FCFA } from '@/lib/gamification';
 import { logAudit } from '@/lib/audit';
@@ -28,6 +27,18 @@ const RequestSchema = z
     /** Route non bitumée (v2.6) : le passager demande la continuité
      *  jusqu'à un quartier à accès difficile (+ supplément). */
     unpavedRoad: z.boolean().default(false),
+    /** Prix proposé directement par le passager (v2.11, optionnel) :
+     *  visible par les chauffeurs, qui peuvent l'accepter en proposant
+     *  ce prix ou contre-proposer. Le prix final se décide entre les
+     *  deux parties — l'estimation affichée avant la course n'est
+     *  qu'indicative. */
+    offeredPrice: z
+      .number()
+      .int()
+      .min(400, 'Ton prix doit être entre 400 et 50 000 FCFA.')
+      .max(50000, 'Ton prix doit être entre 400 et 50 000 FCFA.')
+      .optional()
+      .nullable(),
   })
   .refine((v) => v.pickup !== v.destination, {
     message: 'Le départ et la destination doivent être différents.',
@@ -59,8 +70,11 @@ async function requireUser() {
 }
 
 /** POST /api/rides — le PASSAGER envoie une demande de course.
- *  Le prix est estimé côté serveur (jamais depuis le client) et figé
- *  à l'acceptation de la proposition. */
+ *  L'estimation indicative est calculée côté serveur (jamais depuis
+ *  le client) et affichée comme un repère — ce n'est PAS le prix de
+ *  la course. Le prix final est convenu entre le passager (qui peut
+ *  proposer son prix à la demande) et le chauffeur, puis figé à
+ *  l'acceptation de la proposition. */
 export async function POST(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
@@ -89,6 +103,8 @@ export async function POST(request: NextRequest) {
     );
   }
   const v = parsed.data;
+  // Estimation indicative (v2.11) : un repère pour le passager et les
+  // chauffeurs, jamais un prix. Le prix final se décide entre eux.
   const estimate = estimateFare(v.pickup, v.destination, v.rideType, v.vehiclePreference, {
     unpavedRoad: v.unpavedRoad,
   });
@@ -96,22 +112,6 @@ export async function POST(request: NextRequest) {
   // course s'arrête par défaut là — sauf si le chauffeur accepte la
   // piste (choix figé à l'acceptation).
   const dropOff = isDifficultAccess(v.destination) ? dropOffPointFor(v.destination) : null;
-
-  // Garde-fou tarifaire (v2.2) : le tarif estimé doit être dans les
-  // bornes — un tarif hors bornes = anomalie, on bloque et on journalise.
-  if (!isFareInBounds(estimate.price)) {
-    await logAudit(supabase, 'anomaly_detected', {
-      actorId: user.id,
-      rideId: null,
-      pickup: v.pickup,
-      destination: v.destination,
-      estimatedPrice: estimate.price,
-    });
-    return NextResponse.json(
-      { error: 'Tarif impossible pour ce trajet. Réessaie ou contacte Stacks Drive.' },
-      { status: 400 }
-    );
-  }
 
   const insertPayload: Record<string, unknown> = {
     passenger_id: user.id,
@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
     vehicle_preference: v.vehiclePreference,
     seats: v.seats,
     estimated_price: estimate.price,
+    passenger_offered_price: v.offeredPrice ?? null,
     payment_method: v.paymentMethod,
     message: '',
     status: 'recherche',
@@ -133,11 +134,14 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single();
 
-  // Migration v2.6 pas encore appliquée : on crée la demande sans les
-  // champs v2.6 (le tarif estimé, lui, inclut déjà le supplément).
+  // Migration v2.6 / v2.10 pas encore appliquée : on crée la demande
+  // sans les champs concernés (le prix proposé par le passager, lui,
+  // est simplement perdu — la demande reste valable, le passager
+  // attend les propositions des chauffeurs).
   if (error && error.code === '42703') {
     delete insertPayload.unpaved_requested;
     delete insertPayload.drop_off_point;
+    delete insertPayload.passenger_offered_price;
     ({ data: ride, error } = await supabase
       .from('rides')
       .insert(insertPayload)
@@ -159,6 +163,7 @@ export async function POST(request: NextRequest) {
     destination: v.destination,
     rideType: v.rideType,
     estimatedPrice: estimate.price,
+    offeredPrice: v.offeredPrice ?? null,
     unpavedRequested: v.unpavedRoad,
     dropOffPoint: dropOff,
   });
@@ -253,6 +258,8 @@ export async function GET(request: NextRequest) {
   }
 
   // scope=driver : courses assignées au chauffeur (historique + gains).
+  // On joint le nom du passager et les gains de chaque course
+  // (driver_earnings quand disponible, sinon montants figés de la course).
   if (scope === 'driver') {
     const { data, error } = await supabase
       .from('rides')
@@ -264,7 +271,48 @@ export async function GET(request: NextRequest) {
       console.error('[api/rides]', error.message);
       return NextResponse.json({ error: 'Lecture impossible.' }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, rides: (data ?? []).map(mapRideRow) });
+    const rides = (data ?? []).map(mapRideRow);
+    const passengerIds = [...new Set(rides.map((r) => r.passengerId).filter(Boolean))] as string[];
+    const passengers: Record<string, string> = {};
+    if (passengerIds.length > 0) {
+      const { data: ps } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', passengerIds);
+      (ps ?? []).forEach((p: { id: string; full_name: string | null }) => {
+        passengers[p.id] = p.full_name ?? 'Passager';
+      });
+    }
+    const earnings: Record<string, { fare: number; commission: number; kept: number }> = {};
+    const rideIds = rides.map((r) => r.id);
+    if (rideIds.length > 0) {
+      const { data: earn, error: earnError } = await supabase
+        .from('driver_earnings')
+        .select('ride_id, fare_amount, commission_amount, driver_kept_amount')
+        .in('ride_id', rideIds);
+      if (!earnError && earn) {
+        (earn as { ride_id: string; fare_amount: number; commission_amount: number; driver_kept_amount: number }[]).forEach(
+          (e) => {
+            earnings[e.ride_id] = {
+              fare: e.fare_amount,
+              commission: e.commission_amount,
+              kept: e.driver_kept_amount,
+            };
+          }
+        );
+      }
+      // Repli : montants figés dans la course (migration v2.2 non appliquée).
+      rides.forEach((r) => {
+        if (!earnings[r.id]) {
+          earnings[r.id] = {
+            fare: r.proposedPrice ?? r.estimatedPrice,
+            commission: r.platformFee,
+            kept: r.driverShare,
+          };
+        }
+      });
+    }
+    return NextResponse.json({ ok: true, rides, passengers, earnings });
   }
 
   // scope=mine (défaut) : historique du passager.

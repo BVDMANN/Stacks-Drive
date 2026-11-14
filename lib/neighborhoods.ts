@@ -56,6 +56,34 @@ export const NEIGHBORHOODS = [
   'Sogara',
   'Akournam',
   'Igoumié',
+  // Centre / côte — ajoutés v2.8 (densification : noms confirmés par
+  // les listes officielles des arrondissements et la grille DGI).
+  'Petit Paris',
+  'Cocotiers',
+  'Gué-Gué',
+  'Trois Quartiers',
+  'Sorbonne',
+  'Venez-Voir',
+  'Sainte-Marie',
+  'Tahiti',
+  // Nord (Akanda / côte) — ajoutés v2.8.
+  'Cité de la Démocratie',
+  'Avorbam',
+  'Barracuda',
+  'Cap Caravane',
+  // Axe N1 vers Ntoum — ajoutés v2.8 (PK6/PK9/PK11, Sibang, Montalier,
+  // Bambouchine, Bizango, Nkok, Nkoltang : localités réelles de la N1).
+  'PK6',
+  'PK9',
+  'PK11',
+  'Sibang',
+  'Montalier',
+  'Bambouchine',
+  'Bizango',
+  'Nkok',
+  'Nkoltang',
+  // Sud / Owendo — ajoutés v2.8.
+  'Nomba',
   'Autre',
 ] as const;
 
@@ -115,15 +143,43 @@ export const NEIGHBORHOOD_COORDS: Record<Neighborhood, { lat: number; lng: numbe
   Sogara: { lat: 0.345, lng: 9.515 },
   Akournam: { lat: 0.32, lng: 9.5 },
   Igoumié: { lat: 0.315, lng: 9.49 },
+  // Centre / côte (v2.8).
+  'Petit Paris': { lat: 0.384, lng: 9.449 },
+  Cocotiers: { lat: 0.397, lng: 9.441 },
+  'Gué-Gué': { lat: 0.415, lng: 9.438 },
+  'Trois Quartiers': { lat: 0.418, lng: 9.442 },
+  Sorbonne: { lat: 0.398, lng: 9.458 },
+  'Venez-Voir': { lat: 0.408, lng: 9.472 },
+  'Sainte-Marie': { lat: 0.394, lng: 9.462 },
+  Tahiti: { lat: 0.45, lng: 9.42 },
+  // Nord (Akanda / côte) (v2.8).
+  'Cité de la Démocratie': { lat: 0.485, lng: 9.45 },
+  Avorbam: { lat: 0.5, lng: 9.46 },
+  Barracuda: { lat: 0.565, lng: 9.375 },
+  'Cap Caravane': { lat: 0.595, lng: 9.355 },
+  // Axe N1 vers Ntoum (v2.8).
+  PK6: { lat: 0.443, lng: 9.518 },
+  PK9: { lat: 0.453, lng: 9.535 },
+  PK11: { lat: 0.458, lng: 9.548 },
+  Sibang: { lat: 0.435, lng: 9.52 },
+  Montalier: { lat: 0.45, lng: 9.545 },
+  Bambouchine: { lat: 0.468, lng: 9.575 },
+  Bizango: { lat: 0.465, lng: 9.568 },
+  Nkok: { lat: 0.49, lng: 9.61 },
+  Nkoltang: { lat: 0.5, lng: 9.63 },
+  // Sud / Owendo (v2.8).
+  Nomba: { lat: 0.35, lng: 9.498 },
   Autre: { lat: 0.3901, lng: 9.4544 },
 };
 
-/** Niveau d'affichage du libellé de quartier sur la carte (v2.5).
+/** Niveau d'affichage du libellé de quartier sur la carte (v2.5, 3 tiers
+ *  depuis la v2.8).
  *  Tier 1 = grands quartiers, visibles dès le zoom 11 (vue par défaut
- *  = zoom 12) ; tier 2 = quartiers plus petits ou éloignés, visibles
+ *  = zoom 12) ; tier 2 = quartiers moyens, visibles seulement à partir
+ *  du zoom 13 ; tier 3 = quartiers petits ou éloignés, visibles
  *  seulement à partir du zoom 14, pour ne pas surcharger la carte.
  *  'Autre' n'a pas de libellé (ce n'est pas un lieu). */
-export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2> = {
+export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
   'Centre-ville': 1,
   Glass: 1,
   'Nzeng-Ayong': 1,
@@ -144,13 +200,13 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2> = {
   Okala: 1,
   Damas: 1,
   Angondjé: 1,
-  'Cap Esterias': 2,
-  'Santa Clara': 2,
-  Malibé: 2,
+  'Cap Esterias': 3,
+  'Santa Clara': 3,
+  Malibé: 3,
   Ondogo: 2,
-  Acaé: 2,
-  Mindoubé: 2,
-  Lalala: 2,
+  Acaé: 1,
+  Mindoubé: 1,
+  Lalala: 1,
   'La Peyrie': 2,
   Awendjé: 2,
   'Gros-Bouquet': 2,
@@ -172,6 +228,32 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2> = {
   Sogara: 2,
   Akournam: 2,
   Igoumié: 2,
+  // Centre / côte (v2.8).
+  'Petit Paris': 1,
+  Cocotiers: 1,
+  'Gué-Gué': 1,
+  'Trois Quartiers': 2,
+  Sorbonne: 2,
+  'Venez-Voir': 2,
+  'Sainte-Marie': 2,
+  Tahiti: 2,
+  // Nord (Akanda / côte) (v2.8).
+  'Cité de la Démocratie': 2,
+  Avorbam: 2,
+  Barracuda: 3,
+  'Cap Caravane': 3,
+  // Axe N1 vers Ntoum (v2.8).
+  PK6: 2,
+  PK9: 2,
+  PK11: 3,
+  Sibang: 2,
+  Montalier: 2,
+  Bambouchine: 2,
+  Bizango: 3,
+  Nkok: 2,
+  Nkoltang: 3,
+  // Sud / Owendo (v2.8).
+  Nomba: 2,
   Autre: 2,
 };
 
@@ -183,6 +265,11 @@ export const NEIGHBORHOOD_LABEL_OFFSET: Partial<
 > = {
   Likouala: { x: -20, y: 0 },
   Alibandeng: { x: 20, y: 0 },
+  // v2.8 : libellés qui se toucheraient sinon au zoom 12-13.
+  Cocotiers: { x: -30, y: -14 },
+  'Gué-Gué': { x: -45, y: -16 },
+  'Sainte-Marie': { x: -10, y: 14 },
+  Bambouchine: { x: 0, y: -14 },
 };
 
 /** Accès routier des quartiers (v2.6) — PROPOSITION À FAIRE VALIDER
@@ -237,7 +324,7 @@ export const ROAD_ACCESS: Record<Neighborhood, RoadAccess> = {
   Ambowe: 'bitume',
   PK5: 'bitume',
   PK8: 'bitume',
-  PK12: 'difficile',
+  PK12: 'bitume',
   Melen: 'difficile',
   Bikélé: 'bitume',
   Essassa: 'difficile',
@@ -248,6 +335,37 @@ export const ROAD_ACCESS: Record<Neighborhood, RoadAccess> = {
   Sogara: 'difficile',
   Akournam: 'difficile',
   Igoumié: 'difficile',
+  // Centre / côte (v2.8) : bitume.
+  'Petit Paris': 'bitume',
+  Cocotiers: 'bitume',
+  'Gué-Gué': 'bitume',
+  'Trois Quartiers': 'bitume',
+  Sorbonne: 'bitume',
+  'Venez-Voir': 'bitume',
+  'Sainte-Marie': 'bitume',
+  Tahiti: 'bitume',
+  // Nord (Akanda / côte) (v2.8) : au-delà d'Angondjé, la route
+  // bitumée s'arrête — même logique que Cap Esterias / Santa Clara /
+  // Malibé (v2.6).
+  'Cité de la Démocratie': 'bitume',
+  Avorbam: 'bitume',
+  Barracuda: 'difficile',
+  'Cap Caravane': 'difficile',
+  // Axe N1 (v2.8, corrigé) : la route bitumée va jusqu'à PK12
+  // (rond-point PK12 / Melen) — tous les PK jusqu'à PK12 inclus
+  // sont normaux. Au-delà de PK12 seulement, l'accès devient
+  // difficile — même logique que Melen / Essassa (v2.6).
+  PK6: 'bitume',
+  PK9: 'bitume',
+  PK11: 'bitume',
+  Sibang: 'bitume',
+  Montalier: 'bitume',
+  Bambouchine: 'difficile',
+  Bizango: 'difficile',
+  Nkok: 'difficile',
+  Nkoltang: 'difficile',
+  // Sud / Owendo (v2.8) : bitume.
+  Nomba: 'bitume',
   Autre: 'bitume',
 };
 
@@ -256,11 +374,11 @@ export const ROAD_ACCESS: Record<Neighborhood, RoadAccess> = {
  *  point de dépôt est TOUJOURS un quartier 'bitume' — jamais un
  *  quartier difficile, sinon la course n'aboutirait nulle part. */
 export const DROP_OFF_POINT: Partial<Record<Neighborhood, Neighborhood>> = {
-  // Axe N1 : la route bitumée s'arrête à PK8, les quartiers au-delà
-  // sont desservis par des pistes.
-  PK12: 'PK8',
-  Melen: 'PK8',
-  Essassa: 'PK8',
+  // Axe N1 : la route bitumée s'arrête à PK12 (rond-point PK12 /
+  // Melen) — tous les PK jusqu'à PK12 inclus sont bitumés et
+  // normaux. Les quartiers au-delà sont desservis par des pistes.
+  Melen: 'PK12',
+  Essassa: 'PK12',
   // Côte nord : la route bitumée s'arrête à Angondjé.
   'Cap Esterias': 'Angondjé',
   'Santa Clara': 'Angondjé',
@@ -272,6 +390,14 @@ export const DROP_OFF_POINT: Partial<Record<Neighborhood, Neighborhood>> = {
   Sogara: 'Owendo',
   Akournam: 'Owendo',
   Igoumié: 'Owendo',
+  // Côte nord (v2.8) : la route bitumée s'arrête à Angondjé.
+  Barracuda: 'Angondjé',
+  'Cap Caravane': 'Angondjé',
+  // Axe N1 (v2.8) : la route bitumée s'arrête à PK12.
+  Bambouchine: 'PK12',
+  Bizango: 'PK12',
+  Nkok: 'PK12',
+  Nkoltang: 'PK12',
 };
 
 /** Quartier difficile ? */

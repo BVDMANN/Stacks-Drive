@@ -56,8 +56,16 @@ export interface Ride {
   vehiclePreference: 'voiture' | 'moto' | 'tous';
   /** Nombre de passagers (1 en Solo, 1 à 4 en Groupe). */
   seats: number;
-  /** Prix fixe estimé à la demande (FCFA) — calculé côté serveur. */
+  /** Prix fixe estimé à la demande (FCFA) — estimation indicative
+   *  calculée côté serveur, pas le prix de la course : le prix final
+   *  est convenu entre le passager et le chauffeur, puis figé à
+   *  l'acceptation. */
   estimatedPrice: number;
+  /** Prix proposé directement par le passager à la demande (FCFA,
+   *  optionnel, v2.11) : visible par les chauffeurs, qui peuvent
+   *  l'accepter en proposant ce prix ou contre-proposer. Null = le
+   *  passager n'a pas proposé de prix, il attend les propositions. */
+  offeredPrice: number | null;
   /** Route non bitumée (v2.6) : le passager a demandé la continuité
    *  jusqu'à un quartier à accès difficile (+ supplément). */
   unpavedRequested: boolean;
@@ -118,6 +126,10 @@ export interface RideProposal {
   driverId: string;
   /** Prix proposé par le chauffeur pour cette course (FCFA). */
   proposedPrice: number;
+  /** Contre-proposition du passager sur cette proposition (FCFA,
+   *  v2.11) : le chauffeur peut l'accepter telle quelle ou proposer
+   *  un autre prix. Null = pas de contre-proposition. */
+  counterPrice: number | null;
   /** Route non bitumée (v2.6) : le chauffeur prend la piste jusqu'à la
    *  destination (true) ou s'arrête au point de dépôt (false). */
   unpavedAccepted: boolean;

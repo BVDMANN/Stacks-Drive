@@ -25,7 +25,7 @@ npm run build   # doit passer avant tout push
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL | Oui |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon public | Oui |
 | `RESEND_API_KEY` | Resend → API Keys (commence par `re_`) | Non — sans elle, aucun e-mail de ticket n'est envoyé ; les tickets restent visibles dans /admin |
-| `ADMIN_EMAIL` | Défaut : boulinguirandy76@gmail.com | Non |
+| `ADMIN_EMAIL` | Défaut : stacks.markett@gmail.com (boîte Stacks Market, lue par Randy) — la variable d'environnement, si elle est définie dans Vercel, reste prioritaire | Non |
 | `EMAIL_FROM` | Défaut : `Stacks Drive <onboarding@resend.dev>` | Non |
 
 **Ne jamais mettre la clé `service_role` dans `.env.local`** : elle donne
@@ -89,10 +89,15 @@ elle est ajoutée à ce tableau.
 - **Modèle Uber, pas BlaBlaCar :** les chauffeurs ne publient rien. Ils
   se mettent en ligne, le passager demande une course, le chauffeur
   reçoit une pop-up et fait une proposition (prix, places restantes,
-  premier arrêt, valable 60 s). Le passager accepte ou refuse.
-- **Courses :** Solo (privée, prix plein) et Groupe (partagée, prix
+  premier arrêt, valable 60 s). Le passager accepte, refuse, ou
+  contre-propose son prix ; le chauffeur peut accepter la
+  contre-proposition ou proposer un autre prix.
+- **Courses :** Solo (privée) et Groupe (partagée, prix
   divisé, par défaut, badge « LE MOINS CHER »). Moto = Solo uniquement.
-- **Prix fixes, jamais de surge :** matrice dans `lib/pricing.ts`
+- **Estimation indicative + prix convenu, jamais de surge :** estimation
+  au km dans `lib/pricing.ts` (aucun tarif fixe) ; le prix final se
+  décide entre le passager et le chauffeur, puis il est figé à
+  l'acceptation.
   (baisse de 24 %, planchers Solo 550 / Groupe 400 FCFA), revalidés
   côté serveur par `lib/fare-guard.ts`.
 - **Quartiers :** 49 quartiers de Libreville (`lib/neighborhoods.ts`),
@@ -165,7 +170,7 @@ chauffeurs réels en ligne.
 | « Lien de vérification invalide / expiré » | La Site URL de Supabase (§1) ne correspond pas à l'adresse Vercel. Corrige-la et redemande un e-mail. |
 | Aucune course / aucun chauffeur affiché | Les clés Supabase ne sont pas dans Vercel (§1) ou une migration n'a pas été exécutée (§3). |
 | « Rôle chauffeur requis » | Le compte connecté est un compte passager. Créer un compte chauffeur. |
-| Prix refusé à la proposition | Le prix est hors bornes (400–50 000 FCFA) ou trop éloigné du tarif de référence (×2) : voir le journal d'audit dans /admin. |
+| Prix refusé à la proposition | Le prix proposé est hors bornes (400–50 000 FCFA) : voir le journal d'audit dans /admin. |
 | « Le code PIN n'est pas encore activé » au démarrage | La migration v2.2 n'a pas été exécutée (§3). |
 | Course verrouillée (PIN) | 5 codes faux : la débloquer dans /admin. |
 | Gains à 0 dans le tableau de bord | Migration manquante (§3), ou courses terminées avant la migration — le tableau de bord les finalise tout seul à l'affichage. |
@@ -208,7 +213,7 @@ Au-delà, chaque service propose un plan payant à la consommation.
   de données (toutes exécutées, §3).
 - `.env.example` — la liste des variables à remplir (sans aucune valeur).
 - `lib/commission.ts` — le taux de commission (5 % puis 8 %, plafond 10 %).
-- `lib/pricing.ts` — tarifs fixes + supplément route non bitumée (800 FCFA).
+- `lib/pricing.ts` — estimation indicative au km + supplément route non bitumée (800 FCFA).
 - `lib/neighborhoods.ts` — 49 quartiers, accès difficile, points de dépôt.
 - `lib/pois.ts` — 24 lieux affichés sur la carte.
 - `lib/fare-guard.ts` — revalidation des prix côté serveur.

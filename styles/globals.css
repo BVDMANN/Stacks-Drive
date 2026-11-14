@@ -104,7 +104,17 @@ html {
   scroll-behavior: smooth;
 }
 
-/* 🗺️ CARTE LEAFLET — « Libreville la nuit » (v2.1.1) : tuiles sombres Esri World Dark Gray (gratuites, sans clé) */
+/* 🗺️ CARTE LEAFLET — « Libreville la nuit » (v2.7) : tuiles Esri World Street Map assombries par filtre CSS (gratuites, sans clé) */
+/* 🌙 Fond de carte « nuit » (v2.7) : les tuiles Esri World Street Map
+   (claires, détaillées : rues, eau, parcs, libellés) sont assombries
+   par filtre CSS — inversion + rotation de teinte — pour garder
+   l'identité « Nuit dorée » : fond nuit, eau bleu nuit, parcs vert
+   sombre, grands axes orange, libellés clairs. Le filtre ne touche
+   que la couche de tuiles (les marqueurs vivent dans d'autres
+   panneaux Leaflet) ; il est posé via l'option className du tileLayer. */
+.map-tiles-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.96);
+}
 .leaflet-container {
   font: inherit;
   background: #0b1020;
@@ -206,6 +216,26 @@ html {
   0%, 100% { box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.38), 0 6px 16px rgba(0, 0, 0, 0.55); }
   50% { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0.1), 0 6px 16px rgba(0, 0, 0, 0.55); }
 }
+/* Anneau qui s'étend autour de la pastille (v2.7) : la carte respire.
+   Décalé par chauffeur (animation-delay en ligne sur le span), masqué
+   quand le marqueur est sélectionné ou assigné (il a déjà son accent). */
+.map-driver-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 9999px;
+  border: 2px solid rgba(34, 211, 238, 0.55);
+  pointer-events: none;
+  animation: driver-ring 2.6s ease-out infinite;
+}
+@keyframes driver-ring {
+  0% { transform: scale(0.85); opacity: 0.7; }
+  70% { transform: scale(1.45); opacity: 0; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+.map-driver-marker.selected .map-driver-ring,
+.map-driver-marker.assigned .map-driver-ring {
+  display: none;
+}
 .map-driver-marker.selected {
   transform: scale(1.18);
   border-color: #ffffff;
@@ -258,6 +288,19 @@ html {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.9);
   pointer-events: none;
 }
+/* Point or devant le nom du quartier (v2.7) : le libellé devient un
+   point sur la carte, rattaché à l'identité « Nuit dorée ». */
+.map-neighborhood-label::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #ffc700;
+  margin-right: 5px;
+  vertical-align: 1px;
+  box-shadow: 0 0 5px rgba(255, 199, 0, 0.9);
+}
 
 /* 🏪 Points d'intérêt (v2.6) : pastille sombre discrète avec
    pictogramme or + petit libellé blanc, centrée sur le lieu, jamais
@@ -299,6 +342,16 @@ html {
 .map-poi-labels-on .map-poi-label {
   display: block;
 }
+/* Accents couleur par catégorie (v2.7) : le pictogramme et sa bordure
+   prennent la couleur de la catégorie — la carte se lit en un coup
+   d'œil, sans quitter la nuit (tons assourdis). Le supermarché garde
+   l'or par défaut. */
+.map-poi-marker.cat-marche .map-poi-glyph { color: #34d399; border-color: rgba(52, 211, 153, 0.75); }
+.map-poi-marker.cat-station .map-poi-glyph { color: #fb923c; border-color: rgba(251, 146, 60, 0.75); }
+.map-poi-marker.cat-pharmacie .map-poi-glyph { color: #22d3ee; border-color: rgba(34, 211, 238, 0.75); }
+.map-poi-marker.cat-hotel .map-poi-glyph { color: #c084fc; border-color: rgba(192, 132, 252, 0.75); }
+.map-poi-marker.cat-sante .map-poi-glyph { color: #f87171; border-color: rgba(248, 113, 113, 0.75); }
+.map-poi-marker.cat-lieu .map-poi-glyph { color: #94a3b8; border-color: rgba(148, 163, 184, 0.75); }
 
 /* 📍 Point de départ : pastille orange braise pulsante */
 .map-pickup-marker {
@@ -399,6 +452,23 @@ html {
   0% { transform: scale(1); }
   35% { transform: scale(1.07); }
   100% { transform: scale(1); }
+}
+
+/* ⏳ Barre de chargement du prix (v2.11) : shimmer or/cyan qui remplace
+ *  le prix pendant le (re)calcul de l'estimation. */
+.price-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 25%,
+    rgba(255, 199, 0, 0.28) 50%,
+    rgba(255, 255, 255, 0.06) 75%
+  );
+  background-size: 200% 100%;
+  animation: price-shimmer 1s linear infinite;
+}
+@keyframes price-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 .price-pop {
   display: inline-block;

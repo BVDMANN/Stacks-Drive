@@ -67,16 +67,20 @@ export default function CguPage() {
           <p>
             Le passager saisit son départ (il peut aussi se géolocaliser) et
             sa destination, choisit le type de course — <strong>Solo</strong>{' '}
-            (course privée et directe, prix plein) ou{' '}
+            (course privée et directe) ou{' '}
             <strong>Groupe</strong> (course partagée, prix divisé par
             passager, arrêts multiples dans l’ordre) — puis envoie sa
-            demande. Le prix estimé, fixe et sans majoration aux heures de
-            pointe, est affiché avant l’envoi. Les chauffeurs
-            en ligne dans le périmètre reçoivent une notification et peuvent
-            faire une proposition (prix, places restantes, premier arrêt),
-            valable 60 secondes. Le passager accepte ou refuse chaque
-            proposition. L’acceptation vaut course confirmée, au prix
-            accepté, figé. Le passager peut annuler sans frais tant qu’aucune
+            demande. Une <strong>estimation indicative</strong> du prix est
+            affichée avant l’envoi : ce n’est pas le prix de la course.
+            Le passager peut aussi proposer directement son prix dans sa
+            demande. Les chauffeurs en ligne dans le périmètre reçoivent
+            une notification et peuvent faire une proposition (prix, places
+            restantes, premier arrêt), valable 60 secondes. Le passager
+            accepte, refuse, ou contre-propose un prix sur chaque
+            proposition ; le chauffeur peut alors accepter la
+            contre-proposition ou proposer un autre prix. L’acceptation
+            vaut course confirmée, au prix convenu entre les deux parties,
+            figé. Le passager peut annuler sans frais tant qu’aucune
             proposition n’a été acceptée ; après acceptation, l’annulation
             reste possible ; les annulations répétées peuvent entraîner la
             suspension du compte. Le chauffeur qui accepte
@@ -88,9 +92,18 @@ export default function CguPage() {
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">5. Prix et commission</h2>
           <p>
-            Les prix sont fixes et affichés avant la course : ils ne changent
-            ni aux heures de pointe ni la nuit. Stacks Drive prélève une
-            commission sur chaque course acceptée :{' '}
+            Le passager voit une <strong>estimation indicative</strong> avant
+            la course, calculée à partir d’une <strong>prise en charge</strong> et
+            d’un <strong>prix au kilomètre</strong>, selon le type de course (Solo
+            ou Groupe) ; elle est affichée en détail avant la commande.
+            Cette estimation n’est pas un prix : Stacks Drive ne définit
+            aucun tarif fixe. Le prix final est <strong>convenu entre le
+            passager et le chauffeur</strong> — le chauffeur propose son prix,
+            le passager peut proposer le sien directement et contre-proposer.
+            Une fois la course acceptée, le prix est figé : il ne
+            change ni aux heures de pointe ni la nuit, et il n’y a jamais de
+            majoration. Stacks Drive prélève une commission sur chaque course
+            acceptée :{' '}
             <strong>5 % au lancement (3 mois), puis 8 %</strong>, avec un{' '}
             <strong>plafond garanti de 10 %</strong>. La découpe du tarif
             (part du chauffeur / frais de plateforme) est affichée avant
@@ -110,8 +123,8 @@ export default function CguPage() {
             au passager avant la commande. Le passager peut demander que le
             chauffeur continue jusqu’à la destination sur route non
             bitumée, moyennant un{' '}
-            <strong>supplément forfaitaire de 800 FCFA</strong> ajouté au
-            prix de la course. Le chauffeur est{' '}
+            <strong>supplément forfaitaire de 800 FCFA</strong> inclus dans le
+            prix convenu. Le chauffeur est{' '}
             <strong>libre d’accepter ou de refuser</strong> de prendre la
             route non bitumée : s’il refuse, la course s’arrête au point
             de dépôt et le supplément est retiré du prix. La commission de
@@ -219,8 +232,8 @@ export default function CguPage() {
           <h2 className="text-lg font-black text-white">13. Contact</h2>
           <p>
             Pour toute question :{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
-              boulinguirandy12@gmail.com
+            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+              stacks.markett@gmail.com
             </a>
             .
           </p>

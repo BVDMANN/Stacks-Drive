@@ -75,8 +75,8 @@ export default async function CookiesPage() {
           <h2 className="text-lg font-black text-white">4. Contact et mise à jour</h2>
           <p>
             Pour toute question sur les cookies et vos données, écrivez à{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
-              boulinguirandy12@gmail.com
+            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+              stacks.markett@gmail.com
             </a>
             . Voir aussi notre{' '}
             <Link href="/confidentialite" className="text-cyan font-bold hover:underline">

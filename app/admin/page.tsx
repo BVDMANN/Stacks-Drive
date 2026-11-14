@@ -279,7 +279,7 @@ export default async function AdminPage() {
               return (
                 <li key={r.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
                   <Link href={`/courses/${r.id}`} className="text-sm font-bold text-slate-900 hover:text-stacks-green">
-                    {r.pickup} → {r.destination} · {date} {time} · {formatFcfa(r.proposed_price ?? r.estimated_price)}
+                    {r.pickup} → {r.destination} · {date} {time} · {r.proposed_price !== null ? formatFcfa(r.proposed_price) : `estimation ${formatFcfa(r.estimated_price)}`}
                   </Link>
                   <RideStatusBadge status={r.status} />
                 </li>

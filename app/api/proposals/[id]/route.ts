@@ -3,24 +3,34 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { splitFare } from '@/lib/commission';
-import { estimateFare } from '@/lib/pricing';
-import { validateAcceptedPrice, validateSplit } from '@/lib/fare-guard';
+import { estimateTrip } from '@/lib/pricing';
+import { validateAcceptedPrice, validateProposedPrice, validateSplit } from '@/lib/fare-guard';
 import { getDriverTier } from '@/lib/earnings';
 import { rollDoubleRide } from '@/lib/gamification';
 import { logAudit } from '@/lib/audit';
-import type { Neighborhood } from '@/lib/neighborhoods';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 const ActionSchema = z.object({
-  action: z.enum(['accept', 'decline']),
+  action: z.enum(['accept', 'decline', 'accept_counter', 'reprice']),
+  /** Nouveau prix proposé par le chauffeur (action 'reprice'). */
+  proposedPrice: z.number().int().min(400).max(50000).optional(),
 });
 
-/** PATCH /api/proposals/[id] — le passager accepte ou refuse une proposition.
- *  Accepter fige le prix et la découpe (commission 5 % puis 8 %) dans la
- *  course, assigne le chauffeur, et refuse les autres propositions.
+/** PATCH /api/proposals/[id] — le passager accepte ou refuse une proposition,
+ *  le chauffeur accepte une contre-proposition ou propose un autre prix.
+ *  Accepter fige le prix convenu et la découpe (commission 5 % puis 8 %)
+ *  dans la course, assigne le chauffeur, et refuse les autres propositions.
  *  Fidélité : la 10e course du passager est offerte (il paie 0, le
- *  chauffeur touche l'intégralité du tarif, la plateforme absorbe). */
+ *  chauffeur touche l'intégralité du tarif, la plateforme absorbe).
+ *
+ *  Modèle exact (v2.11, décision de Randy 14/11/2026) : le prix final se
+ *  décide entre le passager et le chauffeur — le chauffeur propose, le
+ *  passager peut contre-proposer, le chauffeur peut accepter la
+ *  contre-proposition ou proposer un autre prix. Une fois accepté, le
+ *  prix est figé, jamais de surge. Le garde-fou serveur ne vérifie que
+ *  les bornes absolues (400–50 000 FCFA) : il n'y a plus de tarif de
+ *  référence. */
 export async function PATCH(request: NextRequest, { params }: Ctx) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'Supabase n’est pas configuré.' }, { status: 503 });
@@ -39,11 +49,13 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Action invalide.' }, { status: 400 });
   }
+  const action = parsed.data.action;
 
   const { data: proposal } = await supabase
     .from('ride_proposals')
-    // select('*') : résilient si la migration v2.6 n'est pas encore
-    // appliquée (unpaved_accepted absent → undefined → false).
+    // select('*') : résilient si la migration v2.6 / v2.10 n'est pas
+    // encore appliquée (unpaved_accepted / counter_price absents →
+    // undefined → false / null).
     .select('*')
     .eq('id', id)
     .single();
@@ -56,11 +68,22 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     .select('*')
     .eq('id', proposal.ride_id)
     .single();
-  if (!ride || ride.passenger_id !== user.id) {
+  if (!ride) {
+    return NextResponse.json({ error: 'Course introuvable.' }, { status: 404 });
+  }
+
+  // Qui peut faire quoi : le passager accepte / refuse la proposition ;
+  // le chauffeur accepte une contre-proposition ou propose un autre prix.
+  const isPassenger = ride.passenger_id === user.id;
+  const isDriver = proposal.driver_id === user.id;
+  if ((action === 'accept' || action === 'decline') && !isPassenger) {
+    return NextResponse.json({ error: 'Non autorisé.' }, { status: 403 });
+  }
+  if ((action === 'accept_counter' || action === 'reprice') && !isDriver) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 403 });
   }
 
-  if (parsed.data.action === 'decline') {
+  if (action === 'decline') {
     if (proposal.status !== 'pending') {
       return NextResponse.json({ error: 'Proposition déjà traitée.' }, { status: 400 });
     }
@@ -75,7 +98,56 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     return NextResponse.json({ ok: true });
   }
 
-  // accept
+  // Reprice (v2.11) : le chauffeur propose un autre prix sur sa propre
+  // proposition — par exemple après une contre-proposition du passager.
+  // Le compteur de 60 s repart, la contre-proposition est effacée.
+  if (action === 'reprice') {
+    if (proposal.status !== 'pending') {
+      return NextResponse.json({ error: 'Proposition déjà traitée.' }, { status: 400 });
+    }
+    if (new Date(proposal.expires_at).getTime() <= Date.now()) {
+      await supabase.from('ride_proposals').update({ status: 'expired' }).eq('id', id);
+      return NextResponse.json({ error: 'Cette proposition a expiré (60 secondes).' }, { status: 400 });
+    }
+    if (!['recherche', 'propositions'].includes(ride.status)) {
+      return NextResponse.json({ error: 'Cette demande n’est plus ouverte.' }, { status: 400 });
+    }
+    const newPrice = parsed.data.proposedPrice;
+    if (newPrice === undefined) {
+      return NextResponse.json({ error: 'Indique le nouveau prix.' }, { status: 400 });
+    }
+    const fareCheck = validateProposedPrice(newPrice);
+    if (!fareCheck.ok) {
+      return NextResponse.json({ error: fareCheck.message }, { status: 400 });
+    }
+    const { error } = await supabase
+      .from('ride_proposals')
+      .update({
+        proposed_price: newPrice,
+        counter_price: null,
+        expires_at: new Date(Date.now() + 60 * 1000).toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', 'pending');
+    if (error) {
+      console.error('[api/proposals/[id]]', error.message);
+      return NextResponse.json({ error: 'Nouveau prix impossible.' }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, proposedPrice: newPrice });
+  }
+
+  // Acceptation (passager : le prix proposé par le chauffeur ;
+  // chauffeur : la contre-proposition du passager). Le prix convenu
+  // entre les deux devient le prix figé de la course.
+  const price =
+    action === 'accept_counter' ? (proposal.counter_price as number | null) : proposal.proposed_price;
+  if (price === null || price === undefined) {
+    return NextResponse.json(
+      { error: action === 'accept_counter' ? 'Aucune contre-proposition à accepter.' : 'Proposition sans prix.' },
+      { status: 400 }
+    );
+  }
+
   if (proposal.status !== 'pending') {
     return NextResponse.json(
       { error: 'Cette proposition n’est plus valable.' },
@@ -100,31 +172,22 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   const { count: completedCount } = await supabase
     .from('rides')
     .select('id', { count: 'exact', head: true })
-    .eq('passenger_id', user.id)
+    .eq('passenger_id', ride.passenger_id)
     .eq('status', 'terminee');
   const loyaltyFree = ((completedCount ?? 0) % 10) === 9;
-  const price = proposal.proposed_price;
 
-  // Garde-fou tarifaire (v2.2) : on recalcule le tarif depuis la matrice
-  // et on refuse toute acceptation dont le prix ne correspond pas.
-  // Route non bitumée (v2.6) : la référence reprend le choix du
-  // chauffeur dans sa proposition — un prix avec supplément n'est
-  // valable que s'il a accepté la piste.
+  // Garde-fou tarifaire (v2.11) : le prix convenu est revalidé côté
+  // serveur contre les bornes absolues uniquement (400–50 000 FCFA).
+  // Route non bitumée (v2.6) : le supplément n'est inclus que si le
+  // chauffeur a accepté la piste dans sa proposition — le prix convenu
+  // est le prix total, supplément compris le cas échéant.
   const unpavedAccepted = proposal.unpaved_accepted ?? false;
-  const fareCheck = validateAcceptedPrice(
-    ride.pickup as Neighborhood,
-    ride.destination as Neighborhood,
-    ride.ride_type as 'solo' | 'groupe',
-    ride.vehicle_preference as 'voiture' | 'moto' | 'tous',
-    price,
-    { unpavedRoad: unpavedAccepted }
-  );
+  const fareCheck = validateAcceptedPrice(price);
   if (!fareCheck.ok) {
     await logAudit(supabase, 'price_rejected', {
       actorId: user.id,
       rideId: ride.id,
       proposedPrice: price,
-      referencePrice: fareCheck.referencePrice ?? null,
       unpavedAccepted,
     });
     return NextResponse.json({ error: fareCheck.message }, { status: 400 });
@@ -170,12 +233,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   // Code PIN à 4 chiffres (v2.2) : le passager le donne au chauffeur
   // pour démarrer le trajet. Généré côté serveur, jamais par le client.
   const pinCode = String(Math.floor(1000 + Math.random() * 9000));
-  const estimate = estimateFare(
-    ride.pickup as Neighborhood,
-    ride.destination as Neighborhood,
-    ride.ride_type as 'solo' | 'groupe',
-    ride.vehicle_preference as 'voiture' | 'moto' | 'tous'
-  );
+  const trip = estimateTrip(ride.pickup, ride.destination);
 
   const { error: acceptError } = await supabase
     .from('ride_proposals')
@@ -200,8 +258,8 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       pin_code: pinCode,
       pin_attempts: 0,
       pin_locked: false,
-      distance_km: estimate.distanceKm,
-      duration_min: estimate.durationMin,
+      distance_km: trip.distanceKm,
+      duration_min: trip.durationMin,
       commission_rate: loyaltyFree ? 0 : rate,
       is_double_ride: isDoubleRide,
       platform_cost: 0,
@@ -242,6 +300,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     isDoubleRide,
     loyaltyFree,
     unpavedAccepted,
+    acceptedVia: action === 'accept_counter' ? 'counter' : 'proposal',
   });
   if (isDoubleRide) {
     await logAudit(supabase, 'double_ride_awarded', {

@@ -36,7 +36,7 @@ export default function AProposPage() {
               {
                 step: '1',
                 title: 'Tu demandes ta course',
-                desc: 'Départ, destination, Solo ou Groupe : le prix fixe s’affiche tout de suite, avant de commander.',
+                desc: 'Départ, destination, Solo ou Groupe : une estimation indicative s’affiche avant de commander — le prix final se décide avec ton chauffeur.',
               },
               {
                 step: '2',
@@ -83,15 +83,16 @@ export default function AProposPage() {
 
         {/* Prix */}
         <section className="bg-stacks-navy text-white rounded-3xl p-6 sm:p-8 space-y-3">
-          <h2 className="text-2xl font-black">Le prix affiché est le prix payé</h2>
+          <h2 className="text-2xl font-black">Le prix accepté est le prix payé</h2>
           <p className="text-slate-300 leading-relaxed">
-            Le tarif est annoncé avant la course et ne bouge pas — ni aux heures
-            de pointe, ni la nuit. Exemple : Centre-ville → Aéroport Léon-Mba,
-            3 800 FCFA en Solo, tarif fixe connu d’avance.
+            Tu vois une estimation indicative avant de commander, puis les
+            chauffeurs proposent leur prix — tu peux aussi proposer le tien
+            directement, et contre-proposer. Une fois que vous vous êtes
+            mis d’accord et que tu as accepté, le prix est figé : il ne
+            bouge pas, ni aux heures de pointe, ni la nuit.
           </p>
           <p className="text-slate-300 leading-relaxed">
-            Le mode Groupe, comme le taxi partagé, divise le prix par passager :
-            Nzeng-Ayong → Centre-ville, 700 FCFA par passager.
+            Le mode Groupe, comme le taxi partagé, divise le prix par passager.
           </p>
           <p className="text-slate-300 leading-relaxed">
             Paiement en espèces, Airtel Money ou Moov Money, directement avec

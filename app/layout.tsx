@@ -1,9 +1,9 @@
 import '@/styles/globals.css';
 
 export const metadata = {
-  title: 'Stacks Drive | Courses à Libreville — prix fixe',
+  title: 'Stacks Drive | Courses à Libreville — prix figé une fois accepté',
   description:
-    'Stacks Drive, la solution du peuple pour se déplacer à Libreville : prix fixe affiché avant la course, chauffeurs vérifiés, paiement en espèces ou Mobile Money.',
+    'Stacks Drive, la solution du peuple pour se déplacer à Libreville : estimation indicative avant la course, prix figé une fois accepté, chauffeurs vérifiés, paiement en espèces ou Mobile Money.',
   manifest: '/manifest.json',
 };
 

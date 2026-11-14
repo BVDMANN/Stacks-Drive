@@ -86,9 +86,14 @@ function driverIcon(d: MapDriver, isAssigned: boolean, isSelected: boolean) {
   // Badge note (★ 4.8) : hors du glyph, il ne tourne pas avec le cap.
   const badge =
     d.rating != null ? `<span class="map-driver-badge">★ ${d.rating.toFixed(1)}</span>` : '';
+  // Anneau qui s'étend (v2.7) : la carte respire. Décalage stable par
+  // chauffeur (dérivé de l'id) pour que les 6 anneaux ne battent pas
+  // en chœur.
+  const hash = [...d.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const ringDelay = ((hash % 26) / 10).toFixed(1);
   return L.divIcon({
     className: 'map-driver-icon',
-    html: `<div class="map-driver-marker${isMoto ? ' moto' : ''}${isAssigned ? ' assigned' : ''}${isSelected ? ' selected' : ''}"><span class="map-driver-glyph">${isMoto ? MOTO_SVG : CAR_SVG}</span>${badge}</div>`,
+    html: `<div class="map-driver-marker${isMoto ? ' moto' : ''}${isAssigned ? ' assigned' : ''}${isSelected ? ' selected' : ''}"><span class="map-driver-ring" style="animation-delay:${ringDelay}s"></span><span class="map-driver-glyph">${isMoto ? MOTO_SVG : CAR_SVG}</span>${badge}</div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
   });
@@ -104,11 +109,13 @@ interface DriverMarkerEntry {
   lastIconKey: string;
 }
 
-/** Carte de Libreville « la nuit » (Leaflet + tuiles sombres Esri World
- *  Dark Gray, gratuites, sans clé API). Composant client uniquement —
- *  importé avec `next/dynamic` + ssr:false, Leaflet ne tourne jamais
- *  côté serveur. Zoom initial 12 : à 13, le chauffeur d'Akanda (le plus
- *  au nord) sortait du champ et la carte n'affichait que 5 marqueurs. */
+/** Carte de Libreville « la nuit » (Leaflet + tuiles Esri World Street
+ *  Map assombries par filtre CSS, gratuites, sans clé API — v2.7 : le
+ *  fond « World Dark Gray » précédent était quasi vide à Libreville).
+ *  Composant client uniquement — importé avec `next/dynamic` + ssr:false,
+ *  Leaflet ne tourne jamais côté serveur. Zoom initial 12 : à 13, le
+ *  chauffeur d'Akanda (le plus au nord) sortait du champ et la carte
+ *  n'affichait que 5 marqueurs. */
 export function LibrevilleMap({
   drivers,
   pickup,
@@ -153,40 +160,44 @@ export function LibrevilleMap({
       attributionControl: false,
       scrollWheelZoom: true,
     });
-    // Tuiles sombres Esri « World Dark Gray » : gratuites, sans clé —
-    // l'identité « Libreville la nuit ». ATTENTION à l'ordre des
-    // paramètres ArcGIS : level/row/col = {z}/{y}/{x} (et non {z}/{x}/{y}).
-    // Une tuile a été vérifiée par curl (z=13, Libreville : HTTP 200,
-    // JPEG 256×256, rues réelles sur fond sombre). Attribution Esri
-    // obligatoire (texte exact du service : « Esri, HERE, Garmin,
+    // Fond de carte « vivant » (v2.7) : Esri World Street Map — rues,
+    // eau, parcs et noms de rues réels à Libreville. Le fond « World
+    // Dark Gray » précédent était quasi vide : 3 grands axes, aucun
+    // libellé, pas d'eau ni de parcs visibles. La carte reste « Nuit
+    // dorée » grâce au filtre sombre CSS (.map-tiles-dark : inversion
+    // + rotation de teinte) : fond nuit, eau bleu nuit, parcs vert
+    // sombre, grands axes orange, libellés clairs. Gratuites, sans clé
+    // — même fournisseur qu'avant (Esri). CARTO dark_all a été écarté :
+    // il exige désormais une clé API (vérifié par curl 14/11 : tuile
+    // « API KEY REQUIRED ») ; OSM direct est bloqué par la politique
+    // d'usage (403) ; Stadia exige aussi une clé (401). ATTENTION à
+    // l'ordre des paramètres ArcGIS : level/row/col = {z}/{y}/{x} (et
+    // non {z}/{x}/{y}). Tuiles vérifiées par curl (z=13-14, Libreville :
+    // HTTP 200, JPEG 256×256, rues + libellés + eau + parcs, puis
+    // simulation du filtre sombre vérifiée visuellement). Attribution
+    // Esri obligatoire (texte exact du service : « Esri, HERE, Garmin,
     // (c) OpenStreetMap contributors, and the GIS user community »).
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    // La couche de référence « World Dark Gray » est supprimée : World
+    // Street Map porte déjà ses propres libellés (la doubler
+    // surchargerait la carte).
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
+      className: 'map-tiles-dark',
       attribution:
         'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
-    // Couche de référence « World Dark Gray » : noms de lieux et de rues
-    // en clair sur le fond sombre (tuiles PNG transparentes, même ordre
-    // de paramètres {z}/{y}/{x} que le fond). Vérifiée par curl autour
-    // de Libreville (z12–13 : HTTP 200, PNG, contenu non uniforme —
-    // libellés en gris clair sur fond transparent). Pas d'attribution
-    // séparée : les sources sont les mêmes que le fond, déjà citées.
-    // Limite connue : la couche est clairsemée à Libreville (peu de
-    // libellés aux zooms 14–16 dans les quartiers) — les noms de rues
-    // restent donc rares, la couche ajoute surtout les grands libellés.
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
     }).addTo(map);
     L.control.attribution({ position: 'topright' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     routeLayersRef.current = L.layerGroup().addTo(map);
     driverLayerRef.current = L.layerGroup().addTo(map);
-    // Libellés de quartiers (v2.5) : permanents, discrets, non
-    // interactifs, sous les marqueurs chauffeurs (zIndexOffset négatif).
-    // Tier 1 dès le zoom 11, tier 2 seulement à partir du zoom 14 —
-    // aux zooms bas, les petits quartiers sont masqués pour ne pas
-    // surcharger la carte. 'Autre' n'est pas un lieu : pas de libellé.
+    // Libellés de quartiers (v2.5, 3 tiers depuis la v2.8) : permanents,
+    // discrets, non interactifs, sous les marqueurs chauffeurs
+    // (zIndexOffset négatif). Tier 1 dès le zoom 11, tier 2 dès le
+    // zoom 13, tier 3 seulement à partir du zoom 14 — aux zooms bas,
+    // les petits quartiers sont masqués pour ne pas surcharger la
+    // carte. 'Autre' n'est pas un lieu : pas de libellé.
     const labelMajor = L.layerGroup().addTo(map);
+    const labelMid = L.layerGroup();
     const labelMinor = L.layerGroup();
     (Object.keys(NEIGHBORHOOD_COORDS) as Neighborhood[]).forEach((n) => {
       if (n === 'Autre') return;
@@ -200,12 +211,13 @@ export function LibrevilleMap({
         iconSize: [0, 0],
         iconAnchor: [0, 0],
       });
+      const tier = NEIGHBORHOOD_LABEL_TIER[n];
       L.marker([c.lat, c.lng], {
         icon,
         interactive: false,
         keyboard: false,
         zIndexOffset: -500,
-      }).addTo(NEIGHBORHOOD_LABEL_TIER[n] === 1 ? labelMajor : labelMinor);
+      }).addTo(tier === 1 ? labelMajor : tier === 2 ? labelMid : labelMinor);
     });
     // Points d'intérêt (v2.6) : magasins, marchés, stations, pharmacies,
     // hôtels, santé, lieux publics — pictogramme de catégorie + petit
@@ -215,7 +227,7 @@ export function LibrevilleMap({
     POIS.forEach((poi) => {
       const icon = L.divIcon({
         className: 'map-poi-icon',
-        html: `<div class="map-poi-marker"><span class="map-poi-glyph">${POI_SVG[poi.category]}</span><span class="map-poi-label">${poi.name}</span></div>`,
+        html: `<div class="map-poi-marker cat-${poi.category}"><span class="map-poi-glyph">${POI_SVG[poi.category]}</span><span class="map-poi-label">${poi.name}</span></div>`,
         iconSize: [0, 0],
         iconAnchor: [0, 0],
       });
@@ -236,6 +248,8 @@ export function LibrevilleMap({
       const z = map.getZoom();
       if (z >= 11) labelMajor.addTo(map);
       else map.removeLayer(labelMajor);
+      if (z >= 13) labelMid.addTo(map);
+      else map.removeLayer(labelMid);
       if (z >= 14) labelMinor.addTo(map);
       else map.removeLayer(labelMinor);
       // Points d'intérêt (v2.6) : à partir du zoom 13 seulement, pour

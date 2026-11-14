@@ -12,8 +12,8 @@ import { DriverEarnings } from './DriverEarnings';
 import { VerificationStatusBadge } from '@/components/shared/StatusBadge';
 import { NEIGHBORHOODS, PAYMENT_LABELS, type Neighborhood } from '@/lib/neighborhoods';
 import { formatFcfa } from '@/lib/commission';
-import { estimateFare } from '@/lib/pricing';
-import { timeAgo } from '@/lib/dates';
+import { estimateTrip } from '@/lib/pricing';
+import { formatDepartureTime, timeAgo } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 interface IncomingRide {
@@ -36,6 +36,10 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
   const [incoming, setIncoming] = useState<IncomingRide[]>([]);
   const [myProposals, setMyProposals] = useState<MyProposal[]>([]);
   const [myRides, setMyRides] = useState<Ride[]>([]);
+  const [ridePassengers, setRidePassengers] = useState<Record<string, string>>({});
+  const [rideEarnings, setRideEarnings] = useState<
+    Record<string, { fare: number; commission: number; kept: number }>
+  >({});
   const [popupRide, setPopupRide] = useState<IncomingRide | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -45,6 +49,10 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
   const [debtBlocked, setDebtBlocked] = useState<{ amount: number; cap: number } | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
   const proposedRef = useRef<Set<string>>(new Set());
+  // Contre-propositions (v2.11) : nouveau prix tapé par le chauffeur
+  // pour répondre à une contre-proposition du passager.
+  const [repriceValues, setRepriceValues] = useState<Record<string, string>>({});
+  const [proposalBusy, setProposalBusy] = useState<string | null>(null);
 
   const verified = profile.is_verified;
   const verificationStatus = (profile.verification_status ?? 'non_verifie') as string;
@@ -91,7 +99,15 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
         list.forEach((p) => proposedRef.current.add(p.rideId));
       }
       const ridesData = await ridesRes.json();
-      if (ridesData?.ok) setMyRides((ridesData.rides ?? []) as Ride[]);
+      if (ridesData?.ok) {
+        setMyRides((ridesData.rides ?? []) as Ride[]);
+        // Noms des passagers + gains par course (v2.10) : l'historique
+        // affiche qui, combien, et la commission / le gain net.
+        setRidePassengers((ridesData.passengers ?? {}) as Record<string, string>);
+        setRideEarnings(
+          (ridesData.earnings ?? {}) as Record<string, { fare: number; commission: number; kept: number }>
+        );
+      }
     } catch {
       // Réessaie au prochain tour.
     }
@@ -173,6 +189,51 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentArea: next }),
     }).catch(() => undefined);
+  }
+
+  /** Contre-propositions (v2.11) : le passager a proposé un prix sur
+   *  ma proposition. L'accepter fige ce prix comme prix de la course ;
+   *  proposer un autre prix relance le compteur de 60 s. */
+  async function acceptCounter(proposalId: string) {
+    setProposalBusy(proposalId);
+    const res = await fetch(`/api/proposals/${proposalId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'accept_counter' }),
+    });
+    const data = await res.json().catch(() => null);
+    setProposalBusy(null);
+    if (!res.ok) {
+      setError(data?.error ?? 'Acceptation impossible.');
+      return;
+    }
+    fetchMine();
+  }
+
+  async function reprice(proposalId: string) {
+    const price = Math.round(Number(repriceValues[proposalId] ?? ''));
+    if (!Number.isFinite(price) || price < 400 || price > 50000) {
+      setError('Ton prix doit être entre 400 et 50 000 FCFA.');
+      return;
+    }
+    setProposalBusy(proposalId);
+    const res = await fetch(`/api/proposals/${proposalId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reprice', proposedPrice: price }),
+    });
+    const data = await res.json().catch(() => null);
+    setProposalBusy(null);
+    if (!res.ok) {
+      setError(data?.error ?? 'Nouveau prix impossible.');
+      return;
+    }
+    setRepriceValues((prev) => {
+      const next = { ...prev };
+      delete next[proposalId];
+      return next;
+    });
+    fetchMine();
   }
 
   async function rideAction(rideId: string, action: 'complete') {
@@ -348,12 +409,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             const est =
               activeRide.distanceKm !== null && activeRide.durationMin !== null
                 ? { distanceKm: activeRide.distanceKm, durationMin: activeRide.durationMin }
-                : estimateFare(
-                    activeRide.pickup as Neighborhood,
-                    activeRide.destination as Neighborhood,
-                    activeRide.rideType,
-                    activeRide.vehiclePreference
-                  );
+                : estimateTrip(activeRide.pickup as Neighborhood, activeRide.destination as Neighborhood);
             return (
               <p className="text-sm text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="inline-flex items-center gap-1">
@@ -382,6 +438,13 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
               className="px-5 py-3 rounded-full text-sm font-black bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
             >
               Voir la course complète
+            </Link>
+            {/* Messagerie (v2.10) : écrire au passager, en cours de course. */}
+            <Link
+              href={`/courses/${activeRide.id}#messages`}
+              className="px-5 py-3 rounded-full text-sm font-black bg-stacks-green text-white shadow-md hover:bg-stacks-greenLight transition-colors"
+            >
+              Écrire au passager
             </Link>
             {activeRide.status === 'en_cours' && (
               <button
@@ -418,7 +481,10 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
                     <p className="text-sm text-slate-500">
                       {passenger?.name ?? 'Passager'} · {passenger?.phone ?? ''} ·{' '}
                       {ride.rideType === 'groupe' ? `Groupe · ${ride.seats} pass.` : 'Solo'} ·{' '}
-                      estimé {formatFcfa(ride.estimatedPrice)} · {timeAgo(ride.createdAt)}
+                      estimation {formatFcfa(ride.estimatedPrice)} · {timeAgo(ride.createdAt)}
+                      {ride.offeredPrice !== null && (
+                        <> · le passager propose <strong className="text-stacks-green">{formatFcfa(ride.offeredPrice)}</strong></>
+                      )}
                     </p>
                   </div>
                   <button
@@ -446,27 +512,73 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
           <ul className="space-y-3">
             {myProposals.map((p) => {
               const secondsLeft = Math.max(0, Math.round((new Date(p.expiresAt).getTime() - now) / 1000));
+              const hasCounter = p.status === 'pending' && p.counterPrice !== null && secondsLeft > 0;
               return (
-                <li key={p.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-black text-slate-900">
-                      {p.ride ? `${p.ride.pickup} → ${p.ride.destination}` : 'Course'}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {formatFcfa(p.proposedPrice)} · {p.seatsLeft} place{p.seatsLeft > 1 ? 's' : ''} · 1er arrêt : {p.firstStop}
-                    </p>
+                <li key={p.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-black text-slate-900">
+                        {p.ride ? `${p.ride.pickup} → ${p.ride.destination}` : 'Course'}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {formatFcfa(p.proposedPrice)} · {p.seatsLeft} place{p.seatsLeft > 1 ? 's' : ''} · 1er arrêt : {p.firstStop}
+                      </p>
+                    </div>
+                    <span className="text-xs font-black px-3 py-1.5 rounded-full bg-slate-100 text-slate-700">
+                      {p.status === 'pending'
+                        ? secondsLeft > 0
+                          ? `En attente · ${secondsLeft} s`
+                          : 'Expirée'
+                        : p.status === 'accepted'
+                          ? 'Acceptée ✓'
+                          : p.status === 'declined'
+                            ? 'Refusée'
+                            : 'Expirée'}
+                    </span>
                   </div>
-                  <span className="text-xs font-black px-3 py-1.5 rounded-full bg-slate-100 text-slate-700">
-                    {p.status === 'pending'
-                      ? secondsLeft > 0
-                        ? `En attente · ${secondsLeft} s`
-                        : 'Expirée'
-                      : p.status === 'accepted'
-                        ? 'Acceptée ✓'
-                        : p.status === 'declined'
-                          ? 'Refusée'
-                          : 'Expirée'}
-                  </span>
+                  {/* Contre-proposition du passager (v2.11) : accepte son
+                      prix (il devient le prix figé de la course) ou
+                      propose un autre prix. */}
+                  {hasCounter && (
+                    <div className="bg-green-50 border border-green-200 rounded-2xl p-3.5 space-y-2.5">
+                      <p className="text-sm font-bold text-green-800">
+                        Le passager contre-propose {formatFcfa(p.counterPrice as number)} — à toi de répondre :
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={proposalBusy === p.id}
+                          onClick={() => acceptCounter(p.id)}
+                          className="px-4 py-2.5 rounded-full text-sm font-black bg-stacks-green text-white shadow-md hover:bg-stacks-greenLight transition-colors disabled:opacity-50"
+                        >
+                          Accepter {formatFcfa(p.counterPrice as number)}
+                        </button>
+                        <span className="inline-flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={400}
+                            max={50000}
+                            step={50}
+                            inputMode="numeric"
+                            value={repriceValues[p.id] ?? String(p.proposedPrice)}
+                            onChange={(e) =>
+                              setRepriceValues((prev) => ({ ...prev, [p.id]: e.target.value }))
+                            }
+                            aria-label="Autre prix proposé en FCFA"
+                            className="w-28 px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-black text-slate-900 focus:border-stacks-green focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            disabled={proposalBusy === p.id}
+                            onClick={() => reprice(p.id)}
+                            className="px-4 py-2.5 rounded-full text-sm font-black bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-50"
+                          >
+                            Proposer ce prix
+                          </button>
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -474,24 +586,49 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
         )}
       </section>
 
-      {/* Historique */}
+      {/* Historique (v2.10) : date, trajet, type, prix, passager, statut,
+          commission et gain net de chaque course. Que tes courses. */}
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-black text-lg text-slate-900">Historique ({pastRides.length})</h2>
         {pastRides.length === 0 ? (
           <p className="text-sm text-slate-500">Aucune course terminée pour le moment.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {pastRides.map((r) => (
-              <li key={r.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
-                <Link href={`/courses/${r.id}`} className="text-sm font-bold text-slate-900 hover:text-stacks-green">
-                  {r.pickup} → {r.destination} · {timeAgo(r.createdAt)}
-                </Link>
-                <span className="text-sm text-slate-600">
-                  {formatFcfa(r.driverShare ?? 0)} pour toi
-                  {r.status === 'annulee' ? ' · Annulée' : ''}
-                </span>
-              </li>
-            ))}
+            {pastRides.map((r) => {
+              const { date, time } = formatDepartureTime(r.createdAt);
+              const earning = rideEarnings[r.id];
+              const fare = earning?.fare ?? r.proposedPrice ?? r.estimatedPrice;
+              const commission = earning?.commission ?? r.platformFee ?? 0;
+              const kept = earning?.kept ?? r.driverShare ?? 0;
+              const typeLabel =
+                r.vehiclePreference === 'moto'
+                  ? 'Moto'
+                  : r.rideType === 'groupe'
+                    ? `Groupe · ${r.seats} pass.`
+                    : 'Solo';
+              return (
+                <li key={r.id} className="py-3 space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Link href={`/courses/${r.id}`} className="text-sm font-bold text-slate-900 hover:text-stacks-green">
+                      {r.pickup} → {r.destination}
+                    </Link>
+                    <span className="text-sm font-black text-slate-900">
+                      {r.status === 'annulee' ? 'Annulée' : formatFcfa(fare)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {date} · {time} · {typeLabel}
+                    {ridePassengers[r.id] ? ` · Passager : ${ridePassengers[r.id]}` : ''}
+                    {r.ratingPassenger ? ` · Ta note : ${r.ratingPassenger}/5` : ''}
+                  </p>
+                  {r.status !== 'annulee' && (
+                    <p className="text-xs text-slate-500">
+                      {formatFcfa(kept)} pour toi · dont {formatFcfa(commission)} de frais Stacks Drive
+                    </p>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

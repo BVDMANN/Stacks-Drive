@@ -11,7 +11,7 @@ import { isDifficultAccess, type Neighborhood } from '@/lib/neighborhoods';
 
 const ProposeSchema = z.object({
   rideId: z.string().uuid(),
-  proposedPrice: z.number().int().min(100, 'Prix minimum : 100 FCFA.').max(100000),
+  proposedPrice: z.number().int().min(400, 'Prix minimum : 400 FCFA.').max(50000, 'Prix maximum : 50 000 FCFA.'),
   seatsLeft: z.number().int().min(1, 'Au moins 1 place.').max(9),
   firstStop: z.string().trim().min(2, 'Indique le premier arrêt.').max(120),
   /** Route non bitumée (v2.6) : le chauffeur prend la piste jusqu'à la
@@ -99,29 +99,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Garde-fou tarifaire (v2.2) : le prix proposé est revalidé côté
-  // serveur contre la matrice — un trop-perçu est refusé, journalisé,
-  // et expliqué au chauffeur. Jamais de course créée avec un prix fou.
-  // Route non bitumée (v2.6) : la référence inclut le supplément
-  // SEULEMENT si le chauffeur prend la piste — et seulement si la
-  // destination est vraiment à accès difficile (sinon un chauffeur
-  // pourrait gonfler son prix de 800 FCFA sur un trajet normal).
+  // Garde-fou tarifaire (v2.11) : le prix proposé est revalidé côté
+  // serveur contre les bornes absolues uniquement (400–50 000 FCFA) :
+  // il n'y a plus de tarif de référence, le prix se décide entre le
+  // passager et le chauffeur. Un prix hors bornes est refusé,
+  // journalisé, et expliqué au chauffeur. Jamais de course créée avec
+  // un prix fou.
+  // Route non bitumée (v2.6) : le supplément n'est inclus que si le
+  // chauffeur prend la piste — et seulement si la destination est
+  // vraiment à accès difficile (sinon un chauffeur pourrait gonfler
+  // son prix de 800 FCFA sur un trajet normal).
   const takesUnpaved =
     v.unpavedAccepted && isDifficultAccess(ride.destination as Neighborhood);
-  const fareCheck = validateProposedPrice(
-    ride.pickup as Neighborhood,
-    ride.destination as Neighborhood,
-    ride.ride_type as 'solo' | 'groupe',
-    ride.vehicle_preference as 'voiture' | 'moto' | 'tous',
-    v.proposedPrice,
-    { unpavedRoad: takesUnpaved }
-  );
+  const fareCheck = validateProposedPrice(v.proposedPrice);
   if (!fareCheck.ok) {
     await logAudit(supabase, 'price_rejected', {
       actorId: user.id,
       rideId: v.rideId,
       proposedPrice: v.proposedPrice,
-      referencePrice: fareCheck.referencePrice ?? null,
       unpavedAccepted: takesUnpaved,
     });
     return NextResponse.json({ error: fareCheck.message }, { status: 400 });

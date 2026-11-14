@@ -342,7 +342,8 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
                     {i.ride.rideType === 'groupe' ? 'Groupe' : 'Solo'} · {i.ride.seats} place{i.ride.seats > 1 ? 's' : ''} ·{' '}
-                    {formatFcfa(i.ride.estimatedPrice)} · {timeAgo(i.ride.createdAt)}
+                    estimation {formatFcfa(i.ride.estimatedPrice)} · {timeAgo(i.ride.createdAt)}
+                    {i.ride.offeredPrice !== null ? ` · le passager propose ${formatFcfa(i.ride.offeredPrice)}` : ''}
                     {i.passenger?.name ? ` · ${i.passenger.name}` : ''}
                   </p>
                   <span className="inline-block mt-2 text-xs font-black text-cyan">Proposer mon prix →</span>

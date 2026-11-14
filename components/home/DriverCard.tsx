@@ -103,7 +103,11 @@ export function DriverCard({
       <p className="text-xs text-slate-400 -mt-2">
         Vérifie la plaque avant de monter. Prix :{' '}
         <strong className="text-slate-200">
-          {ride.loyaltyFree ? '0 FCFA — 10e course offerte 🎁' : formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
+          {ride.loyaltyFree
+            ? '0 FCFA — 10e course offerte 🎁'
+            : ride.proposedPrice !== null
+              ? formatFcfa(ride.proposedPrice)
+              : `En attente des propositions (estimation : ${formatFcfa(ride.estimatedPrice)})`}
         </strong>
         {' '}· {ride.paymentMethod === 'especes' ? 'Espèces' : ride.paymentMethod === 'airtel' ? 'Airtel Money' : 'Moov Money'}
       </p>

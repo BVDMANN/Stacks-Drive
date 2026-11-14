@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, BadgeCheck, Car, KeyRound, MapPin, ShieldCheck, Users, Wallet } from 'lucide-react';
 import { Header } from '@/components/shared/Header';
 import { Footer } from '@/components/shared/Footer';
-import { TrackingMap } from '@/components/rides/TrackingMap';
+import { RideLiveTracking } from '@/components/rides/RideLiveTracking';
+import { RideChat } from '@/components/rides/RideChat';
 import { DriverCard } from '@/components/home/DriverCard';
 import { RideActions } from '@/components/rides/RideActions';
 import { PinEntry } from '@/components/driver/PinEntry';
@@ -12,7 +13,7 @@ import { RideStatusBadge } from '@/components/shared/StatusBadge';
 import { getRideRequestById } from '@/lib/rides';
 import { getSessionUser, createClient } from '@/lib/supabase/server';
 import { formatFcfa } from '@/lib/commission';
-import { estimateFare } from '@/lib/pricing';
+import { estimateTrip } from '@/lib/pricing';
 import { PAYMENT_LABELS, NEIGHBORHOOD_COORDS, type Neighborhood } from '@/lib/neighborhoods';
 import { formatDepartureTime, timeAgo } from '@/lib/dates';
 
@@ -115,12 +116,7 @@ export default async function CoursePage({ params }: Ctx) {
   const tripEstimate =
     ride.distanceKm !== null && ride.durationMin !== null
       ? { distanceKm: ride.distanceKm, durationMin: ride.durationMin }
-      : estimateFare(
-          ride.pickup as Neighborhood,
-          ride.destination as Neighborhood,
-          ride.rideType,
-          ride.vehiclePreference
-        );
+      : estimateTrip(ride.pickup as Neighborhood, ride.destination as Neighborhood);
   const passenger = row.passenger ?? null;
 
   return (
@@ -207,9 +203,15 @@ export default async function CoursePage({ params }: Ctx) {
               <div className="bg-slate-50 rounded-2xl p-3">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400">Prix</p>
                 <p className="font-black text-stacks-navy mt-1">
-                  {formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
+                  {ride.proposedPrice !== null
+                    ? formatFcfa(ride.proposedPrice)
+                    : 'En attente des propositions'}
                 </p>
-                <p className="text-xs text-slate-400">dont {formatFcfa(ride.driverShare)} pour toi</p>
+                <p className="text-xs text-slate-400">
+                  {ride.proposedPrice !== null
+                    ? `dont ${formatFcfa(ride.driverShare)} pour toi`
+                    : `estimation indicative : ${formatFcfa(ride.estimatedPrice)}`}
+                </p>
               </div>
               <div className="bg-slate-50 rounded-2xl p-3">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400">Paiement</p>
@@ -224,26 +226,30 @@ export default async function CoursePage({ params }: Ctx) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Carte + détails */}
           <section className="lg:col-span-2 space-y-6">
-            <div className="h-[380px] sm:h-[440px] rounded-3xl overflow-hidden border border-slate-200 shadow-sm relative">
-              <TrackingMap
-                pickup={pickupCoords ? { ...pickupCoords, label: ride.pickup } : null}
-                destination={destCoords ? { ...destCoords, label: ride.destination } : null}
-                driver={
-                  driver && driver.lat !== null && driver.lng !== null
-                    ? {
-                        id: driver.id,
-                        name: driver.name,
-                        lat: driver.lat,
-                        lng: driver.lng,
-                        vehicleLabel: driver.vehicleLabel,
-                        vehicleType: driver.vehicleType ?? '',
-                        rating: driver.rating,
-                        isDemo: driver.isDemo,
-                      }
-                    : null
-                }
-              />
-            </div>
+            {/* Suivi en direct (v2.10) : position du chauffeur jusqu'au
+                pickup + ETA côté passager, partage de position côté
+                chauffeur. Hors course acceptée : carte statique. */}
+            <RideLiveTracking
+              rideId={ride.id}
+              role={isPassenger ? 'passager' : 'chauffeur'}
+              status={ride.status}
+              pickup={pickupCoords ? { ...pickupCoords, label: ride.pickup } : null}
+              destination={destCoords ? { ...destCoords, label: ride.destination } : null}
+              driver={
+                driver && driver.lat !== null && driver.lng !== null
+                  ? {
+                      id: driver.id,
+                      name: driver.name,
+                      lat: driver.lat,
+                      lng: driver.lng,
+                      vehicleLabel: driver.vehicleLabel,
+                      vehicleType: driver.vehicleType ?? '',
+                      rating: driver.rating,
+                      isDemo: driver.isDemo,
+                    }
+                  : null
+              }
+            />
 
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
               <h2 className="font-black text-lg text-slate-900">Détails de la course</h2>
@@ -253,14 +259,20 @@ export default async function CoursePage({ params }: Ctx) {
                   <p className="font-black text-stacks-navy mt-1">
                     {ride.loyaltyFree
                       ? '0 FCFA — offerte'
-                      : formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}
+                      : ride.proposedPrice !== null
+                        ? formatFcfa(ride.proposedPrice)
+                        : ride.status === 'annulee'
+                          ? '—'
+                          : 'En attente des propositions'}
                   </p>
                   <p className="text-xs text-slate-400">
                     {ride.loyaltyFree
                       ? '10e course offerte'
                       : ride.proposedPrice !== null
-                        ? 'prix proposé et accepté'
-                        : 'prix estimé (fixe)'}
+                        ? 'prix convenu et accepté — figé'
+                        : ride.status === 'annulee'
+                          ? 'annulée avant acceptation'
+                          : `estimation indicative : ${formatFcfa(ride.estimatedPrice)}`}
                   </p>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-3">
@@ -327,7 +339,7 @@ export default async function CoursePage({ params }: Ctx) {
 
               <p className="text-xs text-slate-400 flex items-center gap-1.5">
                 <ShieldCheck size={14} className="text-stacks-green" />
-                Prix garanti · Commission Stacks Drive 5 % au lancement
+                Prix figé une fois accepté · Commission Stacks Drive 5 % au lancement
                 (8 % ensuite, 10 % maximum) — le chauffeur garde le reste.
               </p>
             </div>
@@ -357,6 +369,20 @@ export default async function CoursePage({ params }: Ctx) {
                   </Link>
                 )}
               </div>
+            )}
+
+            {/* Messagerie de course (v2.10) : passager ↔ chauffeur, en
+                cours de course uniquement. Aucun numéro affiché. */}
+            {['acceptee', 'en_cours'].includes(ride.status) && (isPassenger || isDriver) && (
+              <RideChat
+                rideId={ride.id}
+                myRole={isPassenger ? 'passager' : 'chauffeur'}
+                otherName={
+                  isPassenger
+                    ? driver?.name ?? 'Ton chauffeur'
+                    : passenger?.full_name ?? 'Ton passager'
+                }
+              />
             )}
 
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">

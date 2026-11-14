@@ -14,10 +14,9 @@ export default function ConfidentialitePage() {
         <section className="space-y-2">
           <h2 className="text-lg font-black text-white">1. Responsable du traitement</h2>
           <p>
-            Stacks, entreprise individuelle, SIREN 104 314 687, 5 allée Xavier
-            Bichat, 77420 Champs-sur-Marne, France — contact :{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
-              boulinguirandy12@gmail.com
+            Stacks, entreprise individuelle, SIREN 104 314 687 — contact :{' '}
+            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+              stacks.markett@gmail.com
             </a>
             . Le service Stacks Drive est opéré à Libreville, au Gabon.
           </p>
@@ -29,7 +28,7 @@ export default function ConfidentialitePage() {
             <li><strong>Compte :</strong> e-mail, nom complet, téléphone, rôle (passager / chauffeur), informations du véhicule pour les chauffeurs (type, marque, modèle, couleur, plaque, places).</li>
             <li><strong>Vérification chauffeur :</strong> selfie de vérification et pièce d’identité (carte nationale d’identité ou passeport) ou permis de conduire. Ces documents sont sensibles : ils sont stockés dans un espace privé et contrôlés automatiquement par la plateforme (détection du visage, lecture de la pièce), puis, en cas de dossier ambigu, par l’administrateur chargé du contrôle ; ils ne sont jamais montrés aux passagers (seul le badge « Vérifié » s’affiche).</li>
             <li><strong>Géolocalisation :</strong> votre position, uniquement lorsque vous appuyez sur « Me localiser » pour définir votre point de départ. La position n’est jamais suivie en continu et n’est jamais conservée après la course.</li>
-            <li><strong>Courses :</strong> demandes (départ, destination, type Solo ou Groupe, places, prix estimé), propositions des chauffeurs (prix, places restantes, premier arrêt), statut et historique des courses, notes entre passagers et chauffeurs.</li>
+            <li><strong>Courses :</strong> demandes (départ, destination, type Solo ou Groupe, places, estimation indicative, prix proposé par le passager le cas échéant), propositions des chauffeurs (prix, places restantes, premier arrêt), statut et historique des courses, notes entre passagers et chauffeurs.</li>
             <li><strong>Commission et dépôt chauffeur :</strong> dépôt de garantie versé, commissions dues par course et règlements hebdomadaires (montants et références de transfert). Stacks Drive ne conserve aucune donnée bancaire : tous les paiements sont des transferts directs de personne à personne par Mobile Money (Airtel Money, Moov Money).</li>
             <li><strong>Technique :</strong> cookies de session indispensables à la connexion (voir notre{' '}
               <Link href="/cookies" className="text-cyan font-bold hover:underline">
@@ -80,8 +79,8 @@ export default function ConfidentialitePage() {
             est actif sur la plateforme, puis supprimés. Vous pouvez demander la
             suppression de votre compte et de vos données à tout moment en
             écrivant à{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
-              boulinguirandy12@gmail.com
+            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+              stacks.markett@gmail.com
             </a>{' '}
             ; la suppression est effectuée sous 30 jours, sauf obligation
             légale de conservation.
@@ -94,8 +93,8 @@ export default function ConfidentialitePage() {
             Vous disposez d’un droit d’accès, de rectification, d’effacement,
             de limitation et de portabilité de vos données, ainsi que d’un
             droit d’opposition. Pour exercer ces droits, écrivez à{' '}
-            <a href="mailto:boulinguirandy12@gmail.com" className="text-cyan font-bold hover:underline">
-              boulinguirandy12@gmail.com
+            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+              stacks.markett@gmail.com
             </a>
             . Vous pouvez également introduire une réclamation auprès de la CNIL
             (France, au titre du RGPD) et auprès de l’APDPVP, l’autorité

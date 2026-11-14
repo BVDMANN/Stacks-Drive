@@ -151,7 +151,7 @@ export default async function SuiviPage({ params }: Ctx) {
               {ride.firstStop ? ` · 1er arrêt : ${ride.firstStop}` : ''}
             </p>
             <p className="text-sm text-slate-600">
-              Prix : <strong className="text-slate-900">{formatFcfa(ride.proposedPrice ?? ride.estimatedPrice)}</strong> · prix fixe
+              Prix : <strong className="text-slate-900">{ride.proposedPrice !== null ? formatFcfa(ride.proposedPrice) : `En attente des propositions (estimation : ${formatFcfa(ride.estimatedPrice)})`}</strong> · prix figé une fois accepté
             </p>
             <p className="text-xs text-slate-400 flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-stacks-green" />
@@ -161,7 +161,7 @@ export default async function SuiviPage({ params }: Ctx) {
         </div>
 
         <p className="text-xs text-slate-400 text-center">
-          Stacks Drive — Libreville · Prix fixe ·{' '}
+          Stacks Drive — Libreville · Prix figé une fois accepté ·{' '}
           <Link href="/" className="underline hover:text-stacks-green">Commander une course</Link>
         </p>
       </main>

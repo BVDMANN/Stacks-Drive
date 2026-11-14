@@ -9,12 +9,12 @@
 
 - **Accueil map-first** : carte Leaflet de Libreville plein écran, radar
   pulsant pendant la recherche, marqueurs des chauffeurs en ligne,
-  feuille du bas (départ, destination, Solo / Groupe, prix fixe estimé,
-  Commander). Plus de liste d'offres, plus de mur marketing.
+  feuille du bas (départ, destination, Solo / Groupe, estimation
+  indicative, Commander). Plus de liste d'offres, plus de mur marketing.
 - **Modèle Uber** : le chauffeur ne publie RIEN — il se met en ligne,
   reçoit une pop-up quand une demande match son périmètre, et propose
-  un prix, des places et un premier arrêt. Le passager accepte ou refuse.
-  Proposition = 60 secondes, puis expiration.
+  un prix, des places et un premier arrêt. Le passager accepte, refuse,
+  ou contre-propose son prix. Proposition = 60 secondes, puis expiration.
 - **Types de course** : Solo (privée, directe, prix plein) et Groupe
   (partagée, prix par passager, arrêts dans l'ordre). Groupe par défaut.
   Moto = Solo uniquement.
@@ -22,7 +22,7 @@
   permis, bucket privé `driver-documents`, validation admin dans /admin.
 - **Sécurité** : SOS pendant la course + partage en direct
   (`/suivi/[token]`), fidélité 10e course offerte, Groupe par défaut,
-  prix garanti + tarifs fixes (aéroport).
+  prix figé une fois accepté, jamais de surge.
 - **Supprimé** : publication de courses, réservations (`bookings`),
   anciennes courses démo en base (remplacées par 6 chauffeurs démo
   statiques dans `lib/demo-drivers.ts`).

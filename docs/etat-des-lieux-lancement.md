@@ -18,9 +18,9 @@
 - **Vérification chauffeur automatisée dès l'inscription :** selfie + pièce d'identité (CNI / passeport) ou permis ; contrôles automatiques (visage, lecture de la pièce par OCR, doublons) et décision automatique — vérifié, refusé avec motif, ou ticket pour l'admin dans les cas ambigus. Tant que ce n'est pas vérifié, pas de mise en ligne, pas de proposition.
 - **Sécurité passager :** SOS (112) + partage de course en direct (lien public de suivi), code PIN à 4 chiffres donné au chauffeur pour démarrer la course.
 - **Fidélité :** 10e course offerte (le passager ne paie pas, le chauffeur est payé intégralement, la plateforme absorbe) ; points chauffeur (100 points/course, 10 000 points = 5 courses sans commission).
-- **Prix :** tarifs fixes par trajet, **jamais de surge**, tarifs aéroport fixes affichés. Baisse de 24 % appliquée (v2.3), planchers Solo 550 / Groupe 400 FCFA.
-- **Carte :** 49 quartiers de Libreville avec leurs noms affichés sur la carte (22 visibles au zoom 12, 48 au zoom 14), 24 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics — pictogrammes dès le zoom 13, noms dès le zoom 15), icônes chauffeurs dorées avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.
-- **Quartiers à accès difficile :** 11 quartiers ne sont pas desservis sur route bitumée — la course s'y arrête par défaut à un point de dépôt sur route bitumée ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **800 FCFA**, que le chauffeur est libre d'accepter ou non. La commission est calculée sur le total, supplément compris.
+- **Prix :** estimation indicative au km — prise en charge + prix au kilomètre (Solo 500 + 210 FCFA/km, Groupe 300 + 135 FCFA/km, Moto = Solo ×0,6), **jamais de surge** ; AUCUN tarif fixe défini par la plateforme. Le prix final est convenu entre le passager et le chauffeur — le chauffeur propose, le passager peut proposer son prix à la demande et contre-proposer — puis il est figé à l'acceptation. Planchers de l'estimation Solo 550 / Groupe 400 FCFA.
+- **Carte :** 70 quartiers de Libreville avec leurs noms affichés sur la carte (28 visibles au zoom 12, 62 au zoom 13, 70 au zoom 14), 43 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics — pictogrammes dès le zoom 13, noms dès le zoom 15), icônes chauffeurs dorées avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.
+- **Quartiers à accès difficile :** 16 quartiers ne sont pas desservis sur route bitumée — la course s'y arrête par défaut à un point de dépôt sur route bitumée (PK12 sur l'axe N1, Angondjé sur la côte nord, Akanda pour Ondogo, Owendo pour le sud d'Owendo) ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **800 FCFA**, que le chauffeur est libre d'accepter ou non. La commission est calculée sur le total, supplément compris. Tous les PK jusqu'à PK12 inclus sont bitumés et normaux.
 - **Gamification chauffeur :** tableau de bord clair (montant par course, total 24 h, montant dû en temps réel, récaps hebdo et mensuel), célébrations après chaque course, quêtes jour / hebdo, séries, niveaux Bronze / Argent / Or / Diamant, badges, « Course Double » (environ 1 course sur 10 tirée au sort, commission offerte, le chauffeur garde 100 % + la course compte double dans sa quête), « Chauffeur de la semaine ».
 
 ---
@@ -35,9 +35,9 @@
 |---|---|---|---|---|---|---|
 | Commission chauffeur | **5 % (3 mois) puis 8 %, plafond 10 % garanti** | 0 % au lancement, puis ? (concurrents à 15–30 %) | 15–30 % (fourchette du marché) | Inconnu | Inconnu | 0 % (indépendant, mais pas de clients fournis) |
 | Ce que le chauffeur garde | **92–95 % de chaque course** | 70–85 % après la période de lancement | 70–85 % | Inconnu | Inconnu | 100 % (mais il trouve ses clients seul) |
-| Surge (prix qui montent aux heures de pointe) | **Jamais — prix garantis** | Oui (surge pricing, faiblesse connue) | Tarifs fixes par zone (pas de surge affiché) | Inconnu | Inconnu | Négociation au cas par cas |
+| Surge (prix qui montent aux heures de pointe) | **Jamais — prix figé une fois accepté** | Oui (surge pricing, faiblesse connue) | Tarifs fixes par zone (pas de surge affiché) | Inconnu | Inconnu | Négociation au cas par cas |
 | Course partagée (prix divisé) | **Oui — Groupe par défaut** | Inconnu | Inconnu | Inconnu | Inconnu | Oui (100–500 FCFA/personne en partagé) |
-| Prix minimum affiché | Groupe dès 400 FCFA/passager (matrice fixe) | Éco dès 600 FCFA | Tarifs fixes par zone | Éco dès 1 000 FCFA | Inconnu | 100–500 FCFA/personne en partagé ; course dès 2 000 FCFA ; aéroport 5 000 FCFA jour / 10 000 FCFA nuit |
+| Prix minimum affiché | Estimation Groupe dès 400 FCFA/passager (indicative, pas un tarif) | Éco dès 600 FCFA | Tarifs fixes par zone | Éco dès 1 000 FCFA | Inconnu | 100–500 FCFA/personne en partagé ; course dès 2 000 FCFA ; aéroport 5 000 FCFA jour / 10 000 FCFA nuit |
 | Vérification chauffeur (selfie + pièce d'identité) | **Oui, obligatoire dès le jour 1, automatisée** | Inconnu | Inconnu | Inconnu | Inconnu | Non |
 | SOS + partage de course en direct | **Oui (112 + lien de suivi public)** | Inconnu | Inconnu | Inconnu | Inconnu | Non |
 | Transparence des gains chauffeur | **Oui — tableau de bord : par course, 24 h, dû en temps réel, récaps hebdo / mensuel** | Inconnu | Inconnu | Inconnu | Inconnu | Le chauffeur sait ce qu'il gagne, pas de tableau de bord |
@@ -54,8 +54,8 @@
 **1. Le chauffeur garde 92–95 % de chaque course, contre 70–85 % chez les concurrents.**
 C'est l'argument n° 1 pour recruter. Yango est à 0 % de commission au lancement, mais c'est temporaire — après, il retombe dans la fourchette 15–30 % du marché. Nous, le plafond de 10 % est garanti, écrit dans les CGU. Un chauffeur qui fait 10 courses par jour à 1 140 FCFA en moyenne garde environ 65 200 FCFA de plus par mois chez nous que chez un concurrent à 30 % (hypothèse : 1 140 FCFA × 10 courses × 26 jours ; à vérifier avec les vrais chiffres une fois lancé).
 
-**2. Le prix est fixe et garanti, jamais de surge.**
-Le passager sait ce qu'il paie avant de commander, même un samedi soir, même sous la pluie. C'est la plainte n° 1 contre Yango et les applis à surge. Le Groupe par défaut (prix divisé, badge « LE MOINS CHER ») attaque en plus le réflexe du taxi partagé, qui est la norme à Libreville.
+**2. Le prix est figé une fois accepté, jamais de surge.**
+Le passager voit une estimation avant de commander et le prix proposé par chaque chauffeur avant d'accepter — une fois accepté, le prix ne bouge pas, même un samedi soir, même sous la pluie. C'est la plainte n° 1 contre Yango et les applis à surge. Le Groupe par défaut (prix divisé, badge « LE MOINS CHER ») attaque en plus le réflexe du taxi partagé, qui est la norme à Libreville.
 
 **3. La sécurité est un argument de vente, pas une case à cocher.**
 Vérification selfie + pièce d'identité obligatoire dès le jour 1 (personne ne le fait aussi strictement sur le papier, côté concurrents locaux), SOS 112, partage de course en direct, code PIN pour démarrer la course. Dans un marché où la méfiance envers les chauffeurs inconnus est une faiblesse connue des concurrents, c'est ce qui peut faire choisir Stacks Drive à une passagère le soir.
@@ -76,8 +76,8 @@ Le passager paie en espèces ou par transfert P2P direct au chauffeur. C'est un 
 **4. Pas de notoriété, une seule ville, une toute petite équipe.**
 Yango est une marque mondiale, Gozem est là depuis 2021, Taxi Gab+ aligne 1 066 véhicules. Nous, c'est Randy, seul, avec une appli lancée le 13/11/2026. Pas de budget pub, pas de partenariat, pas de flotte. La seule réponse possible : être meilleur sur le terrain (chauffeurs contents, passagers en sécurité) et grandir par le bouche-à-oreille, pas par la pub.
 
-**5. Fiabilité : le calcul des prix est blindé côté serveur, le circuit complet n'a jamais été testé en conditions réelles.**
-Depuis la v2.2 : prix calculés côté serveur uniquement, bornes de sécurité (pas de sur-facturation, pas de trop-perçu), pas de double commission (idempotence), journal d'audit, blocage + message clair en cas d'anomalie, page d'erreur de marque (« Service momentanément indisponible ») si ça plante vraiment. Reste vrai : le circuit complet (calcul → commission → règlement hebdo → dépôt → plafond) n'a jamais été testé avec de vrais chauffeurs et de vraies courses. Un bug de trop-perçu ou de double commission au lancement tuerait la confiance des chauffeurs en une semaine.
+**5. Fiabilité : l'estimation est calculée côté serveur, les prix convenus sont validés côté serveur, le circuit complet n'a jamais été testé en conditions réelles.**
+Depuis la v2.2 : estimation calculée côté serveur uniquement, bornes absolues de sécurité (400–50 000 FCFA, pas de prix fou), pas de double commission (idempotence), journal d'audit, blocage + message clair en cas d'anomalie, page d'erreur de marque (« Service momentanément indisponible ») si ça plante vraiment. Reste vrai : le circuit complet (estimation → prix convenu → commission → règlement hebdo → dépôt → plafond) n'a jamais été testé avec de vrais chauffeurs et de vraies courses. Un bug de trop-perçu ou de double commission au lancement tuerait la confiance des chauffeurs en une semaine.
 
 **6. Détails produit connus.**
 - Les 6 chauffeurs démo sont toujours affichés (profils fictifs, signalés comme tels dans les mentions légales).
@@ -103,9 +103,9 @@ Depuis la v2.2 : prix calculés côté serveur uniquement, bornes de sécurité 
 | Politique cookies | `app/cookies/page.tsx` | Faite — lien présent dans le pied de page. |
 | Mentions légales | `app/mentions-legales/page.tsx` | Faites — précisent que les 6 chauffeurs affichés sont des profils de démonstration fictifs. |
 | Règles de commission | `lib/commission.ts` | 5 % / 8 % / plafond 10 %. Ne pas toucher aux taux sans décision de Randy. |
-| Matrice des tarifs fixes | `lib/pricing.ts` | Tarifs par trajet (Solo / Groupe), supplément route non bitumée 800 FCFA. |
-| Quartiers et accès difficile | `lib/neighborhoods.ts` | 49 quartiers, 11 à accès difficile, points de dépôt. |
-| Lieux sur la carte | `lib/pois.ts` | 24 lieux. |
+| Estimation indicative (`lib/pricing.ts`) | `lib/pricing.ts` | Prise en charge + prix au km (Solo 500 + 210/km, Groupe 300 + 135/km, Moto ×0,6), AUCUN tarif fixe — le prix final est convenu entre le passager et le chauffeur, supplément route non bitumée 800 FCFA. |
+| Quartiers et accès difficile | `lib/neighborhoods.ts` | 70 quartiers, 16 à accès difficile, points de dépôt. |
+| Lieux sur la carte | `lib/pois.ts` | 43 lieux. |
 | Modèle de variables d'environnement | `.env.example` | Fait. |
 | Code source complet | `app/`, `components/`, `lib/`, `styles/`, `public/`, `types/` | En ligne (v2.6, commit `65996054`). |
 

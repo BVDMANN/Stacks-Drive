@@ -8,18 +8,28 @@ export type RideType = 'solo' | 'groupe';
  *  une moto ne peut pas prendre plusieurs passagers. */
 export type VehiclePreference = 'voiture' | 'moto' | 'tous';
 
+/** Estimation indicative d'un trajet — PAS un prix.
+ *
+ *  Modèle exact (décision de Randy, 14/11/2026) : le passager voit une
+ *  estimation avant la course, puis le prix final se décide entre le
+ *  passager et le chauffeur (le chauffeur propose, le passager peut
+ *  aussi proposer son prix directement et contre-proposer) ; une fois
+ *  accepté, le prix est figé, jamais de surge, jamais de changement à
+ *  l'arrivée. La plateforme ne définit AUCUN prix fixe : il n'y a plus
+ *  de tarifs de référence (supprimés, v2.11). */
 export interface FareEstimate {
-  /** Prix fixe estimé, en FCFA (jamais de surge). */
+  /** Estimation indicative, en FCFA — jamais un prix à payer. */
   price: number;
   /** Distance à vol d'oiseau entre les deux quartiers, en km. */
   distanceKm: number;
-  /** Durée estimée du trajet, en minutes. */
+  /** Durée estimée du trajet, en minutes (affichée, jamais facturée). */
   durationMin: number;
   rideType: RideType;
   vehiclePreference: VehiclePreference;
-  /** Explication courte affichée sous le prix (« Tarif fixe · ~4 km · ~12 min »). */
+  /** Décomposition lisible affichée sous l'estimation
+   *  (« 500 FCFA prise en charge + 4,8 km × 210 FCFA/km »). */
   breakdown: string;
-  /** Supplément route non bitumée inclus dans le prix (0 sinon). */
+  /** Supplément route non bitumée inclus dans l'estimation (0 sinon). */
   unpavedSupplement: number;
 }
 
@@ -32,32 +42,30 @@ export interface FareEstimate {
  *  figé de la course sans distinguer ses composantes. */
 export const UNPAVED_ROAD_SUPPLEMENT = 800;
 
-/** Tarifs fixes connus pour les trajets les plus courants — cohérents avec
- *  les anciennes courses démo. Clé symétrique « A|B » (aller = retour).
- *  Le prix Groupe est PAR PASSAGER (plus bas que le Solo).
- *  Baisse de 24 % décidée par Randy le 13/11/2026 (v2.3) : les anciens
- *  tarifs sont dans l'historique Git, pas ici. */
-const FARE_OVERRIDES: Record<string, { solo: number; groupe: number }> = {
-  'Aéroport Léon-Mba|Centre-ville': { solo: 3800, groupe: 1900 },
-  'Glass|Nzeng-Ayong': { solo: 1350, groupe: 900 },
-  'Charbonnages|Owendo': { solo: 1650, groupe: 1150 },
-  'Centre-ville|Nzeng-Ayong': { solo: 1150, groupe: 700 },
-  'Akanda|Aéroport Léon-Mba': { solo: 1900, groupe: 1150 },
-  'Nzeng-Ayong|Owendo': { solo: 900, groupe: 550 },
-};
+/** Estimation au km (v2.11, recalage décidé par Randy le 14/11/2026,
+ *  ancré sur l'exemple Centre-ville → Nzeng-Ayong : Solo 1 500 FCFA,
+ *  Groupe 950 FCFA) : comme Gozem et Yango — prise en charge + prix au
+ *  kilomètre, estimation indicative affichée avant la course, pas de
+ *  prix à la minute. Le prix final, lui, se décide entre le passager
+ *  et le chauffeur (proposition / contre-proposition) et est figé à
+ *  l'acceptation — jamais de surge.
+ *  Estimation = max(plancher, arrondi50(prise en charge + taux/km ×
+ *  distance + supplément aéroport)) — puis ×0,6 pour la moto, puis
+ *  +800 FCFA de supplément piste (jamais remisé) s'il y a lieu. */
+export const BASE_FARE_SOLO = 500;
+export const PER_KM_SOLO = 210;
+export const AIRPORT_SUPPLEMENT_SOLO = 800;
+export const MIN_FARE_SOLO = 550;
+
+export const BASE_FARE_GROUPE = 300;
+export const PER_KM_GROUPE = 135;
+export const AIRPORT_SUPPLEMENT_GROUPE = 300;
+export const MIN_FARE_GROUPE = 400;
 
 const AIRPORT = 'Aéroport Léon-Mba';
 
 function round50(n: number): number {
   return Math.max(0, Math.round(n / 50) * 50);
-}
-
-function overrideKey(a: Neighborhood, b: Neighborhood): string {
-  // Tri par code UTF-16 (pas localeCompare : en français, « é » se trie
-  // comme « e », ce qui inverserait « Akanda » et « Aéroport » et ferait
-  // rater l'override Akanda ↔ Aéroport). Les clés de FARE_OVERRIDES sont
-  // écrites dans cet ordre.
-  return [a, b].sort().join('|');
 }
 
 /** Distance entre deux quartiers, en km. */
@@ -68,12 +76,29 @@ export function distanceBetween(a: Neighborhood, b: Neighborhood): number {
   return haversineKm(ca.lat, ca.lng, cb.lat, cb.lng);
 }
 
-/** Estimation de prix fixe pour un trajet. Le prix est calculé côté
- *  serveur à la création de la demande (jamais depuis le client) et
- *  figé à l'acceptation de la proposition. Formule hors overrides :
- *  base × 0,76 (baisse de 24 % décidée par Randy, v2.3), planchers
- *  550 FCFA en Solo et 400 FCFA en Groupe. Route non bitumée (v2.6) :
- *  si `unpavedRoad` est vrai, le supplément forfaitaire
+/** Trajet estimé (distance / durée) — sans aucun prix. Utilisé partout
+ *  où l'interface a besoin de la distance et de la durée sans parler
+ *  d'argent (vue course, tableau de bord chauffeur, pop-up de
+ *  proposition). */
+export function estimateTrip(
+  pickup: Neighborhood,
+  destination: Neighborhood
+): { distanceKm: number; durationMin: number } {
+  const distanceKm = distanceBetween(pickup, destination);
+  const durationMin = Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
+  return { distanceKm, durationMin };
+}
+
+/** Estimation indicative du prix d'un trajet. Calculée côté serveur à
+ *  la création de la demande (jamais depuis le client) et affichée au
+ *  passager comme un repère — ce n'est PAS le prix de la course. Le
+ *  prix final est proposé par le chauffeur (le passager peut aussi
+ *  proposer le sien) et figé à l'acceptation de la proposition.
+ *  Modèle au km (v2.11) : prise en charge + taux/km × distance (+
+ *  supplément aéroport), arrondi aux 50 FCFA, plancher 550 FCFA en
+ *  Solo et 400 FCFA en Groupe. Moto = Solo × 0,6 (plancher 550
+ *  appliqué après la remise). Route non bitumée (v2.6) : si
+ *  `unpavedRoad` est vrai, le supplément forfaitaire
  *  UNPAVED_ROAD_SUPPLEMENT s'ajoute APRÈS tout le reste (remise moto
  *  comprise) : c'est un forfait par course, jamais remisé. */
 export function estimateFare(
@@ -83,38 +108,44 @@ export function estimateFare(
   vehiclePreference: VehiclePreference = 'tous',
   options: { unpavedRoad?: boolean } = {}
 ): FareEstimate {
-  const distanceKm = distanceBetween(pickup, destination);
-  const durationMin = Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
+  const { distanceKm, durationMin } = estimateTrip(pickup, destination);
   const isAirport = pickup === AIRPORT || destination === AIRPORT;
   const pref: VehiclePreference =
     rideType === 'groupe' && vehiclePreference === 'moto' ? 'voiture' : vehiclePreference;
 
-  // Recherche dans les deux ordres : la clé triée d'abord, puis les deux
-  // ordres bruts (filet de sécurité si une clé a été écrite à l'envers).
-  const override =
-    FARE_OVERRIDES[overrideKey(pickup, destination)] ??
-    FARE_OVERRIDES[`${pickup}|${destination}`] ??
-    FARE_OVERRIDES[`${destination}|${pickup}`];
+  const kmFr = distanceKm.toFixed(1).replace('.', ',');
   let price: number;
-  if (override) {
-    price = rideType === 'solo' ? override.solo : override.groupe;
-    if (pref === 'moto' && rideType === 'solo') price = round50(price * 0.6);
-  } else if (rideType === 'solo') {
-    price = round50((600 + 280 * distanceKm + (isAirport ? 800 : 0)) * 0.76);
+  let breakdown: string;
+  if (rideType === 'solo') {
+    price = round50(
+      BASE_FARE_SOLO + PER_KM_SOLO * distanceKm + (isAirport ? AIRPORT_SUPPLEMENT_SOLO : 0)
+    );
     if (pref === 'moto') price = round50(price * 0.6);
-    price = Math.max(price, 550);
+    const floored = price < MIN_FARE_SOLO;
+    price = Math.max(price, MIN_FARE_SOLO);
+    breakdown =
+      `${BASE_FARE_SOLO} FCFA prise en charge + ${kmFr} km × ${PER_KM_SOLO} FCFA/km` +
+      (isAirport ? ` + ${AIRPORT_SUPPLEMENT_SOLO} FCFA aéroport` : '') +
+      (pref === 'moto' ? ' · Moto ×0,6' : '') +
+      (floored ? ` · minimum ${MIN_FARE_SOLO} FCFA` : '');
   } else {
-    price = round50((350 + 160 * distanceKm + (isAirport ? 400 : 0)) * 0.76);
-    price = Math.max(price, 400);
+    price = round50(
+      BASE_FARE_GROUPE + PER_KM_GROUPE * distanceKm + (isAirport ? AIRPORT_SUPPLEMENT_GROUPE : 0)
+    );
+    const floored = price < MIN_FARE_GROUPE;
+    price = Math.max(price, MIN_FARE_GROUPE);
+    breakdown =
+      `${BASE_FARE_GROUPE} FCFA prise en charge + ${kmFr} km × ${PER_KM_GROUPE} FCFA/km` +
+      (isAirport ? ` + ${AIRPORT_SUPPLEMENT_GROUPE} FCFA aéroport` : '') +
+      (floored ? ` · minimum ${MIN_FARE_GROUPE} FCFA` : '');
   }
 
-  // Supplément route non bitumée : forfait, ajouté tel quel au tarif.
+  // Supplément route non bitumée : forfait, ajouté tel quel à l'estimation.
   const unpavedSupplement = options.unpavedRoad ? UNPAVED_ROAD_SUPPLEMENT : 0;
   price += unpavedSupplement;
 
-  const breakdown = `Tarif fixe · ~${Math.max(1, Math.round(distanceKm))} km · ~${durationMin} min${
-    pref === 'moto' ? ' · Moto' : ''
-  }${unpavedSupplement > 0 ? ` · +${unpavedSupplement} FCFA route non bitumée` : ''}`;
+  breakdown += ` · ~${durationMin} min` + (pref === 'moto' ? ' · Moto' : '');
+  if (unpavedSupplement > 0) breakdown += ` · +${unpavedSupplement} FCFA route non bitumée`;
   return { price, distanceKm, durationMin, rideType, vehiclePreference: pref, breakdown, unpavedSupplement };
 }
 

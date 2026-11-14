@@ -91,7 +91,7 @@ export default function GlobalError({
           </Link>
         </div>
         <p style={{ color: '#64748B', fontSize: 12, marginTop: 24 }}>
-          Le problème persiste ? Écris à Stacks Drive : boulinguirandy12@gmail.com
+          Le problème persiste ? Écris à Stacks Drive : stacks.markett@gmail.com
         </p>
       </body>
     </html>

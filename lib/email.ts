@@ -7,7 +7,7 @@
  *
  *  Expéditeur par défaut : onboarding@resend.dev (plan gratuit Resend,
  *  qui autorise l'envoi vers l'e-mail du propriétaire du compte — ici
- *  l'admin, boulinguirandy76@gmail.com). Quand un domaine est vérifié
+ *  l'admin, stacks.markett@gmail.com). Quand un domaine est vérifié
  *  dans Resend, définir EMAIL_FROM (ex : « Stacks Drive
  *  <noreply@stacksdrive.app> »).
  *
@@ -18,7 +18,7 @@
 import type { TicketUrgency } from '@/lib/verification';
 import { CHECK_REASON_LABELS, URGENCY_LABELS } from '@/lib/verification';
 
-export const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'boulinguirandy76@gmail.com';
+export const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'stacks.markett@gmail.com';
 
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
