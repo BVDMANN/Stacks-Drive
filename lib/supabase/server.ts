@@ -58,6 +58,8 @@ export interface SessionProfile {
   selfie_recheck_required: boolean;
   selfie_recheck_reason: string | null;
   last_selfie_check_at: string | null;
+  /** v2.55 — départ du chauffeur (remboursement auto de la caution). */
+  driver_left_at: string | null;
   current_area: string | null;
   last_lat: number | null;
   last_lng: number | null;

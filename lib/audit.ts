@@ -55,7 +55,21 @@ export type AuditEvent =
   | 'selfie_recheck_ambiguous' // re-vérification selfie : aucun visage, ticket admin (v2.30)
   | 'ridecheck_checkin' // RideCheck : signal confirmé, check-in ouvert au passager (v2.34)
   | 'ridecheck_answer' // RideCheck : réponse du passager au check-in (v2.34)
-  | 'ridecheck_no_response'; // RideCheck : check-in sans réponse, alerte admin (v2.34)
+  | 'ridecheck_no_response' // RideCheck : check-in sans réponse, alerte admin (v2.34)
+  | 'card_hold_created' // paiement carte : empreinte créée (v2.55)
+  | 'card_hold_confirmed' // paiement carte : empreinte confirmée (v2.55)
+  | 'card_hold_voided' // paiement carte : empreinte annulée (v2.55)
+  | 'card_captured' // paiement carte : capture à la fin de la course (v2.55)
+  | 'card_capture_failed' // paiement carte : capture en échec (v2.55)
+  | 'card_capture_without_earnings' // paiement carte : capture sans gains clôturés (v2.55)
+  | 'card_deposit_paid' // paiement carte : caution versée (v2.55)
+  | 'card_deposit_refunded' // paiement carte : caution remboursée (v2.55)
+  | 'card_deposit_forfeited' // paiement carte : caution confisquée (v2.55)
+  | 'card_debt_paid' // paiement carte : dette remboursée par carte (v2.55)
+  | 'daily_payouts_cron' // lots quotidiens générés par le cron (v2.55)
+  | 'daily_batch_paid' // lot quotidien marqué comme viré (v2.55)
+  | 'driver_left' // chauffeur : compte fermé, caution remboursée (v2.55)
+  | 'stripe_webhook_error'; // webhook Stripe : événement reconnu, traitement en échec (v2.55)
 
 /** Consigne un événement d'audit. Ne lève jamais d'exception. */
 export async function logAudit(
@@ -123,6 +137,20 @@ export const AUDIT_LABELS: Record<string, string> = {
   fraud_blocked: 'Suspicion de fraude — compte signalé / bloqué',
   fraud_unblocked: 'Compte débloqué après contrôle fraude',
   data_cleanup: 'Nettoyage hebdo des données (RGPD)',
+  card_hold_created: 'Empreinte carte créée',
+  card_hold_confirmed: 'Empreinte carte confirmée',
+  card_hold_voided: 'Empreinte carte annulée',
+  card_captured: 'Paiement carte encaissé',
+  card_capture_failed: 'Capture carte en échec',
+  card_capture_without_earnings: 'Capture carte sans gains clôturés',
+  card_deposit_paid: 'Caution carte versée',
+  card_deposit_refunded: 'Caution carte remboursée',
+  card_deposit_forfeited: 'Caution carte confisquée',
+  card_debt_paid: 'Dette remboursée par carte',
+  daily_payouts_cron: 'Lots quotidiens générés',
+  daily_batch_paid: 'Lot quotidien viré',
+  driver_left: 'Chauffeur parti (caution remboursée)',
+  stripe_webhook_error: 'Webhook Stripe en erreur',
 };
 
 /** Derniers événements d'audit (admin). [] si la table n'existe pas. */

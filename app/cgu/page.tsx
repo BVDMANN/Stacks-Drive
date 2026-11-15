@@ -155,6 +155,37 @@ export default function CguPage() {
             montant dû dépasse <strong>5 000 FCFA</strong>, le chauffeur ne
             reçoit plus de nouvelles demandes tant qu’il n’a pas réglé.
           </p>
+          <p>
+            <strong>Paiement par carte.</strong> Le passager peut aussi
+            choisir de payer par carte bancaire. Dans ce cas, une empreinte
+            du montant total (prix convenu + frais de paiement, affichés
+            avant confirmation) est retenue sur sa carte dès l’acceptation
+            de la course — rien n’est débité à ce moment. La course ne
+            démarre que lorsque l’empreinte est confirmée. À la fin de la
+            course, le prix convenu est débité ; si la course est annulée
+            avant, l’empreinte est annulée et rien n’est débité. Les frais
+            de paiement par carte sont à la charge du passager et sont
+            affichés avant toute confirmation. La commission de la course
+            est alors prélevée automatiquement par la plateforme — le
+            chauffeur ne la doit plus et reçoit sa part nette en versement
+            quotidien. Les paiements par carte sont traités de façon
+            sécurisée par Stripe (3-D Secure) : Stacks Drive ne voit, ne
+            stocke et ne transmet jamais le numéro de carte.
+          </p>
+          <p>
+            <strong>Caution par carte et remboursement.</strong> Le chauffeur
+            peut verser son dépôt de garantie de 5 000 FCFA par carte
+            bancaire (frais de paiement à sa charge, affichés avant
+            confirmation). Quand il quitte la plateforme proprement, sa
+            caution lui est remboursée automatiquement sur sa carte, sous
+            5 à 10 jours ouvrés. Le remboursement est intégral, sauf dans
+            deux cas : (1) s’il doit encore des commissions, le montant dû
+            est déduit du remboursement et le reste lui est remboursé ;
+            (2) en cas de fraude confirmée par la plateforme, la caution
+            est confisquée. Le chauffeur peut aussi rembourser sa dette de
+            commission par carte, à tout moment : le montant payé est
+            déduit de sa dette immédiatement.
+          </p>
         </section>
 
         <section className="space-y-2">

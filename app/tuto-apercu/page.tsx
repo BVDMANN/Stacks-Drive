@@ -146,6 +146,7 @@ const DEMO_PROFILE: SessionProfile = {
   selfie_recheck_required: false,
   selfie_recheck_reason: null,
   last_selfie_check_at: null,
+  driver_left_at: null,
   current_area: 'Nzeng-Ayong',
   last_lat: null,
   last_lng: null,

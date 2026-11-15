@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { DriveCash, DriveChevronRight, DriveGift, DriveHelp, DriveHistory, DrivePin, DriveSettings, DriveShield, DriveSmartphone, DriveSos, DriveUser } from '@/components/icons/DriveUi';
+import { DriveCash, DriveChevronRight, DriveCreditCard, DriveGift, DriveHelp, DriveHistory, DrivePin, DriveSettings, DriveShield, DriveSmartphone, DriveSos, DriveUser } from '@/components/icons/DriveUi';
 import { DriveCarMini } from '@/components/icons/DriveCar';
 import { PageShell } from '@/components/shared/PageShell';
 import { ProfileForm } from '@/components/compte/ProfileForm';
@@ -122,7 +122,7 @@ export default async function ComptePage() {
               href="#paiement"
               icon={<DriveCash size={20} />}
               label="Paiement"
-              subtitle="Espèces · Airtel · Moov"
+              subtitle="Espèces · Airtel · Moov · Carte"
             />
           )}
           <GroupRow href="/aide" icon={<DriveHelp size={20} />} label="Aide" />
@@ -207,10 +207,12 @@ export default async function ComptePage() {
             </Card>
           )}
 
-          {/* Paiement au chauffeur (v2.49) : les VRAIS moyens — espèces
-              ou Mobile Money, payés directement au chauffeur. Simple
-              affichage : l'appli ne touche jamais l'argent, aucune
-              saisie de carte. */}
+          {/* Paiement au chauffeur (v2.49, carte en v2.55) : les
+              VRAIS moyens — espèces ou Mobile Money, payés
+              directement au chauffeur, ou carte bancaire (Stripe) :
+              empreinte avant la course, débit du prix convenu à
+              la fin. Simple affichage : l'appli ne voit jamais le
+              numéro de carte. */}
           <Card id="paiement">
             <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
               <DriveCash size={20} className="text-sarcelle" /> Paiement au chauffeur
@@ -224,6 +226,9 @@ export default async function ComptePage() {
               </li>
               <li className="flex items-center gap-2">
                 <DriveSmartphone size={16} className="text-slate-400 shrink-0" /> Moov Money — transfert direct au chauffeur.
+              </li>
+              <li className="flex items-center gap-2">
+                <DriveCreditCard size={16} className="text-slate-400 shrink-0" /> Carte bancaire — empreinte du prix convenu + frais avant la course, débit à la fin. Les frais sont à la charge du passager.
               </li>
             </ul>
             <p className="text-xs text-slate-500">

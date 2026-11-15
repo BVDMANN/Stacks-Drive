@@ -5,6 +5,9 @@ import { DriveCalendar, DriveCrown, DriveFlame, DriveGift, DriveRefresh, DriveSh
 import { LogoLoader } from '@/components/icons/DriveLogo';
 import type { DriverEarningsSummary } from '@/lib/earnings';
 import { WeeklySettlementCard } from '@/components/driver/WeeklySettlementCard';
+import { CardEarningsSection } from '@/components/driver/CardEarningsSection';
+import { DepositCard } from '@/components/driver/DepositCard';
+import { DebtCardPayment } from '@/components/driver/DebtCardPayment';
 import {
   BADGES,
   DEPOSIT_FCFA,
@@ -162,6 +165,10 @@ export function DriverEarnings() {
           ne sont pas comptées.
         </p>
       )}
+
+      {/* Gains carte en temps réel + lots quotidiens (v2.55) :
+          la réponse au « hebdomadaire, c'est trop long ». */}
+      <CardEarningsSection />
 
       {/* Gains : 24 h / semaine / mois */}
       <section className="space-y-3">
@@ -330,8 +337,15 @@ export function DriverEarnings() {
               l’équipe pour que ton compte soit mis à jour.
             </p>
           )}
+          {/* Remboursement de dette par carte (v2.55) : le montant
+              payé est déduit de la dette immédiatement, sans action
+              admin. */}
+          {summary.owed > 0 && <DebtCardPayment owed={summary.owed} onPaid={fetchSummary} />}
         </div>
       </section>
+
+      {/* Caution par carte + remboursement automatique au départ (v2.55). */}
+      <DepositCard />
 
       {/* Relevé hebdo + « J'ai payé » (v2.15) */}
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">

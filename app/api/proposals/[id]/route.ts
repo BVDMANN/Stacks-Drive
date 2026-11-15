@@ -341,6 +341,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     });
   }
 
+  // v2.55 — course par carte : le passager doit confirmer
+  // l'empreinte (prix convenu + frais Stripe) avant que le
+  // chauffeur puisse démarrer. Le montant total est calculé
+  // côté serveur par POST /api/stripe/hold (gross-up) — la
+  // réponse indique seulement si l'empreinte est requise.
+  const cardHoldRequired =
+    ride.payment_method === 'carte' && !loyaltyFree;
+
   return NextResponse.json({
     ok: true,
     loyaltyFree,
@@ -348,5 +356,8 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     isDoubleRide,
     agreedPrice,
     roundedPrice: price,
+    cardHold: cardHoldRequired
+      ? { required: true, fareFcfa: price }
+      : { required: false },
   });
 }

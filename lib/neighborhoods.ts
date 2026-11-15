@@ -735,7 +735,7 @@ export type VehicleType = (typeof VEHICLE_TYPES)[number];
 /** Moyens de paiement acceptés (aucun traitement réel : le paiement
  *  se fait directement entre le passager et le chauffeur, en espèces ou
  *  par Mobile Money). */
-export const PAYMENT_METHODS = ['especes', 'airtel', 'moov'] as const;
+export const PAYMENT_METHODS = ['especes', 'airtel', 'moov', 'carte'] as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
@@ -743,4 +743,7 @@ export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   especes: 'Espèces',
   airtel: 'Airtel Money',
   moov: 'Moov Money',
+  // v2.55 — carte bancaire (Stripe) : le passager paie les frais,
+  // empreinte avant la course, capture du prix convenu à la fin.
+  carte: 'Carte bancaire',
 };

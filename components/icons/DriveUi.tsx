@@ -323,6 +323,19 @@ export const DriveSmartphone: IconFn = ({ size, className }) => (
   </Svg>
 );
 
+/** Carte bancaire (v2.55) : carte + puce + bande magnétique +
+ *  lignes de numéro + reflet diagonal. */
+export const DriveCreditCard: IconFn = ({ size, className }) => (
+  <Svg size={size} className={className} label="Carte bancaire">
+    <rect x="2" y="4.5" width="20" height="15" rx="3" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeWidth="1.9" />
+    <path d="M2 8 L22 8" stroke="currentColor" strokeWidth="2.6" />
+    <rect x="4.5" y="11" width="4.5" height="3.6" rx="1" fill="currentColor" />
+    <path d="M5.5 12.8 L8 12.8 M6.7 11 L6.7 14.6" stroke="#17112E" strokeWidth="0.9" strokeLinecap="round" />
+    <path d="M12 12.5 L16.5 12.5 M13 15.5 L18 15.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.7" />
+    <path d="M4 6 Q12 4.8 20 6" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.1" strokeLinecap="round" />
+  </Svg>
+);
+
 /** Cadeau : boîte + ruban + nœud + reflet. */
 export const DriveGift: IconFn = ({ size, className }) => (
   <Svg size={size} className={className} label="Cadeau">

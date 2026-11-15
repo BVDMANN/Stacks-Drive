@@ -28,6 +28,7 @@ import type { AnonymousMapDriver } from '@/lib/db-types';
 import type { SessionProfile } from '@/lib/supabase/server';
 import { ProposalCard } from './ProposalCard';
 import { DriverCard } from './DriverCard';
+import { CardHoldSheet } from './CardHoldSheet';
 import { CancelRideDialog } from '@/components/rides/CancelRideDialog';
 import type { CancelReasonCode } from '@/lib/cancellations';
 import { NeighborhoodSelect } from '@/components/shared/NeighborhoodSelect';
@@ -236,6 +237,10 @@ export function HomeScreen({
   const [proposals, setProposals] = useState<RideProposal[]>([]);
   const [acceptedRide, setAcceptedRide] = useState<Ride | null>(null);
   const [acceptedDriver, setAcceptedDriver] = useState<DriverProfile | null>(null);
+  // v2.55 — paiement par carte : feuille d'empreinte ouverte après
+  // acceptation + statut de l'empreinte (sondé avec la course).
+  const [cardHold, setCardHold] = useState<{ rideId: string; fareFcfa: number } | null>(null);
+  const [cardPaymentStatus, setCardPaymentStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyProposalId, setBusyProposalId] = useState<string | null>(null);
@@ -957,6 +962,7 @@ export function HomeScreen({
       if (!data?.ok) return;
       setAcceptedRide(data.ride as Ride);
       if (data.driver) setAcceptedDriver(data.driver as DriverProfile);
+      setCardPaymentStatus((data.cardPayment as { status?: string } | null)?.status ?? null);
       if ((data.ride as Ride).status === 'terminee') setPhase('done');
       if ((data.ride as Ride).status === 'annulee') {
         setPhase('idle');
@@ -1553,7 +1559,17 @@ export function HomeScreen({
     if (rideData?.ok) {
       setAcceptedRide(rideData.ride as Ride);
       setAcceptedDriver((rideData.driver as DriverProfile | null) ?? null);
+      setCardPaymentStatus((rideData.cardPayment as { status?: string } | null)?.status ?? null);
       setPhase('confirmed');
+      // v2.55 — course par carte : l'empreinte s'ouvre tout de suite
+      // après l'acceptation (le chauffeur ne peut pas démarrer sans).
+      const cardHoldInfo = data?.cardHold as { required?: boolean; fareFcfa?: number } | undefined;
+      if (cardHoldInfo?.required) {
+        setCardHold({
+          rideId: rideId as string,
+          fareFcfa: cardHoldInfo.fareFcfa ?? (data?.roundedPrice as number) ?? 0,
+        });
+      }
     }
   }
 
@@ -1628,6 +1644,8 @@ export function HomeScreen({
     proposalSnapshotRef.current = new Map();
     setAcceptedRide(null);
     setAcceptedDriver(null);
+    setCardHold(null);
+    setCardPaymentStatus(null);
     setSearchStartedAt(null);
     setError(null);
     // v2.47 — retour depuis l'état vide « aucun chauffeur » : la
@@ -2906,6 +2924,41 @@ export function HomeScreen({
                 onCancel={acceptedRide.status === 'acceptee' ? annulerCourse : undefined}
                 cancelling={busy}
               />
+              {/* v2.55 — paiement par carte : tant que l'empreinte
+                  n'est pas confirmée, le chauffeur ne peut pas
+                  démarrer — la bannière reste visible jusqu'à
+                  confirmation (le sondage met à jour le statut). */}
+              {acceptedRide.paymentMethod === 'carte' &&
+                !acceptedRide.loyaltyFree &&
+                cardPaymentStatus !== 'hold_confirmed' &&
+                cardPaymentStatus !== 'captured' && (
+                  <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-4 space-y-3">
+                    <p className="text-sm font-bold text-amber-200">
+                      Paiement par carte : confirme l’empreinte pour que ton
+                      chauffeur puisse démarrer — rien n’est débité maintenant.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCardHold({
+                          rideId: acceptedRide.id,
+                          fareFcfa: acceptedRide.proposedPrice ?? acceptedRide.estimatedPrice ?? 0,
+                        })
+                      }
+                      className="w-full px-5 py-3 rounded-full text-sm font-black bg-rose-500 text-night-900 hover:bg-rose-300 transition-colors"
+                    >
+                      Confirmer le paiement par carte
+                    </button>
+                  </div>
+                )}
+              {acceptedRide.paymentMethod === 'carte' &&
+                !acceptedRide.loyaltyFree &&
+                cardPaymentStatus === 'hold_confirmed' && (
+                  <p className="text-sm font-bold text-green-300 bg-green-500/10 border border-green-500/30 rounded-xl p-3">
+                    Paiement par carte confirmé — ton chauffeur peut démarrer.
+                    Le prix convenu sera débité à la fin de la course.
+                  </p>
+                )}
               {/* Messagerie (v2.10) : écrire au chauffeur, le voir arriver. */}
               <Link
                 href={`/courses/${acceptedRide.id}#messages`}
@@ -2977,6 +3030,27 @@ export function HomeScreen({
         }}
         onConfirm={confirmerAnnulation}
       />
+
+      {/* v2.55 — feuille d'empreinte carte : ouverte après
+          l'acceptation d'une course par carte, ou depuis la
+          bannière de la course confirmée. */}
+      {cardHold && (
+        <CardHoldSheet
+          rideId={cardHold.rideId}
+          fareFcfa={cardHold.fareFcfa}
+          onConfirmed={() => {
+            setCardHold(null);
+            setCardPaymentStatus('hold_confirmed');
+            pushToast({
+              id: `card-hold-${cardHold.rideId}`,
+              title: 'Paiement par carte confirmé',
+              message: 'Ton chauffeur peut démarrer.',
+              variant: 'success',
+            });
+          }}
+          onClose={() => setCardHold(null)}
+        />
+      )}
 
       {/* Tutoriel passager (v2.21) : une seule fois au premier lancement,
           fermable, rejouable depuis « Mon compte ». Pas d'ouverture auto

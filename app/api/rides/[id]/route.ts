@@ -20,6 +20,9 @@ import { getTrustedContacts } from '@/lib/trusted-contacts';
 import { notifyAdminAlert, reportApiFailure } from '@/lib/admin-alerts';
 import { checkCancellationFraud, checkPinFraud, checkSpeedFraud } from '@/lib/fraud';
 import { sendTrustedShareEmail } from '@/lib/email';
+// v2.55 — paiement par carte : empreinte avant démarrage, capture
+// à la clôture, annulation de l'empreinte à l'annulation.
+import { captureCardRide, getCardPaymentForRide, voidCardHold } from '@/lib/card-ledger';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://stacks-drive.vercel.app';
 
@@ -141,7 +144,23 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       driver = d;
     }
   }
-  return NextResponse.json({ ok: true, ride, driver });
+  // v2.55 — statut du paiement carte (empreinte / encaissement),
+  // pour que le passager voie où en est son paiement et que le
+  // chauffeur sache si la course peut démarrer.
+  const cardPayment = await getCardPaymentForRide(id);
+  return NextResponse.json({
+    ok: true,
+    ride,
+    driver,
+    cardPayment: cardPayment
+      ? {
+          status: cardPayment.status,
+          fareFcfa: cardPayment.fare_fcfa,
+          feesFcfa: cardPayment.fees_fcfa,
+          chargedFcfa: cardPayment.charged_fcfa,
+        }
+      : null,
+  });
 }
 
 /** Données de la popup de célébration après une course terminée
@@ -226,7 +245,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
   const { data: ride } = await supabase
     .from('rides')
-    .select('id, passenger_id, driver_id, ride_type, status, rating_driver, rating_passenger, pickup, destination, scheduled_at, estimated_price, payment_method, unpaved_requested')
+    .select('id, passenger_id, driver_id, ride_type, status, rating_driver, rating_passenger, pickup, destination, scheduled_at, estimated_price, payment_method, loyalty_free, unpaved_requested')
     .eq('id', id)
     .single();
   if (!ride) {
@@ -302,6 +321,12 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     if (ride.status === 'acceptee' && ride.driver_id) {
       await releaseSeat(supabase, ride.driver_id, ride.ride_type as 'solo' | 'groupe');
     }
+    // v2.55 — annulation de l'empreinte carte (void) : rien n'est
+    // débité quand la course est annulée avant capture. Ne bloque
+    // jamais l'annulation, qui a déjà abouti.
+    if (ride.status === 'acceptee' || ride.status === 'en_cours') {
+      await voidCardHold(id);
+    }
     // Historique + notification immédiate à l'autre partie (v2.23) :
     // message système dans la messagerie de course (visible en ~3 s
     // côté client quand la course était acceptée) + journal d'audit.
@@ -335,6 +360,22 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     }
     if (ride.status !== 'acceptee') {
       return NextResponse.json({ error: 'La course doit être confirmée pour démarrer.' }, { status: 400 });
+    }
+    // v2.55 — course par carte : pas de démarrage sans empreinte
+    // confirmée. Le chauffeur ne roule jamais sans garantie de
+    // paiement (sauf course offerte fidélité : le passager paie 0).
+    if (ride.payment_method === 'carte' && !ride.loyalty_free) {
+      const cardPayment = await getCardPaymentForRide(id);
+      if (!cardPayment || cardPayment.status !== 'hold_confirmed') {
+        return NextResponse.json(
+          {
+            error:
+              'Le passager n’a pas encore confirmé le paiement par carte — la course ne peut pas démarrer. Demande-lui de confirmer l’empreinte dans l’application.',
+            cardHoldRequired: true,
+          },
+          { status: 402 }
+        );
+      }
     }
     // Code PIN (v2.2) : le passager donne son code à 4 chiffres au
     // chauffeur. Vérification atomique côté base (verify_ride_pin) :
@@ -434,6 +475,16 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     if (finalizeError) {
       console.error('[api/rides/[id]] finalize_ride_earnings:', finalizeError.message);
     }
+    // v2.55 — course par carte : capture du prix convenu (+ frais)
+    // sur l'empreinte, APRÈS la clôture des gains (la commission
+    // est alors compensée automatiquement en dette). Ne bloque
+    // jamais la clôture : en cas d'échec de capture, la part du
+    // chauffeur part dans le lot quotidien, financée par la
+    // plateforme — le chauffeur n'est jamais pénalisé.
+    let cardCapture: { captured: boolean; reason?: string } | null = null;
+    if (ride.payment_method === 'carte' && !ride.loyalty_free) {
+      cardCapture = await captureCardRide(id);
+    }
     // Places libres (v2.19) : la fin de course libère sa place
     // (Groupe + 1, Solo → capacité entière) — le chauffeur redevient
     // disponible pour les demandes adaptées.
@@ -458,7 +509,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       // Détection indisponible : la course reste terminée.
     }
     const celebration = await buildCelebration(supabase, id, user.id, finalized);
-    return NextResponse.json({ ok: true, celebration });
+    return NextResponse.json({ ok: true, celebration, cardCapture });
   }
 
   // rate
