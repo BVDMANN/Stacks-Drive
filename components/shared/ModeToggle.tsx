@@ -100,7 +100,7 @@ export function ModeToggle({
               className={cn(
                 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black transition-all disabled:opacity-60',
                 role === m.value
-                  ? 'bg-or text-night-900 shadow-md shadow-or/40'
+                  ? 'bg-rose-500 text-night-900 shadow-md shadow-rose-500/40'
                   : 'text-slate-400 hover:text-white'
               )}
             >
@@ -117,7 +117,7 @@ export function ModeToggle({
         </span>
       )}
       {notice && !loading && (
-        <span className="text-[11px] text-cyan font-bold px-1">{notice}</span>
+        <span className="text-[11px] text-sarcelle font-bold px-1">{notice}</span>
       )}
       {error && <span className="text-[11px] text-red-400 font-bold px-1">{error}</span>}
     </span>

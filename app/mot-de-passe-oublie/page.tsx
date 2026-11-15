@@ -37,7 +37,7 @@ export default function MotDePasseOubliePage() {
   if (!isSupabaseConfigured()) {
     return (
       <AuthCard title="Mot de passe oublié" subtitle="On t’envoie un lien pour le réinitialiser.">
-        <p className="text-sm text-gold bg-gold/10 border border-gold/30 rounded-xl p-4">
+        <p className="text-sm text-corail bg-corail/10 border border-corail/30 rounded-xl p-4">
           La réinitialisation n’est pas encore configurée sur ce déploiement :
           les clés Supabase manquent. Voir SETUP.md.
         </p>
@@ -49,7 +49,7 @@ export default function MotDePasseOubliePage() {
     return (
       <AuthCard title="E-mail envoyé" subtitle={`Si un compte existe pour ${email}, tu vas recevoir un lien de réinitialisation.`}>
         <div className="text-center space-y-4 py-2">
-          <div className="w-16 h-16 mx-auto rounded-full bg-cyan/15 flex items-center justify-center text-cyan">
+          <div className="w-16 h-16 mx-auto rounded-full bg-sarcelle/15 flex items-center justify-center text-sarcelle">
             <Mail size={32} />
           </div>
           <p className="text-sm text-slate-300 leading-relaxed">
@@ -59,7 +59,7 @@ export default function MotDePasseOubliePage() {
           <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
             <CheckCircle2 size={14} /> Le lien expire après un certain délai.
           </p>
-          <Link href="/connexion" className="inline-block text-cyan font-bold text-sm hover:underline">
+          <Link href="/connexion" className="inline-block text-sarcelle font-bold text-sm hover:underline">
             Retour à la connexion
           </Link>
         </div>
@@ -87,15 +87,15 @@ export default function MotDePasseOubliePage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ton@email.com"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
           />
         </div>
-        <PremiumButton variant="or" type="submit" isLoading={loading} className="w-full justify-center py-4">
+        <PremiumButton variant="rose" type="submit" isLoading={loading} className="w-full justify-center py-4">
           Envoyer le lien
         </PremiumButton>
       </form>
       <p className="text-sm text-center text-slate-400">
-        <Link href="/connexion" className="text-cyan font-bold hover:underline">
+        <Link href="/connexion" className="text-sarcelle font-bold hover:underline">
           Retour à la connexion
         </Link>
       </p>

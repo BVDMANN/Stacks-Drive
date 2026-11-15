@@ -150,7 +150,12 @@ export async function getOnlineDrivers(): Promise<DriverProfile[]> {
     .eq('role', 'chauffeur')
     .eq('is_online', true)
     .eq('is_verified', true)
-    .eq('is_demo', false);
+    .eq('is_demo', false)
+    // v2.45 — compte admin = admin uniquement : un admin n'apparaît
+    // jamais dans les listes de chauffeurs (le filtre de rôle
+    // l'exclurait déjà, l'admin étant « passager » en base — ce
+    // filtre explicite verrouille le cas où le rôle venait à changer).
+    .neq('is_admin', true);
   if (error || !data) {
     if (error) console.error('[stacks-drive] getOnlineDrivers:', error.message);
     return [];
@@ -611,6 +616,8 @@ export async function getPendingVerifications(): Promise<ProfileRow[]> {
     .select(PROFILE_SELECT)
     .eq('role', 'chauffeur')
     .eq('verification_status', 'en_attente')
+    // v2.45 — un admin n'est jamais un chauffeur en attente.
+    .neq('is_admin', true)
     .order('created_at', { ascending: false });
   if (error) {
     console.error('[stacks-drive] getPendingVerifications:', error.message);
@@ -657,11 +664,16 @@ export async function getAdminStats(): Promise<{
       .from('profiles')
       .select(PROFILE_SELECT)
       .eq('role', 'chauffeur')
+      // v2.45 — compte admin = admin uniquement : l'admin n'est
+      // jamais compté comme chauffeur dans /admin.
+      .neq('is_admin', true)
       .order('created_at', { ascending: false }),
     supabase
       .from('profiles')
       .select('id', { count: 'exact', head: true })
-      .eq('verification_status', 'en_attente'),
+      .eq('verification_status', 'en_attente')
+      // v2.45 — un admin n'est jamais une vérification en attente.
+      .neq('is_admin', true),
   ]);
 
   const { data: money } = await supabase
@@ -693,7 +705,9 @@ export async function getAdminStats(): Promise<{
     const { data: seatsRows, error: seatsError } = await supabase
       .from('profiles')
       .select('id, seats, free_seats')
-      .eq('role', 'chauffeur');
+      .eq('role', 'chauffeur')
+      // v2.45 — un admin n'a pas de places libres.
+      .neq('is_admin', true);
     if (!seatsError && seatsRows) {
       (seatsRows as { id: string; seats: number | null; free_seats: number | null }[]).forEach(
         (r) => freeById.set(r.id, r.free_seats ?? r.seats ?? null)

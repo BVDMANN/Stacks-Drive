@@ -173,7 +173,7 @@ function AnimatedPrice({
   );
 }
 
-/** Petite barre de chargement du prix (v2.11) : shimmer or/cyan qui
+/** Petite barre de chargement du prix (v2.11) : shimmer rose/sarcelle qui
  *  remplace le chiffre pendant le (re)calcul de l'estimation. */
 function PriceSkeleton({ className }: { className?: string }) {
   return (
@@ -1032,6 +1032,13 @@ export function HomeScreen({
       setError('Bascule en mode Passager (en haut) pour commander une course.');
       return;
     }
+    // v2.45 — compte admin = admin uniquement : l'admin ne commande
+    // pas de course (défense côté client — le serveur rejette aussi,
+    // voir POST /api/rides).
+    if (user.isAdmin) {
+      setError('Le compte administrateur ne commande pas de courses : utilise un compte passager.');
+      return;
+    }
     setBusy(true);
     const res = await fetch('/api/rides', {
       method: 'POST',
@@ -1260,7 +1267,7 @@ export function HomeScreen({
       {phase !== 'confirmed' && phase !== 'done' && !isChauffeurMode && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
           <span className="inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/10 shadow-xl shadow-black/40 rounded-full px-4 py-2 text-xs font-black text-slate-100">
-            <span className="w-2 h-2 rounded-full bg-cyan animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
+            <span className="w-2 h-2 rounded-full bg-sarcelle animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
             {phase === 'idle'
               ? `${driversNearPickup} chauffeur${driversNearPickup > 1 ? 's' : ''} autour de toi · dans un rayon de ${DRIVERS_AROUND_RADIUS_KM} km`
               : `Radar · ${driversNearPickup} chauffeur${driversNearPickup > 1 ? 's' : ''} détecté${driversNearPickup > 1 ? 's' : ''} autour de toi · dans un rayon de ${DRIVERS_AROUND_RADIUS_KM} km`}
@@ -1272,10 +1279,10 @@ export function HomeScreen({
       <button
         type="button"
         onClick={handleRecenter}
-        className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/15 text-white text-xs font-black px-3 py-2 rounded-full shadow-xl shadow-black/40 hover:border-cyan/60 active:scale-95 transition-all duration-500"
+        className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/15 text-white text-xs font-black px-3 py-2 rounded-full shadow-xl shadow-black/40 hover:border-sarcelle/60 active:scale-95 transition-all duration-500"
         aria-label={userLocation ? 'Recentrer sur ma position' : 'Recentrer sur Libreville'}
       >
-        <Crosshair size={15} className="text-cyan" />
+        <Crosshair size={15} className="text-sarcelle" />
         {userLocation ? 'Moi' : 'Libreville'}
       </button>
 
@@ -1301,7 +1308,7 @@ export function HomeScreen({
               aria-pressed={basemap === m.value}
               className={cn(
                 'inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black transition-all active:scale-95',
-                basemap === m.value ? 'bg-gold text-night-900' : 'text-slate-300 hover:text-white'
+                basemap === m.value ? 'bg-corail text-night-900' : 'text-slate-300 hover:text-white'
               )}
             >
               <m.icon size={13} /> {m.label}
@@ -1343,13 +1350,13 @@ export function HomeScreen({
             <button
               type="button"
               onClick={cycleSheet}
-              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-night-800/90 backdrop-blur border border-white/15 shadow-lg shadow-black/40 hover:border-cyan/60 active:scale-90 transition-all"
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-night-800/90 backdrop-blur border border-white/15 shadow-lg shadow-black/40 hover:border-sarcelle/60 active:scale-90 transition-all"
               aria-label={atFull ? 'Replier la feuille' : 'Déplier la feuille'}
             >
               {atFull ? (
-                <ChevronDown size={18} className="text-cyan" />
+                <ChevronDown size={18} className="text-sarcelle" />
               ) : (
-                <ChevronUp size={18} className="text-cyan" />
+                <ChevronUp size={18} className="text-sarcelle" />
               )}
             </button>
             )}
@@ -1367,7 +1374,7 @@ export function HomeScreen({
               <span className="text-base font-black text-white">
                 {isChauffeurMode ? 'Mode Chauffeur' : 'Où allez-vous ?'}
               </span>
-              <ChevronUp size={20} className="text-cyan" />
+              <ChevronUp size={20} className="text-sarcelle" />
             </button>
           )}
 
@@ -1402,13 +1409,13 @@ export function HomeScreen({
                     value={pickup}
                     onChange={handlePickupChange}
                     placeholder="Ton point de départ…"
-                    icon={<Navigation size={18} className="text-cyan shrink-0" />}
+                    icon={<Navigation size={18} className="text-sarcelle shrink-0" />}
                     action={
                       <button
                         type="button"
                         onClick={handleLocate}
                         disabled={locating}
-                        className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-cyan px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
+                        className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-sarcelle px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
                       >
                         {locating ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -1421,7 +1428,7 @@ export function HomeScreen({
                   />
                 </div>
                 {geoLabel && pickup !== '' && (
-                  <p className="text-xs font-bold text-cyan flex items-center gap-1 px-1">
+                  <p className="text-xs font-bold text-sarcelle flex items-center gap-1 px-1">
                     <MapPin size={12} /> {geoLabel} · {pickup}
                   </p>
                 )}
@@ -1437,7 +1444,7 @@ export function HomeScreen({
                     value={destination}
                     onChange={handleDestinationChange}
                     placeholder="Où vas-tu ?"
-                    icon={<MapPin size={18} className="text-gold shrink-0" />}
+                    icon={<MapPin size={18} className="text-corail shrink-0" />}
                   />
                 </div>
                 {/* Accès difficile (v2.6) : la route bitumée s'arrête au
@@ -1445,8 +1452,8 @@ export function HomeScreen({
                     de demander la piste (+ supplément). Le chauffeur
                     reste libre d'accepter ou non la piste. */}
                 {destDifficult && destDropOff && (
-                  <div className="bg-gold/10 border border-gold/40 rounded-2xl p-3.5 space-y-2.5">
-                    <p className="text-sm font-bold text-gold flex items-start gap-1.5">
+                  <div className="bg-corail/10 border border-corail/40 rounded-2xl p-3.5 space-y-2.5">
+                    <p className="text-sm font-bold text-corail flex items-start gap-1.5">
                       <MapPin size={15} className="shrink-0 mt-0.5" />
                       Accès difficile : la route bitumée s’arrête à {destDropOff}. La course
                       s’y termine par défaut.
@@ -1456,7 +1463,7 @@ export function HomeScreen({
                         type="checkbox"
                         checked={unpavedRoad}
                         onChange={(e) => setUnpavedRoad(e.target.checked)}
-                        className="mt-0.5 h-5 w-5 shrink-0 accent-[#FFC700]"
+                        className="mt-0.5 h-5 w-5 shrink-0 accent-[#FF4D8D]"
                       />
                       <span className="text-sm text-slate-200 leading-snug">
                         <span className="font-black text-white">
@@ -1519,14 +1526,14 @@ export function HomeScreen({
                               onClick={() => {
                                 handlePickupChange(f.neighborhood as Neighborhood);
                               }}
-                              className="ml-1 px-2 py-1 rounded-full bg-cyan/20 text-cyan hover:bg-cyan/30 transition-colors"
+                              className="ml-1 px-2 py-1 rounded-full bg-sarcelle/20 text-sarcelle hover:bg-sarcelle/30 transition-colors"
                             >
                               Départ
                             </button>
                             <button
                               type="button"
                               onClick={() => setDestination(f.neighborhood as Neighborhood)}
-                              className="px-2 py-1 rounded-full bg-gold/20 text-gold hover:bg-gold/30 transition-colors"
+                              className="px-2 py-1 rounded-full bg-corail/20 text-corail hover:bg-corail/30 transition-colors"
                             >
                               Destination
                             </button>
@@ -1540,7 +1547,7 @@ export function HomeScreen({
                   la plateforme ne définit aucun tarif fixe (v2.11). */}
               <div className="space-y-1.5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                  <ShieldCheck size={13} className="text-cyan" /> Trajets fréquents — estimation indicative, prix figé une fois accepté
+                  <ShieldCheck size={13} className="text-sarcelle" /> Trajets fréquents — estimation indicative, prix figé une fois accepté
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {ROUTE_SHORTCUTS.map((f) => (
@@ -1553,7 +1560,7 @@ export function HomeScreen({
                         setUnpavedRoad(false);
                         setRideType('groupe');
                       }}
-                      className="text-xs font-bold bg-cyan/10 border border-cyan/30 text-cyan px-3 py-1.5 rounded-full hover:bg-cyan/20 active:scale-95 transition-all"
+                      className="text-xs font-bold bg-sarcelle/10 border border-sarcelle/30 text-sarcelle px-3 py-1.5 rounded-full hover:bg-sarcelle/20 active:scale-95 transition-all"
                     >
                       {f.label}
                     </button>
@@ -1571,7 +1578,7 @@ export function HomeScreen({
                     className={cn(
                       'w-full text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
                       comfort
-                        ? 'border-cyan bg-cyan/10 shadow-lg shadow-cyan/20'
+                        ? 'border-sarcelle bg-sarcelle/10 shadow-lg shadow-sarcelle/20'
                         : 'border-white/10 bg-white/5 hover:border-white/25'
                     )}
                   >
@@ -1605,7 +1612,7 @@ export function HomeScreen({
                     <select
                       value={favoriteDriverId ?? ''}
                       onChange={(e) => setFavoriteDriverId(e.target.value || null)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-cyan focus:outline-none"
+                      className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-sarcelle focus:outline-none"
                       aria-label="Chauffeur favori"
                     >
                       <option value="">Aucun — envoyer à tous les chauffeurs</option>
@@ -1636,11 +1643,11 @@ export function HomeScreen({
                     className={cn(
                       'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
                       rideType === 'groupe'
-                        ? 'border-or bg-or/10 shadow-lg shadow-or/20'
+                        ? 'border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/20'
                         : 'border-white/10 bg-white/5 hover:border-white/25'
                     )}
                   >
-                    <span className="absolute -top-2.5 left-3 bg-gold text-night-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    <span className="absolute -top-2.5 left-3 bg-corail text-night-900 text-[10px] font-black px-2 py-0.5 rounded-full">
                       LE MOINS CHER
                     </span>
                     <span className="flex items-center gap-1.5 font-black text-white">
@@ -1671,7 +1678,7 @@ export function HomeScreen({
                     className={cn(
                       'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
                       rideType === 'solo'
-                        ? 'border-or bg-or/10 shadow-lg shadow-or/20'
+                        ? 'border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/20'
                         : 'border-white/10 bg-white/5 hover:border-white/25'
                     )}
                   >
@@ -1723,7 +1730,7 @@ export function HomeScreen({
                       className={cn(
                         'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-black border-2 transition-all active:scale-95 disabled:opacity-40',
                         vehiclePref === v.value
-                          ? 'border-cyan bg-cyan/10 text-cyan'
+                          ? 'border-sarcelle bg-sarcelle/10 text-sarcelle'
                           : 'border-white/10 bg-white/5 text-slate-300 hover:border-white/25'
                       )}
                     >
@@ -1740,7 +1747,7 @@ export function HomeScreen({
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-cyan focus:outline-none"
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-sarcelle focus:outline-none"
                   aria-label="Moyen de paiement"
                 >
                   {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((m) => (
@@ -1767,7 +1774,7 @@ export function HomeScreen({
                   placeholder="Ex : 1 500 — laisse vide pour attendre les propositions"
                   value={offeredPrice}
                   onChange={(e) => setOfferedPrice(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white placeholder:text-slate-500 placeholder:font-normal focus:border-cyan focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white placeholder:text-slate-500 placeholder:font-normal focus:border-sarcelle focus:outline-none"
                 />
                 <p className="text-xs text-slate-500">
                   Le prix final se décide avec ton chauffeur — une fois accepté, il est figé, jamais de surge.
@@ -1804,7 +1811,7 @@ export function HomeScreen({
                         pas (modèle au km sur la distance à vol
                         d'oiseau). Sans OSRM : durée estimée classique. */}
                     {roadRoute && roadRoute.source === 'osrm' && (
-                      <p className="text-xs font-bold text-cyan mt-0.5">
+                      <p className="text-xs font-bold text-sarcelle mt-0.5">
                         Par la route : ~{roadRoute.durationMin} min ·{' '}
                         {roadRoute.distanceKm.toFixed(1).replace('.', ',')} km
                       </p>
@@ -1813,7 +1820,7 @@ export function HomeScreen({
                       Ce n’est pas le prix de la course : les chauffeurs proposent leur prix, tu choisis — le prix accepté est figé.
                     </p>
                   </div>
-                  <span className="text-right text-xs font-bold text-cyan">
+                  <span className="text-right text-xs font-bold text-sarcelle">
                     Prix figé
                     <br />
                     une fois accepté
@@ -1839,11 +1846,11 @@ export function HomeScreen({
                     type="checkbox"
                     checked={scheduleEnabled}
                     onChange={(e) => setScheduleEnabled(e.target.checked)}
-                    className="mt-0.5 h-5 w-5 shrink-0 accent-[#FFC700]"
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-[#FF4D8D]"
                   />
                   <span className="text-sm text-slate-200 leading-snug">
                     <span className="font-black text-white flex items-center gap-1.5">
-                      <Clock size={15} className="text-gold shrink-0" /> Planifier pour plus tard
+                      <Clock size={15} className="text-corail shrink-0" /> Planifier pour plus tard
                     </span>
                     <span className="block text-xs text-slate-400 mt-0.5">
                       Au moins 30 min dans le futur, au plus 7 jours — envoi automatique aux
@@ -1864,7 +1871,7 @@ export function HomeScreen({
                       min={toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000))}
                       max={toLocalInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))}
                       onChange={(e) => setScheduledAt(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-white/20 text-white text-sm font-bold focus:border-gold focus:outline-none [color-scheme:dark]"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-white/20 text-white text-sm font-bold focus:border-corail focus:outline-none [color-scheme:dark]"
                     />
                   </div>
                 )}
@@ -1874,7 +1881,7 @@ export function HomeScreen({
                 type="button"
                 disabled={!validTrip || !estimate || busy || isChauffeurMode}
                 onClick={commander}
-                className="w-full inline-flex items-center justify-center gap-2 bg-or text-night-900 font-black text-lg py-4 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all disabled:opacity-40"
+                className="w-full inline-flex items-center justify-center gap-2 bg-rose-500 text-night-900 font-black text-lg py-4 rounded-full shadow-lg shadow-rose-500/40 hover:bg-rose-300 active:scale-[0.98] transition-all disabled:opacity-40"
               >
                 {busy ? (
                   <>
@@ -1893,34 +1900,34 @@ export function HomeScreen({
                 <button
                   type="button"
                   onClick={() => window.dispatchEvent(new Event('stacks-drive:open-tuto-passager'))}
-                  className="underline hover:text-cyan font-bold"
+                  className="underline hover:text-sarcelle font-bold"
                 >
                   Revoir le tutoriel
                 </button>
                 {' · '}
-                <Link href="/a-propos" className="underline hover:text-cyan">
+                <Link href="/a-propos" className="underline hover:text-sarcelle">
                   Comment ça marche
                 </Link>
                 {' · '}
-                <Link href="/cgu" className="underline hover:text-cyan">CGU</Link>
+                <Link href="/cgu" className="underline hover:text-sarcelle">CGU</Link>
                 {' · '}
-                <Link href="/mentions-legales" className="underline hover:text-cyan">Mentions légales</Link>
+                <Link href="/mentions-legales" className="underline hover:text-sarcelle">Mentions légales</Link>
                 {' · '}
-                <Link href="/cookies" className="underline hover:text-cyan">Cookies</Link>
+                <Link href="/cookies" className="underline hover:text-sarcelle">Cookies</Link>
                 {' · '}
-                <span>© OpenStreetMap · Esri</span>
+                <span>© OpenStreetMap · © CARTO · Esri</span>
               </p>
 
               {/* Côté chauffeur : uniquement pour ceux que ça intéresse. */}
               {!isChauffeurMode && (
-                <Link href="/devenir-chauffeur" className="block bg-white/[0.03] border border-white/10 rounded-2xl p-4 hover:border-cyan/40 transition-colors">
+                <Link href="/devenir-chauffeur" className="block bg-white/[0.03] border border-white/10 rounded-2xl p-4 hover:border-sarcelle/40 transition-colors">
                   <p className="font-black text-white text-sm flex items-center gap-2">
-                    <Car size={16} className="text-cyan" /> Vous avez une voiture ?
+                    <Car size={16} className="text-sarcelle" /> Vous avez une voiture ?
                   </p>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     Conduisez quand vous voulez. Opter pour la liberté financière, à votre rythme.
                   </p>
-                  <span className="inline-flex items-center gap-1.5 mt-2 text-sm font-black text-cyan">
+                  <span className="inline-flex items-center gap-1.5 mt-2 text-sm font-black text-sarcelle">
                     Devenir chauffeur →
                   </span>
                 </Link>
@@ -1934,9 +1941,9 @@ export function HomeScreen({
                 <h2 className="text-lg font-black text-white flex items-center justify-center gap-2">
                   Recherche de chauffeurs
                   <span aria-hidden className="inline-flex gap-1">
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-cyan inline-block" />
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-cyan inline-block" />
-                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-cyan inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-sarcelle inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-sarcelle inline-block" />
+                    <span className="search-dot w-1.5 h-1.5 rounded-full bg-sarcelle inline-block" />
                   </span>
                 </h2>
                 <p className="text-sm text-slate-400">
@@ -1948,7 +1955,7 @@ export function HomeScreen({
                   Les chauffeurs proposent leur prix — tu choisis, le prix accepté est figé.
                 </p>
                 {widened && (
-                  <p className="text-sm font-bold text-gold bg-gold/10 border border-gold/30 rounded-xl p-2.5 mt-2">
+                  <p className="text-sm font-bold text-corail bg-corail/10 border border-corail/30 rounded-xl p-2.5 mt-2">
                     Aucun chauffeur pour l’instant — on élargit la recherche autour de toi…
                   </p>
                 )}
@@ -1988,7 +1995,7 @@ export function HomeScreen({
               ) : (
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center text-sm text-slate-400">
                   {/* Barre de chargement (v2.11) : pendant l'attente des
-                      propositions des chauffeurs, un shimmer or/cyan
+                      propositions des chauffeurs, un shimmer rose/sarcelle
                       remplace le prix — les prix apparaissent avec les
                       propositions. */}
                   <span
@@ -2028,7 +2035,7 @@ export function HomeScreen({
                   {acceptedRide.rideType === 'groupe' ? 'Groupe' : 'Solo'}
                   {acceptedRide.firstStop ? ` · 1er arrêt : ${acceptedRide.firstStop}` : ''}
                   {acceptedRide.dropOffPoint && acceptedRide.unpavedAccepted === false && (
-                    <span className="block text-gold font-bold">
+                    <span className="block text-corail font-bold">
                       Arrêt au point de dépôt : {acceptedRide.dropOffPoint} (route non bitumée non prise)
                     </span>
                   )}
@@ -2059,7 +2066,7 @@ export function HomeScreen({
               <button
                 type="button"
                 onClick={resetToIdle}
-                className="w-full text-sm font-bold text-cyan hover:underline"
+                className="w-full text-sm font-bold text-sarcelle hover:underline"
               >
                 Nouvelle course
               </button>
@@ -2075,7 +2082,7 @@ export function HomeScreen({
               {acceptedRide && (
                 <Link
                   href={`/courses/${acceptedRide.id}`}
-                  className="inline-block bg-or text-night-900 font-black px-6 py-3.5 rounded-full shadow-md shadow-or/30 hover:bg-or-light transition-colors"
+                  className="inline-block bg-rose-500 text-night-900 font-black px-6 py-3.5 rounded-full shadow-md shadow-rose-500/30 hover:bg-rose-300 transition-colors"
                 >
                   Noter mon chauffeur
                 </Link>
@@ -2083,7 +2090,7 @@ export function HomeScreen({
               <button
                 type="button"
                 onClick={resetToIdle}
-                className="block w-full text-sm font-bold text-cyan hover:underline"
+                className="block w-full text-sm font-bold text-sarcelle hover:underline"
               >
                 Nouvelle course
               </button>
@@ -2095,12 +2102,12 @@ export function HomeScreen({
       {/* Bouton flottant « remonter la feuille » — visible uniquement en
           cran mini (phase idle) : il flotte juste au-dessus de la feuille
           repliée, à droite, pour rouvrir le formulaire sans viser la
-          fine barre du bas. Or « Nuit dorée », chevron cyan. */}
+          fine barre du bas. Rose « Nuit violette », chevron sarcelle. */}
       {isMini && (
         <button
           type="button"
           onClick={() => setSheetH(58)}
-          className="absolute right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-or text-night-950 shadow-2xl shadow-black/50 hover:bg-or-light active:scale-90 transition-all"
+          className="absolute right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-rose-500 text-night-950 shadow-2xl shadow-black/50 hover:bg-rose-300 active:scale-90 transition-all"
           style={{ bottom: `calc(${sheetH}dvh + 14px)` }}
           aria-label="Remonter la feuille de demande"
         >

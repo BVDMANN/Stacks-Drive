@@ -164,21 +164,21 @@ export function DriverCard({
   return (
     <div className="rise-in bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
       <div className="flex items-center gap-3">
-        <span className="w-14 h-14 rounded-full bg-or text-night-900 text-xl font-black flex items-center justify-center shrink-0">
+        <span className="w-14 h-14 rounded-full bg-rose-500 text-night-900 text-xl font-black flex items-center justify-center shrink-0">
           {driver.name.trim().charAt(0)}
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-black text-white text-lg leading-tight flex flex-wrap items-center gap-1.5">
             <span className="truncate">{driver.name}</span>
             {driver.isVerified && (
-              <span className="inline-flex items-center gap-0.5 text-xs font-black text-cyan shrink-0">
+              <span className="inline-flex items-center gap-0.5 text-xs font-black text-sarcelle shrink-0">
                 <BadgeCheck size={15} /> Vérifié
               </span>
             )}
           </p>
           <p className="text-sm text-slate-400 flex flex-wrap items-center gap-x-2">
             <span className="inline-flex items-center gap-1">
-              <Star size={14} className="text-gold fill-gold" />
+              <Star size={14} className="text-corail fill-corail" />
               {driver.rating ? driver.rating.toFixed(1) : 'Nouveau'} · {driver.trips} courses
             </span>
             {etaMin !== null && (
@@ -193,7 +193,7 @@ export function DriverCard({
             course, pas par appel direct. */}
         <Link
           href={`/courses/${ride.id}#messages`}
-          className="w-11 h-11 rounded-full bg-cyan/15 text-cyan flex items-center justify-center shrink-0 hover:bg-cyan/25 transition-colors"
+          className="w-11 h-11 rounded-full bg-sarcelle/15 text-sarcelle flex items-center justify-center shrink-0 hover:bg-sarcelle/25 transition-colors"
           aria-label={`Écrire à ${driver.name} par messagerie`}
           title="Écrire à ton chauffeur (messagerie in-app)"
         >
@@ -227,17 +227,17 @@ export function DriverCard({
           où le chauffeur vient d'être confirmé — pas seulement sur la
           page de la course. */}
       {pinCode && ['acceptee', 'en_cours'].includes(ride.status) && (
-        <div className="bg-night-900 border border-gold/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-night-900 border border-corail/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-black text-white flex items-center gap-2">
-              <KeyRound size={18} className="text-gold" />
+              <KeyRound size={18} className="text-corail" />
               Ton code de démarrage
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
               Donne ce code à ton chauffeur quand il arrive — c’est lui qui démarre le trajet avec.
             </p>
           </div>
-          <p className="font-black text-4xl tracking-[0.3em] text-gold" aria-label={`Code : ${pinCode.split('').join(' ')}`}>
+          <p className="font-black text-4xl tracking-[0.3em] text-corail" aria-label={`Code : ${pinCode.split('').join(' ')}`}>
             {pinCode}
           </p>
         </div>
@@ -260,7 +260,7 @@ export function DriverCard({
         </button>
         <Link
           href={detailUrl}
-          className="inline-flex items-center justify-center gap-1.5 bg-or text-night-900 text-sm font-black py-3 rounded-full hover:bg-or-light transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 bg-rose-500 text-night-900 text-sm font-black py-3 rounded-full hover:bg-rose-300 transition-colors"
         >
           <Link2 size={16} /> Suivi
         </Link>
@@ -324,7 +324,7 @@ export function DriverCard({
                       href={sosMapsUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm font-bold text-cyan hover:underline"
+                      className="text-sm font-bold text-sarcelle hover:underline"
                     >
                       Voir ma position sur la carte →
                     </a>

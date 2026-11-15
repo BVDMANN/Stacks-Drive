@@ -174,6 +174,54 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // --- v2.45 — compte admin = admin uniquement ---
+  // Le compte admin ne bascule pas de rôle, ne se met pas en ligne
+  // et ne touche à aucun champ chauffeur (véhicule, places, zone).
+  // Ce verrou s'ajoute à la règle 2 (ci-dessous), il ne la
+  // remplace pas — et ne touche pas à la branche ci-dessus : un
+  // admin valide / refuse toujours les vérifications des chauffeurs
+  // (driverId + verificationStatus), c'est son travail.
+  if (caller?.is_admin === true) {
+    if (v.role !== undefined) {
+      return NextResponse.json(
+        {
+          error:
+            'Le compte administrateur ne bascule pas de rôle : il reste administrateur — ni passager, ni chauffeur.',
+          code: 'admin_not_allowed',
+        },
+        { status: 403 }
+      );
+    }
+    if (v.isOnline === true) {
+      return NextResponse.json(
+        {
+          error: 'Le compte administrateur ne se met pas en ligne : il n’est pas chauffeur.',
+          code: 'admin_not_allowed',
+        },
+        { status: 403 }
+      );
+    }
+    if (
+      v.vehicleType !== undefined ||
+      v.vehicleBrand !== undefined ||
+      v.vehicleModel !== undefined ||
+      v.vehicleColor !== undefined ||
+      v.plate !== undefined ||
+      v.seats !== undefined ||
+      v.freeSeats !== undefined ||
+      v.hasAirConditioning !== undefined ||
+      v.currentArea !== undefined
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Le compte administrateur n’a pas de véhicule : il n’est pas chauffeur.',
+          code: 'admin_not_allowed',
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   // --- Règle 2 (v2.17) — verrouillage du switch Passager → Chauffeur,
   //  côté serveur (aucun contournement par appel API direct) ---
   // Bascule en mode Chauffeur : exige un compte chauffeur créé (voir

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 /** En-tête commun des pages privées (courses, tableau de bord, compte, admin)
  *  et des pages légales. `dark` applique l'identité « Libreville la nuit »
- *  (fonds sombres, texte clair, accents or/cyan) ; par défaut le thème
+ *  (fonds sombres, texte clair, accents rose/sarcelle) ; par défaut le thème
  *  reste clair pour ne pas toucher aux pages privées existantes.
  *  `user` : l'utilisateur connecté — sans lui, l'en-tête affiche
  *  « Connexion » au lieu de « Mon compte » / « Déconnexion » (bug : ces
@@ -37,13 +37,13 @@ export function PageShell({
             <span className="w-9 h-9 rounded-xl bg-stacks-green flex items-center justify-center text-white font-black shadow-md">S</span>
             <span className={cn('text-lg font-black tracking-tight', dark ? 'text-white' : 'text-stacks-blue')}>Stacks Drive</span>
           </Link>
-          <Link href="/" className={cn('text-sm font-bold ml-2', dark ? 'text-slate-400 hover:text-cyan' : 'text-slate-500 hover:text-stacks-green')}>
+          <Link href="/" className={cn('text-sm font-bold ml-2', dark ? 'text-slate-400 hover:text-sarcelle' : 'text-slate-500 hover:text-stacks-green')}>
             ← Toutes les courses
           </Link>
           <div className="ml-auto flex items-center gap-2">
             {user ? (
               <>
-                <Link href="/compte" className={cn('text-sm font-bold', dark ? 'text-slate-300 hover:text-cyan' : 'text-slate-600 hover:text-stacks-green')}>
+                <Link href="/compte" className={cn('text-sm font-bold', dark ? 'text-slate-300 hover:text-sarcelle' : 'text-slate-600 hover:text-stacks-green')}>
                   Mon compte
                 </Link>
                 <a
@@ -56,7 +56,7 @@ export function PageShell({
             ) : (
               <Link
                 href="/connexion"
-                className="text-sm font-black text-night-900 bg-or px-4 py-2 rounded-full shadow-md shadow-or/40 hover:bg-or-light transition-colors"
+                className="text-sm font-black text-night-900 bg-rose-500 px-4 py-2 rounded-full shadow-md shadow-rose-500/40 hover:bg-rose-300 transition-colors"
               >
                 Connexion
               </Link>

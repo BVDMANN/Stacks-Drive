@@ -66,7 +66,7 @@ export function SeatsPopup({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-black text-lg flex items-center gap-2">
-              <Users size={20} className="text-cyan" />
+              <Users size={20} className="text-sarcelle" />
               Combien de places libres dans ton véhicule ?
             </p>
             <p className="text-sm text-slate-300 mt-1">
@@ -95,7 +95,7 @@ export function SeatsPopup({
             <Minus size={20} />
           </button>
           <div className="text-center min-w-[7rem]">
-            <p className="text-5xl font-black text-cyan">{value}</p>
+            <p className="text-5xl font-black text-sarcelle">{value}</p>
             <p className="text-xs font-bold text-slate-400 mt-1">
               place{value > 1 ? 's' : ''} libre{value > 1 ? 's' : ''} / {capacity}
             </p>
@@ -118,7 +118,7 @@ export function SeatsPopup({
             disabled={saving}
             className={cn(
               'px-4 py-2 rounded-full text-xs font-black transition-colors',
-              value === capacity ? 'bg-cyan text-night-950' : 'bg-white/10 text-slate-200'
+              value === capacity ? 'bg-sarcelle text-night-950' : 'bg-white/10 text-slate-200'
             )}
           >
             Toutes ({capacity})
@@ -130,7 +130,7 @@ export function SeatsPopup({
               disabled={saving}
               className={cn(
                 'px-4 py-2 rounded-full text-xs font-black transition-colors',
-                value === 1 ? 'bg-cyan text-night-950' : 'bg-white/10 text-slate-200'
+                value === 1 ? 'bg-sarcelle text-night-950' : 'bg-white/10 text-slate-200'
               )}
             >
               1 place
@@ -142,7 +142,7 @@ export function SeatsPopup({
             disabled={saving}
             className={cn(
               'px-4 py-2 rounded-full text-xs font-black transition-colors',
-              value === 0 ? 'bg-cyan text-night-950' : 'bg-white/10 text-slate-200'
+              value === 0 ? 'bg-sarcelle text-night-950' : 'bg-white/10 text-slate-200'
             )}
           >
             Aucune (plein)
@@ -168,7 +168,7 @@ export function SeatsPopup({
             type="button"
             onClick={save}
             disabled={saving}
-            className="flex-1 py-3.5 rounded-full bg-cyan text-night-950 text-sm font-black hover:bg-cyan/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-3.5 rounded-full bg-sarcelle text-night-950 text-sm font-black hover:bg-sarcelle/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving && <Loader2 size={16} className="animate-spin" />}
             {saving ? 'Enregistrement…' : 'Valider mes places'}

@@ -71,7 +71,7 @@ export function PassengerTutorial({
           utilisables derrière. */}
       {showHint && !open && (
         <div
-          className="fixed left-1/2 top-16 z-[60] w-[calc(100%-1.5rem)] max-w-[360px] -translate-x-1/2 rounded-3xl border border-gold/40 bg-night-900/95 p-4 shadow-2xl shadow-black/60 backdrop-blur"
+          className="fixed left-1/2 top-16 z-[60] w-[calc(100%-1.5rem)] max-w-[360px] -translate-x-1/2 rounded-3xl border border-corail/40 bg-night-900/95 p-4 shadow-2xl shadow-black/60 backdrop-blur"
           role="dialog"
           aria-label="Bienvenue sur Stacks Drive"
         >
@@ -79,11 +79,11 @@ export function PassengerTutorial({
             type="button"
             onClick={dismissHint}
             aria-label="Fermer"
-            className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-night-950/80 text-white hover:border-gold/60 active:scale-90 transition-all"
+            className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-night-950/80 text-white hover:border-corail/60 active:scale-90 transition-all"
           >
             <X size={16} />
           </button>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gold">
+          <p className="text-[10px] font-black uppercase tracking-widest text-corail">
             Bienvenue sur Stacks Drive
           </p>
           <h2 className="mt-1 pr-8 text-base font-black text-white leading-tight">
@@ -100,7 +100,7 @@ export function PassengerTutorial({
                 setShowHint(false);
                 setOpen(true);
               }}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-or px-4 py-3 text-sm font-black text-night-900 shadow-lg shadow-or/30 hover:bg-or-light active:scale-[0.98] transition-all"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-rose-500 px-4 py-3 text-sm font-black text-night-900 shadow-lg shadow-rose-500/30 hover:bg-rose-300 active:scale-[0.98] transition-all"
             >
               <GraduationCap size={16} /> Voir le tutoriel
             </button>

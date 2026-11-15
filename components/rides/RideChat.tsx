@@ -164,7 +164,7 @@ export function RideChat({
                       className={cn(
                         'max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm',
                         mine
-                          ? 'bg-gold text-night-950 font-semibold rounded-br-md'
+                          ? 'bg-corail text-night-950 font-semibold rounded-br-md'
                           : 'bg-slate-100 text-slate-800 rounded-bl-md'
                       )}
                     >

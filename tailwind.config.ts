@@ -21,29 +21,42 @@ const config: Config = {
           dark: '#0A0A0A',
           darker: '#080808',
         },
-        // Identité « Libreville la nuit » — palette B « Or & Cyan »
-        // (choix de Stacks, 13/11/2026) : ciel nocturne bleu encre,
-        // or (la valeur, l'argent) et cyan (la carte, la ville qui vit).
-        // Or remplace l'ancien orange braise, cyan remplace l'ancien
-        // vert volt. Le fond nuit et l'or du drapeau gabonais restent.
+        // Identité « Libreville la nuit » — palette « Nuit violette »
+        // (v2.44, d'après la capture de référence du propriétaire) :
+        // fond violet-nuit mesuré #191432, rose vif #FF4D8D (accent :
+        // boutons, ligne d'itinéraire, marqueurs), corail #FF5F6D
+        // (emphase, badges forts), sarcelle #2FD6C8 (secondaire, carte
+        // et liens) et orange coucher de soleil #F5A623 (attention).
+        // Texte blanc sur fond sombre (contraste 17,7:1) ; texte sombre
+        // #17112E sur rose #FF4D8D (5,8:1) pour les boutons.
+        // Les tuiles Plan restent l'OSM CLAIRE (v2.41) : la palette ne
+        // touche que l'interface et les surcouches de la carte.
         night: {
-          950: '#070B16',
-          900: '#0B1020',
-          800: '#12182B',
-          700: '#1A2340',
-          600: '#232E4D',
+          950: '#191432',
+          900: '#201646',
+          800: '#2A1D55',
+          700: '#352463',
+          600: '#42307A',
         },
-        or: {
-          DEFAULT: '#FFC700',
-          light: '#FFD60A',
-          dark: '#B89100',
+        rose: {
+          100: '#FFD9E8',
+          300: '#FF7EB0',
+          500: '#FF4D8D',
+          600: '#E8357A',
+          700: '#D6336C',
         },
-        cyan: {
-          DEFAULT: '#22D3EE',
-          dark: '#0891B2',
+        corail: {
+          DEFAULT: '#FF5F6D',
+          light: '#FF8A94',
+          dark: '#E5484D',
         },
-        gold: {
-          DEFAULT: '#FFD60A',
+        sarcelle: {
+          DEFAULT: '#2FD6C8',
+          light: '#7FE8DD',
+          dark: '#0E9F94',
+        },
+        sunset: {
+          DEFAULT: '#F5A623',
         },
       },
       fontFamily: {

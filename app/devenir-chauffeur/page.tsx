@@ -19,6 +19,7 @@ export default async function DevenirChauffeurPage() {
   const sessionUser = await getSessionUser();
   const profile = sessionUser?.profile ?? null;
   const isDriver = profile?.role === 'chauffeur';
+  const isAdmin = profile?.is_admin ?? false;
   const hasAccount = hasDriverAccount(profile);
   const verified = profile?.is_verified ?? false;
   const headerUser = sessionUser
@@ -38,8 +39,27 @@ export default async function DevenirChauffeurPage() {
             bloqué n'est pas dans une impasse — on lui dit comment créer
             son compte chauffeur. Un chauffeur déjà inscrit n'a pas à se
             réinscrire : on le renvoie vers son tableau de bord. */}
-        {sessionUser && !isDriver && (
-          <div className="bg-cyan/10 border border-cyan/30 rounded-3xl p-5 sm:p-6 space-y-2">
+        {/* v2.45 — compte admin = admin uniquement : le compte admin
+            ne peut pas devenir chauffeur. Il ne voit ni l'inscription
+            chauffeur ni le parcours de vérification — juste ce rappel
+            et le lien vers l'admin. */}
+        {sessionUser && isAdmin && (
+          <div className="bg-sarcelle/10 border border-sarcelle/30 rounded-3xl p-5 sm:p-6 space-y-2">
+            <p className="font-black text-white">
+              Ce compte est le compte administrateur : il ne peut pas devenir chauffeur.
+            </p>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Le compte admin est juste admin — ni chauffeur, ni passager. Pour
+              conduire, crée un compte chauffeur séparé, avec une autre adresse
+              e-mail, puis fais-le vérifier (selfie + pièce d’identité).
+            </p>
+            <Link href="/admin" className="inline-block font-black text-sarcelle hover:underline">
+              Voir l’administration →
+            </Link>
+          </div>
+        )}
+        {sessionUser && !isDriver && !isAdmin && (
+          <div className="bg-sarcelle/10 border border-sarcelle/30 rounded-3xl p-5 sm:p-6 space-y-2">
             <p className="font-black text-white">
               Tu es connecté en passager ({sessionUser.email}).
             </p>
@@ -52,20 +72,20 @@ export default async function DevenirChauffeurPage() {
           </div>
         )}
         {sessionUser && isDriver && (
-          <div className="bg-cyan/10 border border-cyan/30 rounded-3xl p-5 sm:p-6 space-y-2">
+          <div className="bg-sarcelle/10 border border-sarcelle/30 rounded-3xl p-5 sm:p-6 space-y-2">
             <p className="font-black text-white">Tu as déjà un compte chauffeur.</p>
             <p className="text-sm text-slate-300 leading-relaxed">
               {verified
                 ? 'Ton compte est vérifié : bascule en mode Chauffeur dans l’en-tête pour te mettre en ligne.'
                 : 'Ton compte n’est pas encore vérifié : envoie ton selfie et ta pièce d’identité depuis ton tableau de bord, puis tu pourras te mettre en ligne.'}
             </p>
-            <Link href="/tableau-de-bord" className="inline-block font-black text-cyan hover:underline">
+            <Link href="/tableau-de-bord" className="inline-block font-black text-sarcelle hover:underline">
               Voir mon tableau de bord →
             </Link>
           </div>
         )}
         <header className="space-y-4">
-          <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-cyan bg-cyan/10 border border-cyan/30 rounded-full px-4 py-2">
+          <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-sarcelle bg-sarcelle/10 border border-sarcelle/30 rounded-full px-4 py-2">
             <Car size={14} /> Libreville — pour les chauffeurs
           </p>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-tight">
@@ -77,13 +97,15 @@ export default async function DevenirChauffeurPage() {
             pas de patron — juste tes courses, tes gains.
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/inscription?role=chauffeur"
-              className="inline-flex items-center gap-2 bg-or text-night-900 font-black px-7 py-4 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all"
-            >
-              S’inscrire en chauffeur <ArrowRight size={18} />
-            </Link>
-            <Link href="/" className="text-sm font-bold text-slate-400 hover:text-cyan transition-colors">
+            {!isAdmin && (
+              <Link
+                href="/inscription?role=chauffeur"
+                className="inline-flex items-center gap-2 bg-rose-500 text-night-900 font-black px-7 py-4 rounded-full shadow-lg shadow-rose-500/40 hover:bg-rose-300 active:scale-[0.98] transition-all"
+              >
+                S’inscrire en chauffeur <ArrowRight size={18} />
+              </Link>
+            )}
+            <Link href="/" className="text-sm font-bold text-slate-400 hover:text-sarcelle transition-colors">
               Tu cherches une course ? Retour à l’accueil →
             </Link>
           </div>
@@ -114,11 +136,11 @@ export default async function DevenirChauffeurPage() {
               },
             ].map((s) => (
               <div key={s.step} className="bg-night-800/80 border border-white/10 rounded-3xl p-6 shadow-sm space-y-3">
-                <span className="inline-flex w-10 h-10 rounded-full bg-cyan text-night-900 font-black items-center justify-center">
+                <span className="inline-flex w-10 h-10 rounded-full bg-sarcelle text-night-900 font-black items-center justify-center">
                   {s.step}
                 </span>
                 <h3 className="font-black text-lg text-white flex items-center gap-2">
-                  <s.icon size={18} className="text-cyan" /> {s.title}
+                  <s.icon size={18} className="text-sarcelle" /> {s.title}
                 </h3>
                 <p className="text-sm text-slate-400 leading-relaxed">{s.desc}</p>
               </div>
@@ -146,7 +168,7 @@ export default async function DevenirChauffeurPage() {
           </div>
           <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 space-y-3">
             <h2 className="text-2xl font-black text-white flex items-center gap-2">
-              <ShieldCheck size={24} className="text-cyan" /> Un dépôt, et c’est tout
+              <ShieldCheck size={24} className="text-sarcelle" /> Un dépôt, et c’est tout
             </h2>
             <p className="text-slate-400 leading-relaxed">
               À l’inscription, un dépôt de garantie remboursable de 5 000 FCFA.
@@ -164,7 +186,7 @@ export default async function DevenirChauffeurPage() {
         {/* Les petits plus */}
         <section className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 space-y-3">
           <h2 className="text-2xl font-black text-white flex items-center gap-2">
-            <Gift size={24} className="text-gold" /> Des petits plus pour te motiver
+            <Gift size={24} className="text-corail" /> Des petits plus pour te motiver
           </h2>
           <p className="text-slate-400 leading-relaxed max-w-2xl">
             Une quête chaque jour, un défi chaque semaine, des niveaux Bronze,
@@ -179,18 +201,20 @@ export default async function DevenirChauffeurPage() {
         </section>
 
         {/* Appel final */}
-        <section className="text-center space-y-4 bg-or/10 border border-or/30 rounded-3xl p-8">
+        <section className="text-center space-y-4 bg-rose-500/10 border border-rose-500/30 rounded-3xl p-8">
           <h2 className="text-2xl font-black text-white">Prêt quand tu l’es.</h2>
           <p className="text-slate-400 max-w-xl mx-auto">
             L’inscription prend moins d’une minute. La vérification se fait
             ensuite, tranquillement — selfie et pièce d’identité.
           </p>
-          <Link
-            href="/inscription?role=chauffeur"
-            className="inline-flex items-center gap-2 bg-or text-night-900 font-black px-7 py-4 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all"
-          >
-            S’inscrire en chauffeur <ArrowRight size={18} />
-          </Link>
+          {!isAdmin && (
+            <Link
+              href="/inscription?role=chauffeur"
+              className="inline-flex items-center gap-2 bg-rose-500 text-night-900 font-black px-7 py-4 rounded-full shadow-lg shadow-rose-500/40 hover:bg-rose-300 active:scale-[0.98] transition-all"
+            >
+              S’inscrire en chauffeur <ArrowRight size={18} />
+            </Link>
+          )}
         </section>
       </main>
       <Footer />

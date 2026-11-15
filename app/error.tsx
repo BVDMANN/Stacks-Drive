@@ -15,7 +15,7 @@ export default function Error({
 }) {
   return (
     <div className="min-h-screen bg-night-950 text-slate-100 flex flex-col items-center justify-center px-4 py-12 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-or flex items-center justify-center text-night-900 shadow-lg shadow-or/40">
+      <div className="w-16 h-16 rounded-2xl bg-rose-500 flex items-center justify-center text-night-900 shadow-lg shadow-rose-500/40">
         <Car size={32} />
       </div>
       <h1 className="font-black text-2xl sm:text-3xl mt-6 tracking-tight">
@@ -32,7 +32,7 @@ export default function Error({
         <button
           type="button"
           onClick={reset}
-          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-or text-night-900 font-black shadow-lg shadow-or/30 hover:bg-or-light transition-colors"
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-rose-500 text-night-900 font-black shadow-lg shadow-rose-500/30 hover:bg-rose-300 transition-colors"
         >
           <RefreshCw size={16} /> Réessayer
         </button>

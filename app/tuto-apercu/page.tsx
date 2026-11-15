@@ -190,7 +190,7 @@ function TutoApercuContent() {
 
   return (
     <div className="min-h-dvh bg-night-950 text-slate-100">
-      <p data-tuto-banner className="text-center text-[11px] font-bold text-gold bg-gold/10 border-b border-gold/30 px-4 py-2">
+      <p data-tuto-banner className="text-center text-[11px] font-bold text-corail bg-corail/10 border-b border-corail/30 px-4 py-2">
         Aperçu dev — données DÉMO, pour les captures du tutoriel uniquement. Ne pas indexer.
       </p>
 
@@ -266,7 +266,7 @@ function TutoApercuContent() {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event(TUTO_PASSENGER_OPEN_EVENT))}
-            className="w-full py-3.5 rounded-full bg-or text-night-900 font-black"
+            className="w-full py-3.5 rounded-full bg-rose-500 text-night-900 font-black"
           >
             Ouvrir le tutoriel passager
           </button>
@@ -278,7 +278,7 @@ function TutoApercuContent() {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event(TUTO_DRIVER_OPEN_EVENT))}
-            className="w-full py-3.5 rounded-full bg-or text-night-900 font-black"
+            className="w-full py-3.5 rounded-full bg-rose-500 text-night-900 font-black"
           >
             Ouvrir la formation chauffeur
           </button>

@@ -423,7 +423,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
             onClick={() => toggleOnline(!isOnline)}
             className={cn(
               'relative w-16 h-9 rounded-full transition-colors shrink-0 disabled:opacity-50',
-              isOnline ? 'bg-cyan' : 'bg-white/15'
+              isOnline ? 'bg-sarcelle' : 'bg-white/15'
             )}
           >
             <span
@@ -435,14 +435,14 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
           </button>
         </div>
         <label className="flex items-center gap-3">
-          <MapPin size={16} className="text-cyan shrink-0" />
+          <MapPin size={16} className="text-sarcelle shrink-0" />
           <span className="text-xs font-black uppercase tracking-widest text-slate-400 shrink-0">
             Quartier
           </span>
           <select
             value={area}
             onChange={(e) => changeArea(e.target.value as Neighborhood)}
-            className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-cyan focus:outline-none"
+            className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-white focus:border-sarcelle focus:outline-none"
             aria-label="Quartier où tu te trouves"
           >
             <option value="">Où es-tu ?</option>
@@ -469,7 +469,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
             <button
               type="button"
               onClick={() => setSeatsPopupOpen(true)}
-              className="text-xs font-black text-cyan hover:underline"
+              className="text-xs font-black text-sarcelle hover:underline"
             >
               Mes places →
             </button>
@@ -501,9 +501,9 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
       <div className="grid grid-cols-2 gap-2.5">
         <div className="bg-night-900 border border-white/10 rounded-2xl p-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-            <TrendingUp size={12} className="text-cyan" /> Aujourd’hui
+            <TrendingUp size={12} className="text-sarcelle" /> Aujourd’hui
           </p>
-          <p className="text-xl font-black text-cyan mt-1.5">
+          <p className="text-xl font-black text-sarcelle mt-1.5">
             {summary ? formatFcfa(summary.today.kept) : '…'}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -512,7 +512,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         </div>
         <div className="bg-night-900 border border-white/10 rounded-2xl p-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-            <Wallet size={12} className="text-gold" /> À régler
+            <Wallet size={12} className="text-corail" /> À régler
           </p>
           <p className="text-xl font-black text-white mt-1.5">
             {summary ? formatFcfa(summary.owed) : '…'}
@@ -521,10 +521,10 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         </div>
         <div className="bg-night-900 border border-white/10 rounded-2xl p-4 col-span-2">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-            <Gift size={12} className="text-gold" /> Tes points
+            <Gift size={12} className="text-corail" /> Tes points
           </p>
           <div className="flex items-end justify-between gap-3 mt-1.5">
-            <p className="text-xl font-black text-gold">
+            <p className="text-xl font-black text-corail">
               {summary ? summary.points.balance.toLocaleString('fr-FR') : '…'} points
             </p>
             <p className="text-xs font-bold text-slate-400">
@@ -535,7 +535,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
           </div>
           <div className="h-2.5 rounded-full bg-white/10 overflow-hidden mt-2">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-or via-gold to-cyan transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-rose-500 via-corail to-sarcelle transition-all"
               style={{ width: `${Math.round((summary?.points.progress ?? 0) * 100)}%` }}
             />
           </div>
@@ -568,7 +568,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
       {/* Demandes entrantes */}
       <div className="space-y-2.5">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-          <Users size={13} className="text-cyan" /> Demandes entrantes
+          <Users size={13} className="text-sarcelle" /> Demandes entrantes
         </p>
         {!isOnline || !verified ? (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-slate-400 text-center">
@@ -585,10 +585,10 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
                 <button
                   type="button"
                   onClick={() => setPopupRide(i)}
-                  className="w-full text-left bg-white/5 border border-white/10 hover:border-cyan/50 rounded-2xl p-3.5 transition-colors"
+                  className="w-full text-left bg-white/5 border border-white/10 hover:border-sarcelle/50 rounded-2xl p-3.5 transition-colors"
                 >
                   <p className="font-black text-white text-sm flex items-center gap-1.5">
-                    <Car size={15} className="text-cyan shrink-0" />
+                    <Car size={15} className="text-sarcelle shrink-0" />
                     {i.ride.pickup} → {i.ride.destination}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
@@ -600,7 +600,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
                       ? ` · ★ ${i.passengerRating.average}/5`
                       : ' · nouveau passager'}
                   </p>
-                  <span className="inline-block mt-2 text-xs font-black text-cyan">Proposer mon prix →</span>
+                  <span className="inline-block mt-2 text-xs font-black text-sarcelle">Proposer mon prix →</span>
                 </button>
               </li>
             ))}
@@ -610,7 +610,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
 
       <Link
         href="/tableau-de-bord"
-        className="block text-center w-full py-3.5 rounded-full bg-white/5 border border-white/15 text-sm font-black text-white hover:border-cyan/60 transition-colors"
+        className="block text-center w-full py-3.5 rounded-full bg-white/5 border border-white/15 text-sm font-black text-white hover:border-sarcelle/60 transition-colors"
       >
         Voir le tableau de bord complet →
       </Link>
@@ -664,7 +664,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="font-black text-lg flex items-center gap-2">
-              <Flame size={20} className="text-or" />
+              <Flame size={20} className="text-rose-300" />
               Plus que {offlineConfirm.remaining} course{offlineConfirm.remaining > 1 ? 's' : ''} pour ton bonus !
             </p>
             <p className="text-sm text-slate-300">
@@ -675,7 +675,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
               <button
                 type="button"
                 onClick={() => setOfflineConfirm(null)}
-                className="flex-1 py-3.5 rounded-full bg-cyan text-night-950 text-sm font-black hover:bg-cyan/90 transition-colors"
+                className="flex-1 py-3.5 rounded-full bg-sarcelle text-night-950 text-sm font-black hover:bg-sarcelle/90 transition-colors"
               >
                 Rester en ligne
               </button>

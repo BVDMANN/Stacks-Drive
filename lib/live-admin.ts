@@ -474,12 +474,15 @@ export async function getLiveEvents(
   const profiles = await safeRows<ProfileRow>(
     supabase
       .from('profiles')
-      .select('id, full_name, email, role, created_at')
+      .select('id, full_name, email, role, is_admin, created_at')
       .order('created_at', { ascending: false })
       .limit(perSource)
   );
   profiles.forEach((p) => {
     if (!isBefore(p.created_at)) return;
+    // v2.45 — l'inscription du compte admin n'apparaît pas dans le
+    // flux comme celle d'un passager : l'admin n'est pas un passager.
+    if (p.is_admin === true) return;
     events.push({
       id: `inscription-${p.id}`,
       kind: 'inscription',
@@ -789,8 +792,11 @@ export async function getLiveSnapshot(): Promise<LiveSnapshot> {
   const nameById = new Map<string, string>();
   profiles.forEach((p) => nameById.set(p.id, displayName(p)));
 
-  const drivers = profiles.filter((p) => p.role === 'chauffeur');
-  const passengers = profiles.filter((p) => p.role === 'passager');
+  const drivers = profiles.filter((p) => p.role === 'chauffeur' && p.is_admin !== true);
+  // v2.45 — compte admin = admin uniquement : l'admin n'est compté
+  // ni comme chauffeur, ni comme passager (son rôle en base est
+  // « passager » — ce filtre explicite l'exclut des deux listes).
+  const passengers = profiles.filter((p) => p.role === 'passager' && p.is_admin !== true);
   const activeTypes = activeRideTypesByDriver(rides);
   const onlineDrivers = drivers.filter(
     (p) => p.is_online === true && p.is_verified === true && p.is_demo !== true
@@ -915,6 +921,9 @@ export async function searchLivePeople(
   let query = supabase
     .from('profiles')
     .select(PROFILE_SELECT, { count: 'exact' })
+    // v2.45 — compte admin = admin uniquement : l'admin n'apparaît
+    // pas dans « Les gens » comme passager ou chauffeur.
+    .neq('is_admin', true)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
   const q = (args.q ?? '').trim().replace(/[%_,]/g, '');

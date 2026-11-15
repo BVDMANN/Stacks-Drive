@@ -89,7 +89,7 @@ export function CancelRideDialog({
               key={r.code}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl border cursor-pointer transition-colors ${
                 reasonCode === r.code
-                  ? 'border-gold bg-gold/10 text-white'
+                  ? 'border-corail bg-corail/10 text-white'
                   : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
               }`}
             >
@@ -118,7 +118,7 @@ export function CancelRideDialog({
               value={detail}
               onChange={(e) => setDetail(e.target.value)}
               placeholder="Ex. : je dois partir plus tard"
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-sm text-white placeholder:text-slate-500 focus:border-gold focus:outline-none"
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-sm text-white placeholder:text-slate-500 focus:border-corail focus:outline-none"
             />
           </div>
         )}

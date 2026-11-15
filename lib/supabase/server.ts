@@ -91,6 +91,22 @@ export function hasDriverAccount(
   return false;
 }
 
+/** v2.45 — « compte admin = admin uniquement » : le compte admin est
+ *  un troisième rôle, séparé — ni chauffeur, ni passager. Un compte
+ *  `is_admin` ne peut ni commander de course, ni devenir chauffeur,
+ *  ni se mettre en ligne, ni recevoir de proposition, et n'apparaît
+ *  dans aucune liste de chauffeurs ni dans aucun compteur de
+ *  chauffeurs ou de passagers (/admin, /admin/live). Le drapeau
+ *  `is_admin` est la seule source de vérité : aucun e-mail ni nom
+ *  n'est jamais codé en dur. Les verrous vivent côté serveur (routes
+ *  API + listes + compteurs) et dans l'interface (redirection vers
+ *  /admin, bascule de rôle masquée) — même logique que la règle 2. */
+export function isAdminAccount(
+  profile: Pick<SessionProfile, 'is_admin'> | null | undefined
+): boolean {
+  return profile?.is_admin === true;
+}
+
 /** Utilisateur connecté + son profil public. Retourne null si non connecté
  *  ou si Supabase n'est pas configuré. */
 export async function getSessionUser(): Promise<{

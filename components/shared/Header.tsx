@@ -21,14 +21,14 @@ export function Header({ user }: { user: HeaderUser | null }) {
     <header className="glass-dark sticky top-0 z-40">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3">
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <span className="w-9 h-9 rounded-xl bg-or flex items-center justify-center text-night-900 shadow-md shadow-or/40">
+          <span className="w-9 h-9 rounded-xl bg-rose-500 flex items-center justify-center text-night-900 shadow-md shadow-rose-500/40">
             <Car size={20} />
           </span>
           <span className="leading-none">
             <span className="block text-base font-black text-white tracking-tight">
               Stacks Drive
             </span>
-            <span className="block text-[10px] font-bold uppercase tracking-widest text-cyan">
+            <span className="block text-[10px] font-bold uppercase tracking-widest text-sarcelle">
               Libreville
             </span>
           </span>
@@ -37,17 +37,22 @@ export function Header({ user }: { user: HeaderUser | null }) {
         <div className="ml-auto flex items-center gap-2">
           {user ? (
             <>
-              <ModeToggle currentRole={user.role} canSwitchToDriver={user.canSwitchToDriver} />
+              {/* v2.45 — compte admin = admin uniquement : pas de
+                  bascule de rôle pour l'admin (ni passager, ni
+                  chauffeur) — il voit l'admin, pas le flux passager. */}
+              {!user.isAdmin && (
+                <ModeToggle currentRole={user.role} canSwitchToDriver={user.canSwitchToDriver} />
+              )}
               <Link
                 href="/compte"
-                className="hidden sm:inline-flex text-sm font-bold text-slate-300 hover:text-cyan px-2 py-2"
+                className="hidden sm:inline-flex text-sm font-bold text-slate-300 hover:text-sarcelle px-2 py-2"
               >
                 Mon compte
               </Link>
               {user.isAdmin && (
                 <Link
                   href="/admin"
-                  className="hidden sm:inline-flex text-sm font-bold text-slate-300 hover:text-cyan px-2 py-2"
+                  className="hidden sm:inline-flex text-sm font-bold text-slate-300 hover:text-sarcelle px-2 py-2"
                 >
                   Admin
                 </Link>
@@ -63,7 +68,7 @@ export function Header({ user }: { user: HeaderUser | null }) {
           ) : (
             <Link
               href="/connexion"
-              className="text-sm font-black text-night-900 bg-or px-4 py-2 rounded-full shadow-md shadow-or/40 hover:bg-or-light active:scale-95 transition-all"
+              className="text-sm font-black text-night-900 bg-rose-500 px-4 py-2 rounded-full shadow-md shadow-rose-500/40 hover:bg-rose-300 active:scale-95 transition-all"
             >
               Connexion
             </Link>

@@ -79,7 +79,7 @@ async function requireUser() {
   const { data: profile } = await supabase
     .from('profiles')
     .select(
-      'role, full_name, phone, is_verified, is_online, current_area, last_lat, last_lng'
+      'role, full_name, phone, is_verified, is_online, is_admin, current_area, last_lat, last_lng'
     )
     .eq('id', user.id)
     .single();
@@ -104,6 +104,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
   const { supabase, user, profile } = auth;
+  // v2.45 — compte admin = admin uniquement : l'admin ne commande
+  // pas de course (il n'est pas passager). Rejet serveur, avant le
+  // contrôle de rôle — le rôle en base de l'admin est « passager ».
+  if (profile?.is_admin === true) {
+    return NextResponse.json(
+      {
+        error: 'Le compte administrateur ne commande pas de courses : utilise un compte passager.',
+        code: 'admin_not_allowed',
+      },
+      { status: 403 }
+    );
+  }
   if (profile?.role !== 'passager') {
     return NextResponse.json(
       { error: 'Bascule en mode Passager pour commander une course.' },
@@ -284,6 +296,19 @@ export async function GET(request: NextRequest) {
   const scope = new URL(request.url).searchParams.get('scope') ?? 'mine';
 
   if (scope === 'incoming') {
+    // v2.45 — l'admin ne reçoit jamais de proposition : il n'est
+    // pas chauffeur (le contrôle de rôle ci-dessous le bloquerait
+    // déjà, l'admin étant « passager » en base — ce rejet explicite
+    // verrouille le cas où le rôle venait à changer).
+    if (profile?.is_admin === true) {
+      return NextResponse.json(
+        {
+          error: 'Le compte administrateur ne reçoit pas de demandes : il n’est pas chauffeur.',
+          code: 'admin_not_allowed',
+        },
+        { status: 403 }
+      );
+    }
     if (profile?.role !== 'chauffeur') {
       return NextResponse.json(
         { error: 'Seuls les chauffeurs reçoivent des demandes.' },

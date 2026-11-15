@@ -25,6 +25,7 @@ npm run build   # doit passer avant tout push
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL | Oui |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon public | Oui |
 | `RESEND_API_KEY` | Resend → API Keys (commence par `re_`) | Non — sans elle, aucun e-mail de ticket n'est envoyé ; les tickets restent visibles dans /admin |
+| `NEXT_PUBLIC_CARTO_API_KEY` | CARTO → https://carto.com/basemaps/apikey/ (gratuite : 5 M de requêtes/mois hors commercial, 1 M en commercial) | Oui (v2.46) — sans elle, le fond Plan affiche le filigrane CARTO « API KEY REQUIRED » au lieu de la carte ; la clé est conçue pour être embarquée dans le code client (variable `NEXT_PUBLIC_`) |
 | `ADMIN_EMAIL` | Défaut : stacks.markett@gmail.com (boîte Stacks Market, lue par l’administrateur) — la variable d'environnement, si elle est définie dans Vercel, reste prioritaire | Non |
 | `EMAIL_FROM` | Défaut : `Stacks Drive <onboarding@resend.dev>` | Non |
 
@@ -113,9 +114,11 @@ elle est ajoutée à ce tableau.
   côté serveur par `lib/fare-guard.ts`.
 - **Quartiers :** 70 quartiers de Libreville (`lib/neighborhoods.ts`),
   noms affichés sur la carte, listes de départ / destination.
-- **Lieux :** 43 lieux sur la carte (`lib/pois.ts`) : supermarchés,
-  marchés, stations-service, pharmacies, hôtel, santé, lieux publics
-  (pictogrammes dès le zoom 13, noms dès le zoom 15).
+- **Lieux :** 59 lieux sur la carte (`lib/pois.ts`) : supermarchés,
+  marchés, stations-service, pharmacies, hôtel, santé, lieux publics,
+  bars, restaurants (pictogrammes dès le zoom 14, noms dès le zoom 15 ;
+  bars et restaurants : pictogrammes dès le zoom 15, noms dès le
+  zoom 16).
 - **Quartiers à accès difficile :** 15 quartiers ne sont pas desservis
   sur route bitumée. La course s'y arrête par défaut à un point de
   dépôt sur route bitumée ; le passager peut demander la continuité
@@ -253,7 +256,7 @@ dépôt (voir `.env.example`).
 
 ### Carte zonée quartier (v2.31)
 
-- **Vue d'ouverture = zoom quartier** : la carte s'ouvre au zoom 14 (`MAP_INITIAL_ZOOM`, `lib/geo.ts`), centrée sur l'ancre — (a) position GPS réelle si elle est dans la zone de service, (b) sinon quartier de départ choisi, y compris le brouillon restauré après connexion, (c) sinon Centre-ville. Le départ se cale par défaut sur le quartier le plus proche de la position GPS. Jamais toute la ville au premier chargement ; la vue ville (zoom 12, 12 libellés) reste accessible en dézoomant — les tiers de libellés ne changent pas. Géolocalisation silencieuse au chargement (délai 5 s, repli immédiat sans bloquer l'ouverture, sans message d'erreur ; la position ne quitte jamais le navigateur).
+- **Vue d'ouverture = zoom quartier** : la carte s'ouvre au zoom 14 (`MAP_INITIAL_ZOOM`, `lib/geo.ts`), centrée sur l'ancre — (a) position GPS réelle si elle est dans la zone de service, (b) sinon quartier de départ choisi, y compris le brouillon restauré après connexion, (c) sinon Centre-ville. Le départ se cale par défaut sur le quartier le plus proche de la position GPS. Jamais toute la ville au premier chargement ; la vue ville (zoom 12, 6 libellés Drive en Plan — les autres noms sont déjà sur les tuiles CARTO dark_all, v2.42 recalibré v2.46 — 12 en Satellite) reste accessible en dézoomant — les tiers de libellés ne changent pas. Géolocalisation silencieuse au chargement (délai 5 s, repli immédiat sans bloquer l'ouverture, sans message d'erreur ; la position ne quitte jamais le navigateur).
 - **Cercle périmètre 5 km** : cercle statique subtil (trait or pointillé, remplissage or très léger) autour de l'ancre — il visualise la zone « chauffeurs autour de toi », avec le rayon de matching existant (`DRIVERS_AROUND_RADIUS_KM`, 5 km — pas un second chiffre). Il suit la position GPS par défaut, et le quartier de départ dès qu'il est choisi manuellement (liste, favoris, trajets fréquents, point de prise en charge). Distinct du radar cyan pulsé (100 → 1 600 m, actif seulement pendant la recherche).
 - **« Me localiser »** : centre sur la position GPS au zoom quartier si elle est dans la zone de service ; sinon la carte reste sur Libreville + message « le service est à Libreville pour l'instant ». Le test est désormais une appartenance à la zone (`isInServiceArea`, `SERVICE_BOUNDS` dans `lib/geo.ts`) — l'ancien test « > 60 km du quartier le plus proche » plaçait encore quelqu'un à 20–50 km de Libreville.
 - **Zone de service (`SERVICE_BOUNDS`)** : rectangle Grand Libreville (sud 0,22 / ouest 9,24 / nord 0,69 / est 9,76) — il couvre les 70 quartiers avec ~9 km de marge. Constante nommée partagée : la carte l'utilise pour `maxBounds` (+ `maxBoundsViscosity: 1.0`, bornes fermes), « Me localiser » et l'ancrage l'utilisent pour le test d'appartenance, et le lot suivant (écran hors zone) la réutilisera telle quelle.
@@ -328,6 +331,10 @@ modifie jamais les courses déjà acceptées.
 - **Resend** : gratuit (limites du plan gratuit : l'expéditeur
   `onboarding@resend.dev` ne peut écrire qu'à l'e-mail du propriétaire
   du compte Resend).
+- **CARTO (fond de carte Plan dark_all)** : gratuit (5 M de requêtes de
+  tuiles/mois hors commercial, 1 M en commercial — clé
+  `NEXT_PUBLIC_CARTO_API_KEY`, voir §1) ; Esri World Imagery
+  (Satellite) : gratuit, sans clé.
 
 Au-delà, chaque service propose un plan payant à la consommation.
 

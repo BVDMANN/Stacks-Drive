@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { Header } from '@/components/shared/Header';
 import { HomeScreen } from '@/components/home/HomeScreen';
 import { getSessionUser, hasDriverAccount } from '@/lib/supabase/server';
@@ -16,6 +17,10 @@ export default async function Page() {
     getSessionUser(),
     getOnlineDrivers(),
   ]);
+
+  // v2.45 — compte admin = admin uniquement : l'admin ne voit pas
+  // le flux passager (carte + feuille de demande) — il voit l'admin.
+  if (sessionUser?.profile?.is_admin === true) redirect('/admin');
 
   const user = sessionUser
     ? {

@@ -14,6 +14,26 @@ export default async function TableauDeBordPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/connexion?next=/tableau-de-bord');
 
+  // v2.45 — compte admin = admin uniquement : l'admin ne voit ni
+  // le tableau de bord chauffeur, ni la bascule, ni le lien
+  // « Devenir chauffeur » — il voit l'admin.
+  if (sessionUser.profile?.is_admin === true) {
+    return (
+      <PageShell title="Tableau de bord chauffeur" subtitle="Reçois des demandes et propose tes prix." user={{ id: sessionUser.id, email: sessionUser.email }}>
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+          <p className="text-slate-600">
+            Ce compte est le compte administrateur : il ne peut pas être
+            chauffeur. Pour conduire, crée un compte chauffeur séparé,
+            avec une autre adresse e-mail.
+          </p>
+          <Link href="/admin" className="inline-block px-6 py-3.5 bg-stacks-green text-white font-bold rounded-full hover:bg-stacks-greenLight transition-colors">
+            Voir l’administration
+          </Link>
+        </div>
+      </PageShell>
+    );
+  }
+
   if (sessionUser.profile?.role !== 'chauffeur') {
     return (
       <PageShell title="Tableau de bord chauffeur" subtitle="Reçois des demandes et propose tes prix." user={{ id: sessionUser.id, email: sessionUser.email }}>

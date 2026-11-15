@@ -293,7 +293,7 @@ export function VerificationForm({
           role="status"
           className="flex items-center gap-3 bg-night-900 text-slate-100 rounded-2xl p-4"
         >
-          <Loader2 size={20} className="animate-spin text-or shrink-0" />
+          <Loader2 size={20} className="animate-spin text-rose-300 shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-bold">{CHECK_STEP_LABELS[progress.step]}</p>
             <p className="text-xs text-slate-300 mt-0.5">

@@ -19,10 +19,10 @@ export function AmountToPay({
       role="status"
     >
       <p className="font-black text-lg flex items-center gap-2">
-        <Wallet size={20} className="text-gold" />
+        <Wallet size={20} className="text-corail" />
         {forDriver ? 'À encaisser' : 'À payer'}
       </p>
-      <p className="font-black text-4xl sm:text-5xl text-gold tracking-tight">{amountLabel}</p>
+      <p className="font-black text-4xl sm:text-5xl text-corail tracking-tight">{amountLabel}</p>
       <p className="text-sm text-slate-300">
         {forDriver ? 'À recevoir du passager' : 'À remettre à ton chauffeur'} · {paymentLabel} · prix
         figé à l’acceptation — aucun supplément, aucune négociation au moment de payer.

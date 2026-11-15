@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { TutoStep } from './steps';
 
-/** Modale de tutoriel « Nuit dorée » (v2.21) — étape par étape, courte
+/** Modale de tutoriel « Nuit violette » (v2.21) — étape par étape, courte
  *  et visuelle : chaque étape montre la capture du VRAI écran de
  *  l'app (voir `public/tuto/`), un titre, deux lignes de texte, pas
  *  de pavé. Fermable à tout moment (croix, « Passer », Échap) et
@@ -60,12 +60,12 @@ export function TutorialModal({
           type="button"
           onClick={onClose}
           aria-label="Fermer le tutoriel"
-          className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-night-950/80 backdrop-blur border border-white/20 text-white hover:border-gold/60 active:scale-90 transition-all"
+          className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-night-950/80 backdrop-blur border border-white/20 text-white hover:border-corail/60 active:scale-90 transition-all"
         >
           <X size={18} />
         </button>
 
-        <p className="px-5 pt-5 text-[10px] font-black uppercase tracking-widest text-gold">
+        <p className="px-5 pt-5 text-[10px] font-black uppercase tracking-widest text-corail">
           {eyebrow} · Étape {index + 1}/{steps.length}
         </p>
 
@@ -97,7 +97,7 @@ export function TutorialModal({
                 onClick={() => setIndex(i)}
                 aria-label={`Aller à l'étape ${i + 1} : ${s.title}`}
                 className={`h-2 rounded-full transition-all ${
-                  i === index ? 'w-6 bg-gold' : 'w-2 bg-white/25 hover:bg-white/40'
+                  i === index ? 'w-6 bg-corail' : 'w-2 bg-white/25 hover:bg-white/40'
                 }`}
               />
             ))}
@@ -116,7 +116,7 @@ export function TutorialModal({
               <button
                 type="button"
                 onClick={() => setIndex((i) => Math.min(last, i + 1))}
-                className="flex-1 inline-flex items-center justify-center gap-1 px-4 py-3 rounded-full bg-or text-night-900 text-sm font-black shadow-lg shadow-or/30 hover:bg-or-light active:scale-[0.98] transition-all"
+                className="flex-1 inline-flex items-center justify-center gap-1 px-4 py-3 rounded-full bg-rose-500 text-night-900 text-sm font-black shadow-lg shadow-rose-500/30 hover:bg-rose-300 active:scale-[0.98] transition-all"
               >
                 Suivant <ChevronRight size={16} />
               </button>
@@ -124,7 +124,7 @@ export function TutorialModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 inline-flex items-center justify-center gap-1 px-4 py-3 rounded-full bg-or text-night-900 text-sm font-black shadow-lg shadow-or/30 hover:bg-or-light active:scale-[0.98] transition-all"
+                className="flex-1 inline-flex items-center justify-center gap-1 px-4 py-3 rounded-full bg-rose-500 text-night-900 text-sm font-black shadow-lg shadow-rose-500/30 hover:bg-rose-300 active:scale-[0.98] transition-all"
               >
                 C&apos;est parti !
               </button>

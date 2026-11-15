@@ -3,9 +3,9 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { LIBREVILLE_CENTER, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_LABEL_OFFSET, NEIGHBORHOOD_LABEL_TIER, NEIGHBORHOOD_NO_LABEL, type Neighborhood } from '@/lib/neighborhoods';
+import { LIBREVILLE_CENTER, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_LABEL_OFFSET, NEIGHBORHOOD_LABEL_TIER, NEIGHBORHOOD_NO_LABEL, NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM, NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM, type Neighborhood } from '@/lib/neighborhoods';
 import { DRIVERS_AROUND_RADIUS_KM, MAP_INITIAL_ZOOM, MAP_MIN_ZOOM, SERVICE_BOUNDS } from '@/lib/geo';
-import { POIS, POI_CATEGORY_LABELS, type Poi, type PoiCategory } from '@/lib/pois';
+import { POIS, POI_CATEGORY_LABELS, poiIconMinZoom, poiLabelMinZoom, type Poi, type PoiCategory } from '@/lib/pois';
 import { DEMO_ROUTES, type DemoRoutePoint } from '@/lib/demo-routes';
 
 export interface MapDriver {
@@ -72,14 +72,14 @@ export interface FocusPoint {
   nonce: number;
 }
 
-/** Glyphs « Nuit dorée » (v2.5) : trait sombre #070B16 sur pastille or.
+/** Glyphs « Nuit violette » (v2.5) : trait sombre #17112E sur pastille rose.
  *  La moto a son propre glyph (lucide « bike ») — visible d'un coup
  *  d'œil, contrairement à l'ancienne voiture blanche unique. */
-const CAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#070B16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`;
+const CAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17112E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`;
 
-const MOTO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#070B16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="6" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>`;
+const MOTO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#17112E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="6" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>`;
 
-const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#FFD60A" stroke="#FFD60A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="#0B1020"/></svg>`;
+const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#FF4D8D" stroke="#FF4D8D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="#201646"/></svg>`;
 
 /** Pictogrammes des points d'intérêt (v2.6) — traits fins, couleur or
  *  héritée du CSS (.map-poi-icon). Un pictogramme par catégorie. */
@@ -97,6 +97,8 @@ const POI_SVG: Record<PoiCategory, string> = {
   musee: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
   plage: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
   gare: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="13" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg>`,
+  bar: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"/><path d="M12 15v7"/><path d="M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z"/></svg>`,
+  restaurant: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`,
 };
 
 /** Chauffeurs démo : ils ROULENT le long de leur trajet routier
@@ -214,7 +216,8 @@ interface DriverMarkerEntry {
 }
 
 /** Zooms de la carte (v2.18 — correctif « satellite en zoom fort »,
- *  v2.39 — plafond 20 → 18, v2.41 — fond Plan OpenStreetMap, zoom 19).
+ *  v2.39 — plafond 20 → 18, v2.41 — fond Plan OpenStreetMap, zoom 19,
+ *  v2.46 — fond Plan CARTO dark_all, zoom 19 conservé).
  *  Cause trouvée par curl le 14/11/2026 (tuiles Esri servies en
  *  HTTP 200, JPEG 256×256, Centre-ville 0,3901/9,4544 + Akanda,
  *  Owendo, Melen, Nzeng-Ayong, Aéroport) :
@@ -225,7 +228,7 @@ interface DriverMarkerEntry {
  *    (2 521 o, md5 f27d9de7f8, 123 couleurs, gris 205 — identique
  *    en z19 et z20, au Centre-ville comme à Akanda) : c'est elle que
  *    l'utilisateur voyait (« on ne voit plus rien en zoomant »).
- *    Zoom natif max satellite à Libreville : 18 — INCHANGÉ en v2.41.
+ *    Zoom natif max satellite à Libreville : 18 — INCHANGÉ en v2.46.
  *  - World Street Map (plan Esri, remplacé en v2.41) : z19 réelle au
  *    Centre-ville seulement (6 005 o, 2 394 couleurs) ; à Akanda
  *    c'est la même tuile grise « pas de données », à Melen /
@@ -260,6 +263,35 @@ interface DriverMarkerEntry {
  *  (couvert végétal / bâti clairsemé), pas une tuile « pas de
  *  données » (OSM ne sert pas de tuile d'erreur : il rend les
  *  données, même clairsemées). Plafond Plan : 19 (natif 19).
+ *  ⚠️ RÉSERVE v2.46 (15/11/2026) sur cette vérification curl v2.41 :
+ *  le proxy de sortie de la VM intercepte désormais les tuiles et
+ *  renvoie un contenu FIXE par hôte (OSM = toujours les mêmes
+ *  6 725 o / md5 8e8d1ff4, que ce soit Libreville ou Paris centre ;
+ *  CARTO = contenu fixe aussi, identique pour Paris et Libreville)
+ *  — un HTTP 200 ne prouve donc plus que l'hôte répond, JAMAIS le
+ *  contenu d'une tuile. Les « 9 md5 distincts » de la v2.41 ont été
+ *  mesurés AVANT ce constat, quand curl rapportait encore des
+ *  contenus variés par tuile (tailles et nombres de couleurs
+ *  différents selon la zone — un placeholder fixe n'aurait pas pu
+ *  produire ces variations) : la vérification reste plausible, mais
+ *  elle ne peut plus être REFAITE ni confirmée depuis cette VM. La
+ *  preuve visuelle réelle du fond Plan actuel (CARTO dark_all)
+ *  viendra de la vérification navigateur live après push et du
+ *  téléphone du propriétaire — voir ADR 0021. Ne jamais présenter
+ *  un résultat curl de cette VM comme une preuve de contenu de
+ *  tuile.
+ *  v2.46 (15/11) : le fond Plan passe à CARTO dark_all (demande du
+ *  propriétaire ~07h44 : « La carte à mes palettes de couleur
+ *  demandées » — la carte elle-même prend la palette « Nuit
+ *  violette »). CARTO dark_all imprime les noms de rues (z13
+ *  autoroutes / grandes artères, z14 primaires, z15 secondaires /
+ *  tertiaires, z16 rues secondaires, z17 voies de desserte — style
+ *  dark matter, `labels.mss`) et les noms de lieux en gris clair
+ *  sur fond sombre — c'est pour les noms de rues qu'il est choisi
+ *  plutôt que `dark_nolabels` (aucun nom imprimé : on s'orienterait
+ *  sans noms de rues, inacceptable pour une appli de course).
+ *  Plafond Plan conservé : 19 (CARTO sert les zooms 0 à 20 ; le
+ *  plafond 19 est celui de la carte, pas une limite des tuiles).
  *  Le plafond est désormais PAR MODE : Plan 19, Satellite 18 —
  *  la carte règle son `maxZoom` à chaque bascule (`setMaxZoom`
  *  dans l'effet `basemap`) pour que le Satellite ne zoome jamais
@@ -269,6 +301,41 @@ const PLAN_MAX_ZOOM = 19;
 const SATELLITE_MAX_ZOOM = 18;
 const SATELLITE_MAX_NATIVE_ZOOM = 18;
 const PLAN_MAX_NATIVE_ZOOM = 19;
+
+/** Fond Plan CARTO dark_all (v2.46) — tuiles raster CARTO, style
+ *  « dark matter » (fond quasi noir #090909, routes et libellés en
+ *  gris — voir ADR 0021 pour la lecture complète du style).
+ *  URL (format documenté actuel, docs CARTO sept. 2026) :
+ *  `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png`
+ *  (pas de sous-domaines `{s}`, pas de suffixe retina `{r}` — le
+ *  format documenté n'en prévoit pas ; ordre {z}/{x}/{y}, comme OSM
+ *  — inverse de l'ordre ArcGIS {z}/{y}/{x} du Satellite, ne pas les
+ *  confondre. L'ancien format `{s}.basemaps.cartocdn.com/dark_all/…`
+ *  a été remplacé par celui-ci avant le push : c'est le seul dont la
+ *  documentation en vigueur garantit le fonctionnement avec clé.)
+ *  CLÉ API OBLIGATOIRE (changement CARTO, confirmé par la
+ *  documentation officielle — dépôt CartoDB/basemap-styles, README :
+ *  « Raster basemaps require an API key. Requests without a key are
+ *  served with an "API key required" watermark. ») : sans clé, CARTO
+ *  sert une tuile filigranée « API KEY REQUIRED » à la place de la
+ *  carte. La clé est gratuite (5 M de requêtes/mois hors commercial,
+ *  1 M en commercial) et se crée sur https://carto.com/basemaps/apikey/
+ *  — c'est une clé de fond de carte, conçue pour être embarquée dans
+ *  le code client (l'exemple Leaflet officiel la met dans l'URL).
+ *  Elle se configure par `NEXT_PUBLIC_CARTO_API_KEY` (`.env.local`
+ *  en dev, variables Vercel en production — à créer par le
+ *  propriétaire, qui crée ses comptes lui-même). Sans clé configurée,
+ *  l'URL part sans `?key=` et la carte affiche le filigrane CARTO :
+ *  l'appli ne casse pas, mais le fond Plan est inutilisable tant que
+ *  la clé n'est pas posée — c'est l'étape restante après le push,
+ *  avec la vérification live (voir ADR 0021). */
+const CARTO_API_KEY = process.env.NEXT_PUBLIC_CARTO_API_KEY ?? '';
+const CARTO_DARK_ALL_URL = `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png${CARTO_API_KEY ? `?key=${CARTO_API_KEY}` : ''}`;
+/** Mention d'attribution exacte exigée par la licence CARTO
+ *  (exemple officiel Leaflet, dépôt CartoDB/basemap-styles) :
+ *  « © OpenStreetMap contributors © CARTO ». */
+const CARTO_ATTRIBUTION =
+  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>';
 export function LibrevilleMap({
   drivers,
   pickup,
@@ -299,8 +366,8 @@ export function LibrevilleMap({
   userLocation?: UserLocationPoint | null;
   focusPoint?: FocusPoint | null;
   onDriverClick?: (driverId: string) => void;
-  /** Fond de carte (v2.13, v2.41) : 'plan' (OpenStreetMap + filtre
-   *  sombre) ou 'satellite' (Esri World Imagery, sans filtre). */
+  /** Fond de carte (v2.13, v2.46) : 'plan' (CARTO dark_all, sombre)
+   *  ou 'satellite' (Esri World Imagery, sans filtre). */
   basemap?: 'plan' | 'satellite';
   /** Clic sur un lieu (POI) : ouvre sa mini-carte d'info. */
   onPoiClick?: (poi: Poi) => void;
@@ -340,6 +407,15 @@ export function LibrevilleMap({
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const poiMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const perimeterRef = useRef<L.Circle | null>(null);
+  // Fond courant (v2.42) : `updateLabels` en a besoin pour décider
+  // quels libellés Drive afficher — lu via ref, l'effet de création
+  // de la carte ne tourne qu'une fois.
+  const basemapRef = useRef(basemap);
+  basemapRef.current = basemap;
+  // `updateLabels` (défini dans l'effet de création) est rappelé à
+  // chaque bascule Plan/Satellite (effet `basemap`) : les libellés
+  // Drive masqués en Plan réapparaissent en Satellite, et inversement.
+  const updateLabelsRef = useRef<(() => void) | null>(null);
 
   // Création de la carte (une seule fois).
   useEffect(() => {
@@ -349,8 +425,10 @@ export function LibrevilleMap({
       // 14) centrée sur l'ancre (Centre-ville par défaut — le parent
       // vole ensuite vers la position GPS ou le départ choisi, voir
       // `focusPoint`) : jamais toute la ville au premier chargement.
-      // La vue ville (zoom 12, 12 libellés) reste accessible en
-      // dézoomant — `minZoom` l'autorise, et rien en dessous.
+      // La vue ville (zoom 12) reste accessible en dézoomant —
+      // `minZoom` l'autorise, et rien en dessous. En Plan, 6 libellés
+      // Drive y restent visibles (v2.42 : les autres noms sont déjà
+      // sur les tuiles CARTO) ; en Satellite, les 12 du tier 1.
       center: [LIBREVILLE_CENTER.lat, LIBREVILLE_CENTER.lng],
       zoom: MAP_INITIAL_ZOOM,
       minZoom: MAP_MIN_ZOOM,
@@ -365,10 +443,9 @@ export function LibrevilleMap({
       ),
       maxBoundsViscosity: 1.0,
       // Zoom max 19 en Plan, 18 en Satellite (v2.41, remplace le 18
-      // unique de la v2.39) : 19 est le dernier zoom réel du fond
-      // Plan OpenStreetMap (tuiles natives jusqu'à 19, vérifié par
-      // curl le 14/11 — voir constantes ci-dessus), 18 celui du
-      // Satellite Esri. Le plafond est PAR MODE : la bascule
+      // unique de la v2.39, conservé en v2.46) : 19 est le plafond du
+      // fond Plan CARTO dark_all (tuiles servies jusqu'au zoom 20),
+      // 18 celui du Satellite Esri. Le plafond est PAR MODE : la bascule
       // Plan/Satellite règle `map.setMaxZoom` (effet `basemap`) —
       // sans ça, le Satellite zoomerait à 19 dans l'agrandissement
       // flou des tuiles z18 (bug v2.39). Le bouton + se grise à 19
@@ -379,79 +456,115 @@ export function LibrevilleMap({
       attributionControl: false,
       scrollWheelZoom: true,
     });
-    // Fond de carte « vivant » (v2.7, fond Plan remplacé en v2.41) :
-    // OpenStreetMap standard — rues, eau, parcs et noms de rues
-    // réels à Libreville. Le fond « World Dark Gray » précédent
-    // était quasi vide : 3 grands axes, aucun libellé, pas d'eau
-    // ni de parcs visibles. Le filtre sombre CSS (`.map-tiles-dark` :
-    // inversion + rotation de teinte) a été RETIRÉ le 14/11 ~21h58,
-    // décision du propriétaire (« Retire le thème sombre là-dessus ») :
-    // la carte Plan est désormais CLAIRE, comme celle de Skatta.
-    // Gratuites, sans clé.
-    // CARTO dark_all a été écarté : il exige désormais une clé API
-    // (vérifié par curl 14/11 : tuile « API KEY REQUIRED ») ;
-    // Stadia exige aussi une clé (401). Le fond Plan Esri World
-    // Street Map a été remplacé en v2.41 (ADR 0016) : ses tuiles
-    // z19 n'étaient réelles qu'au Centre-ville (tuile grise « pas
-    // de données » à Akanda, beige uniforme à Melen / Nzeng-Ayong)
-    // et le filtre sombre lavait ses détails — OSM sert des tuiles
-    // z19 réelles partout dans la zone de service (vérifié par
-    // curl le 14/11, voir constantes en tête de fichier) et garde
-    // des détails nets, sans filtre (le filtre sombre a été retiré
-    // le 14/11 ~21h58, voir ci-dessus). La mention « OSM direct
-    // bloqué par la politique d'usage (403) » de la v2.7 n'est plus
-    // reproduite le 14/11 au soir : curl obtient HTTP 200 sur les
-    // tuiles z18 et z19 (avec ou sans User-Agent explicite — les
-    // requêtes Leaflet partent du navigateur, avec un vrai
-    // User-Agent). Politique d'usage OSM : attribution obligatoire
-    // (texte exact ci-dessous), tuiles directes OK pour le
-    // lancement mais trafic de production lourd déconseillé —
-    // prévoir un fournisseur de tuiles ou l'auto-hébergement au
-    // lancement (même logique que le serveur OSRM démo de la
-    // v2.27, voir ADR 0016). ATTENTION à l'ordre des paramètres
-    // OSM : {z}/{x}/{y} — l'ordre ArcGIS du fond Satellite est
-    // {z}/{y}/{x}, ne pas les confondre. Tuiles vérifiées par curl
-    // (z=18-19, Libreville : HTTP 200, PNG 256×256, rues +
-    // libellés + eau + parcs, puis simulation du filtre sombre
-    // vérifiée visuellement). Attribution OSM obligatoire (texte
-    // exact du service : « © OpenStreetMap contributors »).
-    // La couche de référence « World Dark Gray » est supprimée : le
-    // fond Plan porte déjà ses propres libellés (la doubler
-    // surchargerait la carte).
-    tileLayerRef.current = L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {
-        // v2.41 : maxZoom 19 + maxNativeZoom 19 en Plan — sans
-        // maxNativeZoom, Leaflet demanderait des tuiles au zoom
-        // affiché, donc des tuiles z20 inexistantes (tuile grise
-        // vide) ; sans le plafond 19, il agrandirait les tuiles
-        // z19 et les contours se perdraient (observation live
-        // 14/11, v2.39). Le plafond Satellite reste 18 (voir
-        // l'effet `basemap` : il règle maxZoom/maxNativeZoom
-        // et le maxZoom de la carte à chaque bascule).
-        maxZoom: PLAN_MAX_ZOOM,
-        maxNativeZoom: PLAN_MAX_NATIVE_ZOOM,
-        attribution:
-          '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }
-    ).addTo(map);
+    // Fond de carte « vivant » (v2.7, fond Plan remplacé en v2.41
+    // puis en v2.46) : CARTO dark_all — rues, eau, parcs et noms de
+    // rues réels à Libreville, en sombre natif. Le fond
+    // « World Dark Gray » précédent était quasi vide : 3 grands axes,
+    // aucun libellé, pas d'eau ni de parcs visibles. Le filtre sombre
+    // CSS (`.map-tiles-dark` : inversion + rotation de teinte) a été
+    // RETIRÉ le 14/11 ~21h58, décision du propriétaire (« Retire le
+    // thème sombre là-dessus ») : la carte Plan était alors CLAIRE,
+    // comme celle de Skatta. Le 15/11 ~07h44, le propriétaire demande
+    // la carte aux couleurs de sa palette (« La carte à mes palettes
+    // de couleur demandées ») : le fond Plan repasse en sombre, mais
+    // en VRAI sombre natif (tuiles dark_all), PAS par le filtre qui
+    // lavait les détails et rendait la carte illisible (v2.41) —
+    // aucun `filter` sur le panneau de tuiles, le fond CARTO porte
+    // ses propres couleurs. La teinte violette #191432 n'est PAS dans
+    // les tuiles (CARTO dark_all est quasi noir #090909) : elle est
+    // portée par les surcouches de l'appli — libellés Drive, POI,
+    // ligne d'itinéraire rose, marqueurs, fond du conteneur
+    // `.leaflet-container` (#191432, `styles/globals.css`) — voir
+    // ADR 0021. Un vrai fond violet demanderait un style vectoriel
+    // personnalisé (lot ultérieur possible, non implémenté ici).
+    // CLÉ API CARTO OBLIGATOIRE (voir `CARTO_DARK_ALL_URL`) : sans
+    // clé, CARTO sert une tuile filigranée « API KEY REQUIRED » —
+    // la clé gratuite se crée sur https://carto.com/basemaps/apikey/
+    // et se pose en variable `NEXT_PUBLIC_CARTO_API_KEY` (Vercel).
+    // Politique d'usage CARTO : attribution obligatoire (texte exact
+    // ci-dessous), tuiles directes OK dans la limite du forfait
+    // gratuit (5 M de requêtes/mois hors commercial, 1 M en
+    // commercial — au-delà, forfait « Basemaps Commercial ») ; un
+    // trafic de production lourd au-delà du forfait demanderait un
+    // fournisseur de tuiles ou l'auto-hébergement au lancement (même
+    // logique que le serveur OSRM démo de la v2.27, voir ADR 0002).
+    // CARTO dark_all a été écarté en v2.41 parce qu'il exigeait déjà
+    // une clé (tuile « API KEY REQUIRED » vue par curl le 14/11) ;
+    // en v2.46 la clé devient une étape assumée du lot (à créer par
+    // le propriétaire), pas un motif d'écart — voir ADR 0021.
+    // Stadia exige aussi une clé (401, v2.41). Le fond Plan Esri
+    // World Street Map a été remplacé en v2.41 (ADR 0016) : ses
+    // tuiles z19 n'étaient réelles qu'au Centre-ville (tuile grise
+    // « pas de données » à Akanda, beige uniforme à Melen /
+    // Nzeng-Ayong). La mention « OSM direct bloqué par la politique
+    // d'usage (403) » de la v2.7 n'est plus reproduite le 14/11 au
+    // soir : curl obtient HTTP 200 sur les tuiles z18 et z19 (avec
+    // ou sans User-Agent explicite — les requêtes Leaflet partent du
+    // navigateur, avec un vrai User-Agent) — et la réserve v2.46 sur
+    // les vérifications curl depuis cette VM figure dans le bloc des
+    // constantes ci-dessus (ADR 0021). Attribution CARTO obligatoire
+    // (texte exact du service : « © OpenStreetMap contributors
+    // © CARTO »). La couche de référence « World Dark Gray » est
+    // supprimée : le fond Plan porte déjà ses propres libellés (la
+    // doubler surchargerait la carte).
+    tileLayerRef.current = L.tileLayer(CARTO_DARK_ALL_URL, {
+      subdomains: 'abcd',
+      // v2.46 : maxZoom 19 + maxNativeZoom 19 en Plan — sans
+      // maxNativeZoom, Leaflet demanderait des tuiles au zoom
+      // affiché, donc des tuiles z20 inexistantes (tuile grise
+      // vide) ; sans le plafond 19, il agrandirait les tuiles
+      // z19 et les contours se perdraient (observation live
+      // 14/11, v2.39). Le plafond Satellite reste 18 (voir
+      // l'effet `basemap` : il règle maxZoom/maxNativeZoom
+      // et le maxZoom de la carte à chaque bascule).
+      maxZoom: PLAN_MAX_ZOOM,
+      maxNativeZoom: PLAN_MAX_NATIVE_ZOOM,
+      attribution: CARTO_ATTRIBUTION,
+    }).addTo(map);
     L.control.attribution({ position: 'topright' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     routeLayersRef.current = L.layerGroup().addTo(map);
     driverLayerRef.current = L.layerGroup().addTo(map);
     trafficLayerRef.current = L.layerGroup().addTo(map);
-    // Libellés de quartiers (v2.5, 3 tiers depuis la v2.8) : permanents,
-    // discrets, non interactifs, sous les marqueurs chauffeurs
-    // (zIndexOffset négatif). Tier 1 dès le zoom 11, tier 2 dès le
-    // zoom 13, tier 3 seulement à partir du zoom 14 — aux zooms bas,
-    // les petits quartiers sont masqués pour ne pas surcharger la
-    // carte. La vue d'ouverture est le zoom 14 (v2.31) : les 69
-    // libellés sont donc visibles dès l'arrivée ; en dézoomant vers
-    // la vue ville (zoom 12), seuls les 12 du tier 1 restent.
+    // Libellés de quartiers (v2.5, 3 tiers depuis la v2.8 ; v2.42 :
+    // anti-double avec le fond Plan). Permanents, discrets, non
+    // interactifs, sous les marqueurs chauffeurs (zIndexOffset
+    // négatif). Tier 1 dès le zoom 11, tier 2 dès le zoom 13, tier 3
+    // seulement à partir du zoom 14 — aux zooms bas, les petits
+    // quartiers sont masqués pour ne pas surcharger la carte. La vue
+    // d'ouverture est le zoom 14 (v2.31).
+    // v2.42 — le fond Plan OpenStreetMap affichait DÉJÀ la plupart des
+    // noms de quartiers sur ses tuiles (vérifié par curl le 14/11 :
+    // tuiles z12 à z16, noms OSM de z12 à z16, plus rien à z17-18) :
+    // afficher le libellé Drive par-dessus doublait chaque nom, à
+    // une position légèrement différente. Les quartiers listés dans
+    // `NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM` ont donc leur libellé Drive
+    // masqué en Plan entre leur zoom minimum et leur borne haute
+    // (16 par défaut, 14 pour Akanda — voir
+    // `NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM`) — le nom reste visible
+    // UNE fois, via la tuile. Hors de cette plage (zoom < min, ou
+    // zoom > borne haute : le fond ne labellise plus rien) et en
+    // Satellite (tuiles Esri sans aucun libellé), le libellé Drive
+    // s'affiche normalement. Les 13 quartiers que le fond ne
+    // labellise jamais (PK5/6/8/9/11/12, Melen, Diba-Diba, Sogara,
+    // Santa Clara, Barracuda, Cap Caravane, Bizango) gardent leur
+    // libellé Drive à tous les zooms, dans les deux modes. Les
+    // données ne bougent pas : seul l'affichage est filtré — listes,
+    // recherche, tarifs et « Me localiser » utilisent les mêmes
+    // coordonnées.
+    // v2.46 — le fond Plan est CARTO dark_all, plus OSM standard :
+    // les plages de masquage sont RECALIBRÉES d'après la définition
+    // publique du style CARTO dark matter (pas d'après des tuiles
+    // vues — les tuiles ne sont pas vérifiables depuis cette VM,
+    // voir ADR 0021) : suburb / village / town z12–16, city z8–14,
+    // neighbourhood z13–17, aucune règle pour `quarter` (PK5 n'est
+    // donc plus masqué). Les zooms minimums v2.42 sont conservés
+    // (mêmes données OSM sous CARTO) ; la borne haute passe à 14
+    // pour Akanda (`place=city`). Approximation explicite, à
+    // confirmer en live après push.
     // 'Autre' n'est pas un lieu : pas de libellé.
-    const labelMajor = L.layerGroup().addTo(map);
-    const labelMid = L.layerGroup();
-    const labelMinor = L.layerGroup();
+    const labelLayer = L.layerGroup().addTo(map);
+    const labelEntries: { marker: L.Marker; tierMin: number; cartoMin: number | null; cartoMax: number }[] = [];
     (Object.keys(NEIGHBORHOOD_COORDS) as Neighborhood[]).forEach((n) => {
       if (n === 'Autre' || NEIGHBORHOOD_NO_LABEL.has(n)) return;
       const c = NEIGHBORHOOD_COORDS[n];
@@ -465,12 +578,18 @@ export function LibrevilleMap({
         iconAnchor: [0, 0],
       });
       const tier = NEIGHBORHOOD_LABEL_TIER[n];
-      L.marker([c.lat, c.lng], {
+      const marker = L.marker([c.lat, c.lng], {
         icon,
         interactive: false,
         keyboard: false,
         zIndexOffset: -500,
-      }).addTo(tier === 1 ? labelMajor : tier === 2 ? labelMid : labelMinor);
+      });
+      labelEntries.push({
+        marker,
+        tierMin: tier === 1 ? 11 : tier === 2 ? 13 : 14,
+        cartoMin: NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM[n] ?? null,
+        cartoMax: NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM[n] ?? 16,
+      });
     });
     // Points d'intérêt (v2.6, cliquables depuis la v2.13) : pictogramme
     // de catégorie + petit libellé, sous les marqueurs chauffeurs. Le
@@ -478,11 +597,19 @@ export function LibrevilleMap({
     // estimation, « Y aller ») ; il ne se propage pas au fond de carte
     // (sinon la carte se refermerait aussitôt). Le survol garde
     // l'infobulle nom · catégorie · quartier.
+    // v2.43 : deux couches — les catégories denses (bars, restaurants)
+    // ont leur propre couche, affichée un zoom plus tard (z15) pour ne
+    // pas surcharger la carte dans les quartiers denses (Louis,
+    // Corniche). Leurs libellés n'apparaissent qu'à z16 (classe
+    // `dense`, voir `updateLabels` et le CSS).
     const poiLayer = L.layerGroup();
+    const poiDenseLayer = L.layerGroup();
+    const poiByName = new Map(POIS.map((p) => [p.name, p]));
     POIS.forEach((poi) => {
+      const dense = poiIconMinZoom(poi.category) > 14;
       const icon = L.divIcon({
         className: 'map-poi-icon',
-        html: `<div class="map-poi-marker cat-${poi.category}"><span class="map-poi-glyph">${POI_SVG[poi.category]}</span><span class="map-poi-label">${poi.name}</span></div>`,
+        html: `<div class="map-poi-marker cat-${poi.category}${dense ? ' dense' : ''}"><span class="map-poi-glyph">${POI_SVG[poi.category]}</span><span class="map-poi-label">${poi.name}</span></div>`,
         iconSize: [0, 0],
         iconAnchor: [0, 0],
       });
@@ -500,17 +627,26 @@ export function LibrevilleMap({
         L.DomEvent.stopPropagation(e.originalEvent);
         onPoiClickRef.current?.(poi);
       });
-      marker.addTo(poiLayer);
+      marker.addTo(dense ? poiDenseLayer : poiLayer);
       poiMarkersRef.current.set(poi.name, marker);
     });
     const updateLabels = () => {
       const z = map.getZoom();
-      if (z >= 11) labelMajor.addTo(map);
-      else map.removeLayer(labelMajor);
-      if (z >= 13) labelMid.addTo(map);
-      else map.removeLayer(labelMid);
-      if (z >= 14) labelMinor.addTo(map);
-      else map.removeLayer(labelMinor);
+      const satellite = basemapRef.current === 'satellite';
+      // Libellés de quartiers (v2.42, recalibré v2.46 pour CARTO) :
+      // visibles selon le tier ET selon le fond. En Plan, un
+      // quartier que CARTO labellise déjà (cartoMin) n'affiche son
+      // libellé Drive qu'en dehors de la plage [cartoMin, cartoMax]
+      // — à l'intérieur, le nom est déjà sur la tuile, une fois
+      // suffit. En Satellite (aucun libellé sur les tuiles Esri),
+      // la règle CARTO ne s'applique pas : tous les libellés du
+      // tier s'affichent, comme avant la v2.42.
+      labelEntries.forEach(({ marker, tierMin, cartoMin, cartoMax }) => {
+        const visible =
+          z >= tierMin && (cartoMin == null || satellite || z < cartoMin || z > cartoMax);
+        if (visible) marker.addTo(labelLayer);
+        else labelLayer.removeLayer(marker);
+      });
       // Points d'intérêt (v2.6, seuil relevé en v2.14) : à partir
       // du zoom 14 seulement — standard « arrivée Google Maps » : à
       // l'arrivée (zoom 12) et en vue d'ensemble (zoom 13), la carte
@@ -518,15 +654,43 @@ export function LibrevilleMap({
       // zoomant. Libellés seulement à partir du zoom 15 (à 14,
       // pictogrammes seuls : les libellés du Centre-ville se
       // chevauchaient).
+      // v2.43 : les catégories denses (bars, restaurants) n'apparaissent
+      // qu'à partir du zoom 15 (pictogrammes) et leurs libellés qu'à
+      // partir du zoom 16 (`map-poi-labels-dense-on`, marqueurs
+      // `dense`) — sinon leurs marqueurs se touchent dans les
+      // quartiers denses. Et la règle v2.42 s'applique aux lieux
+      // (recalibrée v2.46 pour CARTO) : un lieu que CARTO labellise
+      // déjà (`cartoLabelMinZoom`) n'affiche pas son libellé Drive
+      // en Plan à partir de ce zoom (classe `label-carto` sur le
+      // marqueur — le nom reste visible une fois, via la tuile) ; en
+      // Satellite, rien n'est masqué (tuiles Esri sans aucun
+      // libellé). Sans `cartoLabelMinZoom`, le libellé Drive
+      // s'affiche à tous les zooms de son tier.
       if (z >= 14) poiLayer.addTo(map);
       else map.removeLayer(poiLayer);
+      if (z >= poiIconMinZoom('bar')) poiDenseLayer.addTo(map);
+      else map.removeLayer(poiDenseLayer);
       map.getContainer().classList.toggle('map-poi-labels-on', z >= 15);
+      map.getContainer().classList.toggle('map-poi-labels-dense-on', z >= poiLabelMinZoom('bar'));
+      poiMarkersRef.current.forEach((marker, name) => {
+        const poi = poiByName.get(name);
+        const hideLabel =
+          !satellite && poi?.cartoLabelMinZoom != null && z >= poi.cartoLabelMinZoom;
+        marker
+          .getElement()
+          ?.querySelector('.map-poi-marker')
+          ?.classList.toggle('label-carto', hideLabel);
+      });
     };
     map.on('zoomend', updateLabels);
     // Clic sur le fond de carte (pas sur un marqueur) : ferme la
     // mini-carte d'info d'un lieu. Le clic sur un POI ne passe pas
     // ici (stopPropagation dans son gestionnaire).
     map.on('click', () => onMapClickRef.current?.());
+    // v2.42 : l'effet `basemap` rappelle `updateLabels` à chaque
+    // bascule Plan/Satellite (les libellés Drive masqués en Plan
+    // réapparaissent en Satellite).
+    updateLabelsRef.current = updateLabels;
     updateLabels();
     mapRef.current = map;
     return () => {
@@ -537,7 +701,7 @@ export function LibrevilleMap({
     };
   }, []);
 
-  // Lieu sélectionné (v2.13) : anneau or autour de son pictogramme.
+  // Lieu sélectionné (v2.13) : anneau rose autour de son pictogramme.
   useEffect(() => {
     poiMarkersRef.current.forEach((marker, name) => {
       marker
@@ -547,11 +711,14 @@ export function LibrevilleMap({
     });
   }, [selectedPoi]);
 
-  // Fond de carte (v2.13, v2.41) : Plan (OpenStreetMap + filtre
-  // sombre) ou Satellite (Esri World Imagery, sans filtre — images
-  // gratuites, sans clé). Seule la couche de tuiles change :
-  // marqueurs, POI, radar, itinéraire et libellés restent.
-  // Retirer / remettre la couche rafraîchit l'attribution et les tuiles.
+  // Fond de carte (v2.13, v2.46) : Plan (CARTO dark_all, sombre)
+  // ou Satellite (Esri World Imagery, sans filtre — images gratuites,
+  // sans clé). Seule la couche de tuiles change : marqueurs, POI,
+  // radar, itinéraire restent. Les libellés Drive, eux, suivent le
+  // fond (v2.42, recalibré v2.46) : ceux que CARTO affiche déjà sont
+  // masqués en Plan et réapparaissent en Satellite — `updateLabels`
+  // est rappelé ici. Retirer / remettre la couche rafraîchit
+  // l'attribution et les tuiles.
   useEffect(() => {
     const map = mapRef.current;
     const layer = tileLayerRef.current;
@@ -560,10 +727,10 @@ export function LibrevilleMap({
     layer.setUrl(
       satellite
         ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+        : CARTO_DARK_ALL_URL
     );
     // v2.18 + v2.41 : le zoom natif ET le plafond dépendent du fond
-    // (Plan OSM : natif 19, plafond 19 ; Satellite Esri : natif 18,
+    // (Plan CARTO : natif 19, plafond 19 ; Satellite Esri : natif 18,
     // plafond 18 — voir constantes en tête de fichier). Leaflet
     // relit `options.maxNativeZoom` à chaque demande de tuile, donc
     // la mise à jour ici suffit ; retirer / remettre la couche
@@ -575,15 +742,31 @@ export function LibrevilleMap({
     layer.options.maxNativeZoom = satellite ? SATELLITE_MAX_NATIVE_ZOOM : PLAN_MAX_NATIVE_ZOOM;
     layer.options.maxZoom = satellite ? SATELLITE_MAX_ZOOM : PLAN_MAX_ZOOM;
     map.setMaxZoom(satellite ? SATELLITE_MAX_ZOOM : PLAN_MAX_ZOOM);
+    // v2.46 — correctif de l'accumulation de l'attribution après
+    // Plan → Satellite → Plan (signalé dans le rapport v2.44) :
+    // l'ordre précédent changeait `options.attribution` AVANT
+    // `remove()` — or Leaflet, au retrait de la couche, retire
+    // l'attribution lue dans `getAttribution()`, donc la NOUVELLE
+    // (jamais affichée), et l'ANCIENNE restait : à chaque bascule,
+    // une ligne d'attribution s'ajoutait. Désormais : retirer
+    // d'abord (l'ancienne attribution est retirée), PUIS changer
+    // l'attribution, PUIS remettre la couche (la nouvelle est
+    // ajoutée) — une seule ligne à l'écran, quel que soit le nombre
+    // de bascules.
+    layer.remove();
     layer.options.attribution = satellite
       ? 'Esri, Maxar, Earthstar Geographics, and the GIS User Community'
-      : '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    layer.remove();
+      : CARTO_ATTRIBUTION;
     layer.addTo(map);
     // Contraste des libellés en Satellite : l'image est variée
     // (sable, végétation, toits), les libellés ont besoin d'un halo
     // plus fort (classe sur le conteneur, voir globals.css).
     map.getContainer().classList.toggle('map-satellite', satellite);
+    // v2.42 : la bascule de fond change les libellés Drive visibles
+    // (masqués en Plan là où CARTO labellise déjà, tous affichés en
+    // Satellite) — sans ce rappel, la carte garderait les libellés
+    // de l'ancien fond jusqu'au prochain changement de zoom.
+    updateLabelsRef.current?.();
   }, [basemap]);
 
   // Itinéraire + départ + destination + « Vous êtes ici ».
@@ -605,9 +788,9 @@ export function LibrevilleMap({
               [pickup.lat, pickup.lng],
               [destination.lat, destination.lng],
             ];
-      L.polyline(line, { color: '#FFC700', weight: 9, opacity: 0.18 }).addTo(layers);
+      L.polyline(line, { color: '#FF4D8D', weight: 9, opacity: 0.18 }).addTo(layers);
       L.polyline(line, {
-        color: '#ffd60a',
+        color: '#FF4D8D',
         weight: 4,
         dashArray: '2 10',
         lineCap: 'round',
@@ -616,7 +799,7 @@ export function LibrevilleMap({
       }).addTo(layers);
     }
 
-    // « Vous êtes ici » (géolocalisation) : pastille cyan pulsante.
+    // « Vous êtes ici » (géolocalisation) : pastille sarcelle pulsante.
     if (userLocation) {
       const icon = L.divIcon({
         className: 'map-user-icon',
@@ -633,7 +816,7 @@ export function LibrevilleMap({
         .addTo(layers);
     }
 
-    // Point de départ (pastille orange pulsante) — masqué quand il se
+    // Point de départ (pastille roseange pulsante) — masqué quand il se
     // confond avec « Vous êtes ici » (même position : géolocalisation).
     if (pickup) {
       const sameAsUser =
@@ -653,7 +836,7 @@ export function LibrevilleMap({
       }
     }
 
-    // Destination (épingle or).
+    // Destination (épingle rose).
     if (destination) {
       const icon = L.divIcon({
         className: 'map-dest-icon',
@@ -677,7 +860,7 @@ export function LibrevilleMap({
 
   // Signalements trafic (v2.27) : marqueurs sur la carte des
   // passagers ET des chauffeurs. Un signalement confirmé par plusieurs
-  // chauffeurs est mis en évidence (anneau doré + libellé « Confirmé ») ;
+  // chauffeurs est mis en évidence (anneau rose + libellé « Confirmé ») ;
   // les autres restent discrets jusqu'à expiration (30–60 min).
   useEffect(() => {
     const layer = trafficLayerRef.current;
@@ -813,9 +996,9 @@ export function LibrevilleMap({
     if (!radarActive || !radarCenter) return;
     const circle = L.circle([radarCenter.lat, radarCenter.lng], {
       radius: 100,
-      color: '#22D3EE',
+      color: '#2FD6C8',
       weight: 2,
-      fillColor: '#22D3EE',
+      fillColor: '#2FD6C8',
       fillOpacity: 0.12,
     }).addTo(map);
     let radius = 100;
@@ -834,13 +1017,13 @@ export function LibrevilleMap({
   }, [radarActive, radarCenter]);
 
   // Cercle périmètre 5 km (v2.31) : cercle STATIQUE et subtil, style
-  // « Nuit dorée » (trait or pointillé, remplissage or très léger),
+  // « Nuit violette » (trait rose pointillé, remplissage rose très léger),
   // autour de l'ancre — il visualise la zone « chauffeurs autour de
   // toi » (rayon de matching, `DRIVERS_AROUND_RADIUS_KM`). Il suit
   // l'ancre quand elle change (position GPS → quartier de départ
   // choisi manuellement). À ne pas confondre avec le radar ci-dessus :
-  // le radar est cyan, pulsé (100 → 1 600 m en boucle) et actif
-  // seulement pendant la recherche ; le périmètre est or, fixe, et
+  // le radar est sarcelle, pulsé (100 → 1 600 m en boucle) et actif
+  // seulement pendant la recherche ; le périmètre est rose, fixe, et
   // visible en permanence sur l'accueil.
   useEffect(() => {
     const map = mapRef.current;
@@ -852,11 +1035,11 @@ export function LibrevilleMap({
     if (!perimeterCenter) return;
     const circle = L.circle([perimeterCenter.lat, perimeterCenter.lng], {
       radius: DRIVERS_AROUND_RADIUS_KM * 1000,
-      color: '#FFD60A',
+      color: '#FF4D8D',
       weight: 1.5,
       dashArray: '6 6',
       opacity: 0.55,
-      fillColor: '#FFD60A',
+      fillColor: '#FF4D8D',
       fillOpacity: 0.05,
       interactive: false,
     }).addTo(map);

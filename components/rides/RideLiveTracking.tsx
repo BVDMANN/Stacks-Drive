@@ -212,7 +212,7 @@ export function RideLiveTracking({
       {/* Bandeau ETA (passager, course acceptée). */}
       {role === 'passager' && isTracking && (
         <div className="bg-night-900 border border-white/10 rounded-2xl px-4 py-3 flex items-center gap-3 text-slate-100">
-          <Navigation size={18} className="text-gold shrink-0" />
+          <Navigation size={18} className="text-corail shrink-0" />
           {arrived ? (
             <p className="text-sm font-black">Ton chauffeur est arrivé au point de départ !</p>
           ) : etaLabel !== null ? (

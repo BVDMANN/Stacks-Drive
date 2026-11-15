@@ -66,7 +66,7 @@ export function PinEntry({
   return (
     <form onSubmit={submit} className="bg-night-900 border border-white/10 rounded-2xl p-4 space-y-3 text-slate-100">
       <p className="font-black flex items-center gap-1.5">
-        <KeyRound size={16} className="text-gold" />
+        <KeyRound size={16} className="text-corail" />
         Code du passager
       </p>
       <p className="text-sm text-slate-400">
@@ -93,12 +93,12 @@ export function PinEntry({
           onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
           placeholder="••••"
           aria-label="Code à 4 chiffres du passager"
-          className="flex-1 min-w-0 px-4 py-3.5 rounded-xl bg-white/5 border border-white/15 text-center text-2xl font-black tracking-[0.5em] placeholder:text-slate-600 focus:border-gold focus:outline-none"
+          className="flex-1 min-w-0 px-4 py-3.5 rounded-xl bg-white/5 border border-white/15 text-center text-2xl font-black tracking-[0.5em] placeholder:text-slate-600 focus:border-corail focus:outline-none"
         />
         <button
           type="submit"
           disabled={busy || pin.length !== 4}
-          className="px-5 py-3.5 rounded-xl bg-or text-night-900 text-sm font-black shadow-md hover:bg-or-light transition-colors disabled:opacity-50"
+          className="px-5 py-3.5 rounded-xl bg-rose-500 text-night-900 text-sm font-black shadow-md hover:bg-rose-300 transition-colors disabled:opacity-50"
         >
           {busy ? 'Vérification…' : 'Démarrer'}
         </button>

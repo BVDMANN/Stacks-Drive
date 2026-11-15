@@ -37,9 +37,23 @@ export async function POST(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, is_verified, is_online, fraud_blocked')
+    .select('role, is_verified, is_online, is_admin, fraud_blocked')
     .eq('id', user.id)
     .single();
+  // v2.45 — compte admin = admin uniquement : l'admin ne propose
+  // jamais de prix (il n'est pas chauffeur — le contrôle de rôle
+  // ci-dessous le bloquerait déjà, l'admin étant « passager » en
+  // base ; ce rejet explicite verrouille le cas où le rôle venait
+  // à changer).
+  if (profile?.is_admin === true) {
+    return NextResponse.json(
+      {
+        error: 'Le compte administrateur ne propose pas de courses : il n’est pas chauffeur.',
+        code: 'admin_not_allowed',
+      },
+      { status: 403 }
+    );
+  }
   if (profile?.role !== 'chauffeur') {
     return NextResponse.json(
       { error: 'Seuls les chauffeurs peuvent proposer.' },

@@ -918,7 +918,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="font-black text-lg flex items-center gap-2">
-              <Flame size={20} className="text-or" />
+              <Flame size={20} className="text-rose-300" />
               Plus que {offlineConfirm.remaining} course{offlineConfirm.remaining > 1 ? 's' : ''} pour ton bonus !
             </p>
             <p className="text-sm text-slate-300">
@@ -929,7 +929,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
               <button
                 type="button"
                 onClick={() => setOfflineConfirm(null)}
-                className="flex-1 py-3.5 rounded-full bg-cyan text-night-950 text-sm font-black hover:bg-cyan/90 transition-colors"
+                className="flex-1 py-3.5 rounded-full bg-sarcelle text-night-950 text-sm font-black hover:bg-sarcelle/90 transition-colors"
               >
                 Rester en ligne
               </button>

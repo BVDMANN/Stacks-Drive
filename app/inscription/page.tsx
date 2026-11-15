@@ -115,7 +115,7 @@ function InscriptionForm() {
   if (!isSupabaseConfigured()) {
     return (
       <AuthCard title="Créer un compte" subtitle="Rejoins Stacks Drive, gratuitement.">
-        <p className="text-sm text-gold bg-gold/10 border border-gold/30 rounded-xl p-4">
+        <p className="text-sm text-corail bg-corail/10 border border-corail/30 rounded-xl p-4">
           L’inscription n’est pas encore configurée sur ce déploiement : les
           clés Supabase manquent. Voir SETUP.md.
         </p>
@@ -127,7 +127,7 @@ function InscriptionForm() {
     return (
       <AuthCard title="Vérifie ta boîte mail" subtitle={`Un e-mail de vérification vient d’être envoyé à ${email}.`}>
         <div className="text-center space-y-4 py-2">
-          <div className="w-16 h-16 mx-auto rounded-full bg-cyan/15 flex items-center justify-center text-cyan">
+          <div className="w-16 h-16 mx-auto rounded-full bg-sarcelle/15 flex items-center justify-center text-sarcelle">
             <Mail size={32} />
           </div>
           <p className="text-sm text-slate-300 leading-relaxed">
@@ -145,7 +145,7 @@ function InscriptionForm() {
           <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
             <CheckCircle2 size={14} /> Ton compte sera actif dès la vérification.
           </p>
-          <Link href="/connexion" className="inline-block text-cyan font-bold text-sm hover:underline">
+          <Link href="/connexion" className="inline-block text-sarcelle font-bold text-sm hover:underline">
             Aller à la connexion
           </Link>
         </div>
@@ -178,7 +178,7 @@ function InscriptionForm() {
               className={cn(
                 'p-4 rounded-2xl border-2 text-left transition-colors',
                 role === r.value
-                  ? 'border-cyan bg-cyan/10'
+                  ? 'border-sarcelle bg-sarcelle/10'
                   : 'border-white/15 bg-night-900 hover:border-white/30'
               )}
             >
@@ -199,7 +199,7 @@ function InscriptionForm() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             placeholder="Ex : Jean Nguema"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
           />
         </div>
 
@@ -214,7 +214,7 @@ function InscriptionForm() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Ex : 074 00 00 00"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
           />
         </div>
 
@@ -230,7 +230,7 @@ function InscriptionForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ton@email.com"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
           />
         </div>
 
@@ -247,7 +247,7 @@ function InscriptionForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="6 caractères minimum"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
           />
         </div>
 
@@ -264,7 +264,7 @@ function InscriptionForm() {
               value={referralCode}
               onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
               placeholder="Ex : SD-MARTIN-8F3A"
-              className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+              className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
             />
             <p className="text-xs text-slate-500">
               Si un chauffeur t’a parrainé, colle son code ici.
@@ -272,13 +272,13 @@ function InscriptionForm() {
           </div>
         )}
 
-        <PremiumButton variant="or" type="submit" isLoading={loading} className="w-full justify-center py-4">
+        <PremiumButton variant="rose" type="submit" isLoading={loading} className="w-full justify-center py-4">
           Créer mon compte
         </PremiumButton>
       </form>
       <p className="text-sm text-center text-slate-400">
         Déjà inscrit ?{' '}
-        <Link href="/connexion" className="text-cyan font-bold hover:underline">
+        <Link href="/connexion" className="text-sarcelle font-bold hover:underline">
           Se connecter
         </Link>
       </p>

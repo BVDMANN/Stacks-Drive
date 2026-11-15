@@ -226,6 +226,36 @@ const TIER2_VISIBLE = NAMED.filter(
 ).length;
 const TIER_TOTAL = NAMED.filter((n) => !NO_LABEL.includes(n)).length;
 
+// Libellés Drive masqués en Plan (v2.42, NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM,
+// recalibré v2.46 pour CARTO dark_all) : le fond CARTO affiche déjà
+// ces noms entre leur zoom minimum et leur borne haute (16 par défaut,
+// voir NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM — 14 pour Akanda, règle
+// `city`) — en Plan, seuls les libellés Drive hors de cette plage
+// s'affichent (jamais en double). En Satellite, tous les libellés du
+// tier s'affichent (aucun libellé sur les tuiles Esri) ; en Plan
+// au-delà de la borne haute aussi (CARTO ne labellise plus rien).
+// Miroir exact de la règle dans `components/map/LibrevilleMap.tsx`
+// (`updateLabels`).
+const osmBody = objectBody(neighborhoodsSrc, 'NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM', 'lib/neighborhoods.ts');
+const OSM_MIN = {};
+for (const m of osmBody.matchAll(/(?:'([^']+)'|([A-Za-zÀ-ÿ][\wÀ-ÿ-]*))\s*:\s*(\d+)/g))
+  OSM_MIN[m[1] || m[2]] = Number(m[3]);
+const maxBody = objectBody(neighborhoodsSrc, 'NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM', 'lib/neighborhoods.ts');
+const OSM_MAX = {};
+for (const m of maxBody.matchAll(/(?:'([^']+)'|([A-Za-zÀ-ÿ][\wÀ-ÿ-]*))\s*:\s*(\d+)/g))
+  OSM_MAX[m[1] || m[2]] = Number(m[3]);
+const tierMinZoom = (n) => (TIERS[n] === 1 ? 11 : TIERS[n] === 2 ? 13 : 14);
+const planVisibleAt = (z) =>
+  NAMED.filter(
+    (n) =>
+      !NO_LABEL.includes(n) &&
+      z >= tierMinZoom(n) &&
+      (OSM_MIN[n] == null || z < OSM_MIN[n] || z > (OSM_MAX[n] ?? 16))
+  ).length;
+const PLAN12 = planVisibleAt(12);
+const PLAN13 = planVisibleAt(13);
+const PLAN14 = planVisibleAt(14);
+
 const POIS_BODY = arrayBody(poisSrc, 'POIS', 'lib/pois.ts');
 const NB_POIS = (POIS_BODY.match(/name:\s*'/g) || []).length;
 if (NB_POIS === 0) fail('aucun lieu trouvé dans lib/pois.ts');
@@ -368,6 +398,9 @@ const FORCE1_GAIN = Math.round(
   TIER1,
   TIER2_VISIBLE,
   TIER_TOTAL,
+  PLAN12,
+  PLAN13,
+  PLAN14,
   DROP_OFFS,
   MAX_BITUME_PK,
   TRIPS, EXTRA, AIRPORT_TRIP, ANCHOR_TRIP,
@@ -559,7 +592,7 @@ ${x.SCENARIOS.map((s) => `| ${s.perDay} | ${x.fmt(s.perMonth)} | ${x.fmt(s.ca)} 
   'readme-commission': (x) => `- **Commission :** ${x.pct(x.C.rateLaunch)} au lancement (${x.C.launchMonths} mois), puis ${x.pct(x.C.ratePermanent)} permanent, **plafond ${x.pct(x.C.rateCap)} garanti** (voir \`lib/commission.ts\`). La commission est calculée sur le total de la course, supplément route non bitumée compris.
 - **Paiement :** le passager paie le chauffeur directement (espèces ou transfert P2P Airtel Money / Moov Money). L'appli ne touche jamais l'argent — elle compte seulement. Commission réglée 1 fois par semaine, en un seul transfert Mobile Money. Dépôt de garantie remboursable : ${x.fmt(x.DEPOSIT)} FCFA. Plafond de dette : ~${x.fmt(x.DEBT_CAP)} FCFA.`,
 
-  'readme-map': (x) => `- **Carte :** ${x.NB_QUARTIERS} quartiers de Libreville avec leurs noms affichés sur la carte (${x.TIER1} visibles au zoom 12, ${x.TIER2_VISIBLE} au zoom 13, ${x.TIER_TOTAL} au zoom 14), ${x.NB_POIS} lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics), icônes chauffeurs dorées avec note, feuille de demande à 3 positions (façon Uber) avec bouton pour la replier et voir la carte.`,
+  'readme-map': (x) => `- **Carte :** ${x.NB_QUARTIERS} quartiers de Libreville avec leurs noms affichés sur la carte (${x.TIER1} visibles au zoom 12, ${x.TIER2_VISIBLE} au zoom 13, ${x.TIER_TOTAL} au zoom 14 en Satellite ; en Plan, ${x.PLAN12} / ${x.PLAN13} / ${x.PLAN14} — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), ${x.NB_POIS} lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants), icônes chauffeurs roses avec note, feuille de demande à 3 positions (façon Uber) avec bouton pour la replier et voir la carte.`,
 
   'readme-difficult': (x) => `- **Quartiers à accès difficile :** ${x.NB_DIFFICULT} quartiers ne sont pas desservis sur route bitumée — la course s'arrête par défaut à un point de dépôt sur route bitumée ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **${x.fmt(x.P.unpaved)} FCFA**, que le chauffeur est libre d'accepter ou non.`,
 
@@ -572,7 +605,7 @@ ${x.SCENARIOS.map((s) => `| ${s.perDay} | ${x.fmt(s.perMonth)} | ${x.fmt(s.ca)} 
 
   'etat-pricing': (x) => `- **Prix :** estimation indicative au km — prise en charge + prix au kilomètre (Solo ${x.fmt(x.P.baseSolo)} + ${x.fmt(x.P.perKmSolo)} FCFA/km, Groupe ${x.fmt(x.P.baseGroupe)} + ${x.fmt(x.P.perKmGroupe)} FCFA/km, Moto = Solo ×${String(x.MOTO_FACTOR).replace('.', ',')}), **jamais de surge** ; AUCUN tarif fixe défini par la plateforme. Le prix final est convenu entre le passager et le chauffeur — le chauffeur propose, le passager peut proposer son prix à la demande et contre-proposer — puis il est figé à l'acceptation. Planchers de l'estimation Solo ${x.fmt(x.P.minSolo)} / Groupe ${x.fmt(x.P.minGroupe)} FCFA.`,
 
-  'etat-map': (x) => `- **Carte :** ${x.NB_QUARTIERS} quartiers de Libreville avec leurs noms affichés sur la carte (${x.TIER1} visibles au zoom 12, ${x.TIER2_VISIBLE} au zoom 13, ${x.TIER_TOTAL} au zoom 14), ${x.NB_POIS} lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics — pictogrammes dès le zoom 13, noms dès le zoom 15), icônes chauffeurs dorées avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.`,
+  'etat-map': (x) => `- **Carte :** ${x.NB_QUARTIERS} quartiers de Libreville avec leurs noms affichés sur la carte (${x.TIER1} visibles au zoom 12, ${x.TIER2_VISIBLE} au zoom 13, ${x.TIER_TOTAL} au zoom 14 en Satellite ; en Plan, ${x.PLAN12} / ${x.PLAN13} / ${x.PLAN14} — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), ${x.NB_POIS} lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants — pictogrammes dès le zoom 14, noms dès le zoom 15 ; bars et restaurants : pictogrammes dès le zoom 15, noms dès le zoom 16), icônes chauffeurs roses avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.`,
 
   'etat-difficult': (x) => `- **Quartiers à accès difficile :** ${x.NB_DIFFICULT} quartiers ne sont pas desservis sur route bitumée — la course s'y arrête par défaut à un point de dépôt sur route bitumée (${x.DROP_OFFS.join(', ')} selon la zone) ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **${x.fmt(x.P.unpaved)} FCFA**, que le chauffeur est libre d'accepter ou non. La commission est calculée sur le total, supplément compris. Tous les PK jusqu'à PK${x.MAX_BITUME_PK} inclus sont bitumés et normaux.`,
 

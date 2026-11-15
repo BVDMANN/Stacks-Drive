@@ -13,7 +13,7 @@ export function PinDisplay({ pinCode }: { pinCode: string }) {
     <div className="bg-night-900 border border-white/10 rounded-3xl p-6 shadow-sm text-slate-100 flex flex-wrap items-center justify-between gap-4">
       <div>
         <p className="font-black text-lg flex items-center gap-2">
-          <KeyRound size={20} className="text-gold" />
+          <KeyRound size={20} className="text-corail" />
           Ton code de démarrage
         </p>
         <p className="text-sm text-slate-300 mt-1">
@@ -21,7 +21,7 @@ export function PinDisplay({ pinCode }: { pinCode: string }) {
           démarre le trajet avec. Ne le partage avec personne d’autre.
         </p>
       </div>
-      <p className="font-black text-5xl tracking-[0.3em] text-gold" aria-label={`Code : ${pinCode.split('').join(' ')}`}>
+      <p className="font-black text-5xl tracking-[0.3em] text-corail" aria-label={`Code : ${pinCode.split('').join(' ')}`}>
         {pinCode}
       </p>
     </div>

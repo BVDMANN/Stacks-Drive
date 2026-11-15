@@ -204,7 +204,18 @@ export const NEIGHBORHOOD_COORDS: Record<Neighborhood, { lat: number; lng: numbe
  *  au total). La vue d'ouverture est le zoom 14 (v2.31) : les 69
  *  libellés sont visibles dès l'arrivée — les tiers ne changent pas,
  *  c'est le zoom d'ouverture qui a changé (avant : zoom 12).
- *  'Autre' n'a pas de libellé (ce n'est pas un lieu). */
+ *  'Autre' n'a pas de libellé (ce n'est pas un lieu).
+ *  v2.42 : ces chiffres sont ceux du fond Satellite (et du fond Plan
+ *  à partir du zoom 17) — en Plan, aux zooms 12 à 16, le fond
+ *  CARTO dark_all affiche déjà la plupart des noms, donc le libellé
+ *  Drive des quartiers listés dans NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM
+ *  est masqué sur la plage où CARTO le montre (Plan : 6 libellés
+ *  Drive au zoom 12, 11 au zoom 13, 17 au zoom 14, 14 aux zooms
+ *  15-16 — chaque nom n'apparaît qu'une seule fois à l'écran).
+ *  v2.46 : PK5 n'est plus masqué (`place=quarter`, CARTO ne
+ *  labellise pas les `quarter`) — d'où 17 libellés Drive au zoom
+ *  14 en Plan au lieu de 16 ; Akanda réapparaît dès le zoom 15
+ *  (borne haute 14, règle `city`). */
 export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
   'Centre-ville': 1,
   Glass: 1,
@@ -281,6 +292,180 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
   // Sud / Owendo (v2.8).
   Nomba: 2,
   Autre: 3,
+};
+
+/** Zoom minimum à partir duquel le fond Plan affiche DÉJÀ le nom de
+ *  ce quartier (v2.42, recalibré en v2.46 pour CARTO dark_all) — le
+ *  libellé Drive est alors masqué en Plan tant que z <= borne haute
+ *  (16 par défaut, voir `NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM`), sinon
+ *  le nom apparaît deux fois à l'écran (une fois sur la tuile, une
+ *  fois par-dessus, à une position légèrement différente : le rendu
+ *  place le nom au centre de la zone, les coordonnées Drive sont des
+ *  centres vérifiés). Règle appliquée dans
+ *  `components/map/LibrevilleMap.tsx` (`updateLabels`) : libellé
+ *  Drive visible si z < min, ou z > borne haute, ou fond Satellite
+ *  (les tuiles Esri World Imagery ne portent aucun libellé — les 69
+ *  libellés Drive restent affichés comme avant).
+ *  Un quartier ABSENT de cette table n'est jamais masqué : le fond
+ *  ne labellise pas son nom (vérifié : aucun objet `place` du même
+ *  nom dans les données OSM, et aucun libellé vu sur les tuiles) —
+ *  son libellé Drive est le seul à l'écran à tous les zooms.
+ *  MÉTHODE v2.42 (origine des zooms minimums, 14/11/2026) : vraies
+ *  tuiles OSM téléchargées par curl (grilles 3×3, zooms 12 à 18 —
+ *  Centre-ville, Angondjé, Owendo, PK12/Melen, côte nord, axe N1
+ *  est, nord du centre) et lues visuellement, croisées avec les
+ *  objets `place` (suburb / quarter / neighbourhood / village /
+ *  city) de la zone via Overpass. Les tuiles montrent que les noms
+ *  de quartiers OSM s'affichent de z12 à z16 et DISPARAISSENT à
+ *  z17-18 (vérifié : grilles z17 et z18 au Centre-ville — noms de
+ *  rues et de lieux uniquement, plus aucun nom de quartier), d'où
+ *  la borne haute 16. Le zoom minimum est le premier zoom où le nom
+ *  a été VU sur une tuile : l'affichage dépend aussi des collisions
+ *  entre libellés voisins (ex. « Mont Bouet » n'apparaît qu'à z15,
+ *  masqué à z14 par « Libreville » ; « Charbonnages » apparaît à
+ *  z14, invisible à z12-13), donc un nom peut être absent d'un zoom
+ *  intermédiaire sans être absent de la plage — masquer sur toute
+ *  la plage [min, borne haute] est le seul traitement robuste, au
+ *  prix de quelques noms absents de la carte Plan à un zoom où le
+ *  fond ne les montre pas non plus (listes et recherche inchangées :
+ *  les quartiers restent sélectionnables comme départ et
+ *  destination).
+ *  RECALIBRAGE v2.46 (15/11/2026) — APPROXIMATION DÉRIVÉE DU STYLE,
+ *  À CONFIRMER EN LIVE APRÈS PUSH : le fond Plan n'est plus OSM
+ *  standard mais CARTO dark_all. Les plages ci-dessus ne sont donc
+ *  plus des observations de tuiles mais une lecture de la définition
+ *  publique du style CARTO dark matter (dépôt CartoDB/basemap-styles,
+ *  `cartocss/web-styles/dark-matter.tm2/labels.mss`, style partagé
+ *  `shared/mss/labels.mss`, variables `style.mss`) : city z8–14,
+ *  town z9–16, village z12–16, suburb z12–16, neighbourhood z13–17
+ *  (hamlet z14–17) — AUCUNE règle pour `place=quarter`. Les zooms
+ *  minimums v2.42 sont CONSERVÉS : CARTO utilise les mêmes données
+ *  OSM (mêmes noms, mêmes objets `place`) et ses premiers zooms par
+ *  classe (suburb z12, neighbourhood z13) sont cohérents avec les
+ *  z12–15 observés (l'écart vient des collisions entre libellés).
+ *  Classe OSM de chaque quartier recoupée le 15/11 via Photon
+ *  (recherche « <nom>, Libreville », objet `place` retourné) : 40
+ *  `suburb`, 1 `city` (Akanda), 1 `quarter` (PK5), 15 non retrouvés
+ *  par la recherche (Bikélé, Owendo, Alenakiri, Cap Esterias,
+ *  Malibé, Essassa, Nkok, Nkoltang, La Peyrie, Camp de Gaulle,
+ *  Igoumié, Akournam, Nkembo, Gros-Bouquet, Aéroport Léon-Mba) —
+ *  pour ces 15, le masquage v2.42 est conservé par prudence
+ *  anti-double (40 des 42 classés sont `suburb` : la probabilité
+ *  qu'ils le soient aussi est forte, et un double serait pire
+ *  qu'un nom masqué un zoom de trop). Les 15 restent à reclasser
+ *  au premier recoupement Overpass possible.
+ *  PK5 RETIRÉ de la table en v2.46 : `place=quarter`, et ni le
+ *  style raster CARTO ni le style vectoriel CARTO actuel
+ *  (`dark-matter-gl-style`, couches `place_*`) ne contiennent de
+ *  règle pour `quarter` — CARTO n'imprime très probablement pas
+ *  ce nom, le libellé Drive est donc le seul à l'écran et ne doit
+ *  pas être masqué. Si la vérification live montre un double
+ *  « PK5 » (la chaîne CARTO mapperait alors `quarter` vers
+ *  `suburb`), le remettre ici avec 14 — voir ADR 0021.
+ *  VARIANTES DE NOMS (même lieu, libellé OSM différent) : Aéroport
+ *  Léon-Mba → « Aéroport » ; Alenakiri → « Alénakirie » ; Akébé →
+ *  « Akébé-Ville » / « Akébé Plaine » ; Kinguele → « Akébé-Kinguélé » ;
+ *  Batterie IV → « Batterie 4 » ; Damas → « Cité Damas » ; Lalala →
+ *  « Lalala-Gauche » / « Lalala-Dakar » / « Lalala-Droite » ; La Peyrie
+ *  → « Peyrie » ; Mindoubé → « Mindoube 1 / 2 / 3 » ; Nomba →
+ *  « Nomba-Domaine » / « La Nomba » ; Gué-Gué → « Bas de Gué-Gué » /
+ *  « Haut de Gué-Gué » (et « Gué » à z13) ; Sainte-Marie → « Vallée
+ *  Sainte-Marie » ; Akournam → « Akournam I / II » ; Angondjé →
+ *  « Angondjé Village » à z12, « Angondjé » exact à z14 ; Oloumi →
+ *  « Zone Industrielle d'Oloumi » à z12, « Oloumi » exact à z13 ;
+ *  Gros-Bouquet → « Carrefour Gros Bouquet » (libellé de carrefour,
+ *  z15). NON-DOUBLONS vérifiés (noms proches, lieux différents) :
+ *  Bizango ≠ « Bizango-Rail » (8 km) ; « Zone Industrielle
+ *  d'Oloumi » ≠ Oloumi ; Likouala n'a déjà aucun libellé Drive
+ *  (v2.16) — OSM montre « Likouala-Moussaka » à côté, sans double.
+ *  QUARTIERS JAMAIS MASQUÉS (13, libellé Drive seul) : Santa Clara,
+ *  PK5, PK6, PK8, PK9, PK11, PK12, Melen, Diba-Diba, Sogara,
+ *  Barracuda, Cap Caravane, Bizango. Si le fond ajoute un jour un
+ *  de ces noms, il suffit d'ajouter une ligne ici — aucune autre
+ *  modification. */
+export const NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM: Partial<Record<Neighborhood, number>> = {
+  // Visibles sur les tuiles dès z12 (grands noms + villages de la N1).
+  Akanda: 12,
+  Avorbam: 12,
+  Sablière: 12,
+  Okala: 12,
+  'Aéroport Léon-Mba': 12,
+  Alibandeng: 12,
+  Tahiti: 12,
+  Ondogo: 12,
+  'Cité de la Démocratie': 12,
+  'Nzeng-Ayong': 12,
+  Montalier: 12,
+  Bambouchine: 12,
+  Sibang: 12,
+  Bikélé: 12,
+  Owendo: 12,
+  Alenakiri: 12,
+  Acaé: 12,
+  Nomba: 12,
+  Lalala: 12,
+  'Cap Esterias': 12,
+  Malibé: 12,
+  Angondjé: 12,
+  Essassa: 12,
+  Nkok: 12,
+  Nkoltang: 12,
+  // Premiers vus à z13 (quartiers moyens, centre dense).
+  Sotega: 13,
+  'Plaine-Orety': 13,
+  Sorbonne: 13,
+  Akébé: 13,
+  Kinguele: 13,
+  Oloumi: 13,
+  Mindoubé: 13,
+  Damas: 13,
+  'Batterie IV': 13,
+  'Gué-Gué': 13,
+  'Sainte-Marie': 13,
+  // Premiers vus à z14 (zoom d'ouverture : c'est là que le double
+  // affichage se voyait le plus).
+  'Centre-ville': 14,
+  Glass: 14,
+  Louis: 14,
+  'La Peyrie': 14,
+  'Plein Ciel': 14,
+  'Belle-Vue': 14,
+  Awendjé: 14,
+  Cocotiers: 14,
+  Ambowe: 14,
+  Charbonnages: 14,
+  'Trois Quartiers': 14,
+  'Camp de Gaulle': 14,
+  // PK5 RETIRÉ en v2.46 : `place=quarter` (Photon, 15/11), aucune
+  // règle CARTO pour `quarter` — le libellé Drive est le seul nom.
+  Igoumié: 14,
+  Akournam: 14,
+  Ozangué: 14,
+  'Venez-Voir': 14,
+  // Premiers vus à z15 (masqués à z14 par les libellés voisins).
+  'Mont-Bouët': 15,
+  Nkembo: 15,
+  'Gros-Bouquet': 15,
+  'Petit Paris': 15,
+};
+
+/** Borne haute du masquage par quartier (v2.46) — dernier zoom où le
+ *  fond Plan CARTO dark_all imprime encore le nom. Défaut : 16
+ *  (règles du style : suburb / village / town s'arrêtent à z16).
+ *  Seule exception connue : Akanda (14) — `place=city` (Photon,
+ *  15/11), et la règle `city` du style s'arrête à z14 (le nom
+ *  disparaît à z15). La règle `city` est en plus conditionnée par
+ *  le rang (z8–14, rang ≤ 11/12/15 selon le zoom — rang d'Akanda
+ *  inconnu : si la vérification live montre « Akanda » absent à
+ *  z12–14, retirer Akanda de la table des minimums). Un quartier
+ *  `place=neighbourhood` aurait une borne à 17 (règle
+ *  neighbourhood z13–17) — aucun dans la table au 15/11 (Photon :
+ *  0 `neighbourhood` parmi les 57) ; si un jour un quartier est
+ *  reclassé `neighbourhood`, ajouter ici `Nom: 17`.
+ *  Approximation dérivée du style, comme la table des minimums —
+ *  à confirmer en live après push (voir ADR 0021). */
+export const NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM: Partial<Record<Neighborhood, number>> = {
+  Akanda: 14,
 };
 
 /** Quartiers SANS libellé sur la carte (v2.16) — leurs coordonnées

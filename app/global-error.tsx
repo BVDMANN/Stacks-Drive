@@ -19,7 +19,7 @@ export default function GlobalError({
         style={{
           margin: 0,
           minHeight: '100vh',
-          background: '#070B16',
+          background: '#17112E',
           color: '#F4F6FF',
           fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif",
           display: 'flex',
@@ -35,11 +35,11 @@ export default function GlobalError({
             width: 64,
             height: 64,
             borderRadius: 16,
-            background: '#FFC700',
+            background: '#FF4D8D',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#070B16',
+            color: '#17112E',
           }}
         >
           <Car size={32} />
@@ -64,8 +64,8 @@ export default function GlobalError({
               gap: 8,
               padding: '14px 24px',
               borderRadius: 999,
-              background: '#FFC700',
-              color: '#070B16',
+              background: '#FF4D8D',
+              color: '#17112E',
               fontWeight: 800,
               border: 'none',
               cursor: 'pointer',

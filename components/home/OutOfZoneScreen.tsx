@@ -155,15 +155,15 @@ export function OutOfZoneScreen({
       className="fixed inset-0 z-[110] min-h-dvh bg-night-950 text-slate-100 flex flex-col items-center justify-center px-4 py-10 text-center overflow-y-auto"
     >
       {/* Fond animé discret (vocabulaire existant) : anneaux radar
-          cyan qui s'étendent derrière la tuile, comme le radar de
+          sarcelle qui s'étendent derrière la tuile, comme le radar de
           recherche — rien de plus, l'écran reste lisible. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72">
           <span className="radar-ring inset-0" />
           <span className="radar-ring delayed inset-0" />
         </div>
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-or/5 blur-3xl" />
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-cyan/5 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-rose-500/5 blur-3xl" />
+        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-sarcelle/5 blur-3xl" />
       </div>
 
       {/* Basculeur FR | EN */}
@@ -179,7 +179,7 @@ export function OutOfZoneScreen({
             onClick={() => setLang(l)}
             aria-pressed={lang === l}
             className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-colors ${
-              lang === l ? 'bg-or text-night-900' : 'text-slate-300 hover:text-white'
+              lang === l ? 'bg-rose-500 text-night-900' : 'text-slate-300 hover:text-white'
             }`}
           >
             {l === 'fr' ? 'Français' : 'English'}
@@ -188,11 +188,11 @@ export function OutOfZoneScreen({
       </div>
 
       <div className="relative rise-in flex flex-col items-center max-w-md w-full">
-        <div className="out-of-zone-tile w-16 h-16 rounded-2xl bg-or flex items-center justify-center text-night-900 shadow-lg shadow-or/40">
+        <div className="out-of-zone-tile w-16 h-16 rounded-2xl bg-rose-500 flex items-center justify-center text-night-900 shadow-lg shadow-rose-500/40">
           <Globe size={32} />
         </div>
         {placeLabel && (
-          <p className="inline-flex items-center gap-1.5 mt-5 text-xs font-black uppercase tracking-widest text-cyan">
+          <p className="inline-flex items-center gap-1.5 mt-5 text-xs font-black uppercase tracking-widest text-sarcelle">
             <MapPin size={13} /> {placeLabel}
           </p>
         )}
@@ -208,7 +208,7 @@ export function OutOfZoneScreen({
             type="button"
             onClick={onClose}
             data-testid="out-of-zone-explore"
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-or text-night-900 font-black shadow-lg shadow-or/30 hover:bg-or-light transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-rose-500 text-night-900 font-black shadow-lg shadow-rose-500/30 hover:bg-rose-300 transition-colors"
           >
             <MapPin size={16} /> {t.explore}
           </button>
@@ -218,15 +218,15 @@ export function OutOfZoneScreen({
         <div className="w-full mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 text-left">
           {done ? (
             <p className="flex items-start gap-2 text-sm font-bold text-slate-100 leading-relaxed">
-              <CheckCircle2 size={18} className="text-or shrink-0 mt-0.5" />
+              <CheckCircle2 size={18} className="text-rose-300 shrink-0 mt-0.5" />
               {done === 'already' ? t.already : t.success}
             </p>
           ) : (
             <form onSubmit={submitNotify} noValidate>
               <label htmlFor="out-of-zone-email" className="flex items-center gap-2 text-sm font-black text-slate-100">
-                <Bell size={16} className="text-or" /> {t.notifyTitle}
+                <Bell size={16} className="text-rose-300" /> {t.notifyTitle}
               </label>
-              <div className="flex items-center gap-2 mt-3 rounded-full bg-night-900 border border-white/15 px-4 focus-within:border-or/60">
+              <div className="flex items-center gap-2 mt-3 rounded-full bg-night-900 border border-white/15 px-4 focus-within:border-rose-500/60">
                 <Mail size={16} className="text-slate-400 shrink-0" />
                 <input
                   id="out-of-zone-email"
@@ -243,7 +243,7 @@ export function OutOfZoneScreen({
                   type="checkbox"
                   checked={consent}
                   onChange={(e) => setConsent(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#FFC700]"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#FF4D8D]"
                 />
                 {t.consent}
               </label>

@@ -15,7 +15,7 @@ export default function ConfidentialitePage() {
           <h2 className="text-lg font-black text-white">1. Responsable du traitement</h2>
           <p>
             Stacks, entreprise individuelle, SIREN 104 314 687 — contact :{' '}
-            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+            <a href="mailto:stacks.markett@gmail.com" className="text-sarcelle font-bold hover:underline">
               stacks.markett@gmail.com
             </a>
             . Le service Stacks Drive est opéré à Libreville, au Gabon.
@@ -33,7 +33,7 @@ export default function ConfidentialitePage() {
             <li><strong>Sécurité du trajet (RideCheck) :</strong> pendant une course, la position partagée sert aussi à détecter un long arrêt, une déviation importante ou une course anormalement longue ; dans ce cas seulement, le passager reçoit une question (« Tout va bien ? ») et, sans réponse ou en cas de problème signalé, l’administrateur est alerté. Aucun blocage automatique du chauffeur.</li>
             <li><strong>Commission et dépôt chauffeur :</strong> dépôt de garantie versé, commissions dues par course et règlements hebdomadaires (montants et références de transfert). Stacks Drive ne conserve aucune donnée bancaire : tous les paiements sont des transferts directs de personne à personne par Mobile Money (Airtel Money, Moov Money).</li>
             <li><strong>Technique :</strong> cookies de session indispensables à la connexion (voir notre{' '}
-              <Link href="/cookies" className="text-cyan font-bold hover:underline">
+              <Link href="/cookies" className="text-sarcelle font-bold hover:underline">
                 politique cookies
               </Link>
               ). Aucun cookie publicitaire, aucun suivi à des fins de publicité.</li>
@@ -89,7 +89,7 @@ export default function ConfidentialitePage() {
             suppression : aucun compte n’est jamais supprimé ni anonymisé
             automatiquement. Vous pouvez demander la suppression de votre
             compte et de vos données à tout moment en écrivant à{' '}
-            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+            <a href="mailto:stacks.markett@gmail.com" className="text-sarcelle font-bold hover:underline">
               stacks.markett@gmail.com
             </a>{' '}
             ; la suppression est effectuée sous 30 jours, sauf obligation
@@ -103,7 +103,7 @@ export default function ConfidentialitePage() {
             Vous disposez d’un droit d’accès, de rectification, d’effacement,
             de limitation et de portabilité de vos données, ainsi que d’un
             droit d’opposition. Pour exercer ces droits, écrivez à{' '}
-            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+            <a href="mailto:stacks.markett@gmail.com" className="text-sarcelle font-bold hover:underline">
               stacks.markett@gmail.com
             </a>
             . Vous pouvez également introduire une réclamation auprès de la CNIL
@@ -129,7 +129,7 @@ export default function ConfidentialitePage() {
 
         <p className="text-sm text-slate-400">
           Dernière mise à jour : novembre 2026.{' '}
-          <Link href="/" className="text-cyan font-bold hover:underline">
+          <Link href="/" className="text-sarcelle font-bold hover:underline">
             Retour à l’accueil
           </Link>
         </p>

@@ -21,7 +21,7 @@ export default async function MentionsLegalesPage() {
           </p>
           <p>
             Contact :{' '}
-            <a href="mailto:stacks.markett@gmail.com" className="text-cyan font-bold hover:underline">
+            <a href="mailto:stacks.markett@gmail.com" className="text-sarcelle font-bold hover:underline">
               stacks.markett@gmail.com
             </a>
           </p>
@@ -68,7 +68,7 @@ export default async function MentionsLegalesPage() {
 
         <p className="text-sm text-slate-400">
           Dernière mise à jour : novembre 2026.{' '}
-          <Link href="/" className="text-cyan font-bold hover:underline">
+          <Link href="/" className="text-sarcelle font-bold hover:underline">
             Retour à l’accueil
           </Link>
         </p>

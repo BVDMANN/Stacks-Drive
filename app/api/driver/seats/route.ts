@@ -26,9 +26,20 @@ export async function GET() {
   }
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_admin')
     .eq('id', user.id)
     .single();
+  // v2.45 — compte admin = admin uniquement : l'admin ne déclare
+  // pas de places (il n'est pas chauffeur).
+  if (profile?.is_admin === true) {
+    return NextResponse.json(
+      {
+        error: 'Le compte administrateur ne déclare pas de places : il n’est pas chauffeur.',
+        code: 'admin_not_allowed',
+      },
+      { status: 403 }
+    );
+  }
   if (profile?.role !== 'chauffeur') {
     return NextResponse.json(
       { error: 'Seuls les chauffeurs déclarent des places libres.' },
@@ -56,9 +67,20 @@ export async function PATCH(request: NextRequest) {
   }
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, seats, free_seats')
+    .select('role, seats, free_seats, is_admin')
     .eq('id', user.id)
     .single();
+  // v2.45 — compte admin = admin uniquement : l'admin ne déclare
+  // pas de places (il n'est pas chauffeur).
+  if (profile?.is_admin === true) {
+    return NextResponse.json(
+      {
+        error: 'Le compte administrateur ne déclare pas de places : il n’est pas chauffeur.',
+        code: 'admin_not_allowed',
+      },
+      { status: 403 }
+    );
+  }
   if (profile?.role !== 'chauffeur') {
     return NextResponse.json(
       { error: 'Seuls les chauffeurs déclarent des places libres.' },

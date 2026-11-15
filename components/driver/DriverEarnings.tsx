@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 const TIER_STYLES: Record<string, string> = {
   Bronze: 'bg-amber-700/20 text-amber-300 border-amber-700/40',
   Argent: 'bg-slate-400/20 text-slate-200 border-slate-400/40',
-  Or: 'bg-gold/15 text-gold border-gold/40',
+  Or: 'bg-corail/15 text-corail border-corail/40',
   Diamant: 'bg-cyan-400/15 text-cyan-300 border-cyan-400/40',
 };
 
@@ -55,7 +55,7 @@ function PeriodCard({
       )}
     >
       <p className="text-xs font-black uppercase tracking-widest text-slate-400">{title}</p>
-      <p className={cn('text-2xl font-black mt-2', highlight ? 'text-cyan' : 'text-stacks-navy')}>
+      <p className={cn('text-2xl font-black mt-2', highlight ? 'text-sarcelle' : 'text-stacks-navy')}>
         {formatFcfa(kept)}
       </p>
       <p className={cn('text-sm mt-1', highlight ? 'text-slate-300' : 'text-slate-500')}>
@@ -205,11 +205,11 @@ export function DriverEarnings() {
       {/* Points (v2.3) : solde, progression vers 10 000, échange */}
       <section className="bg-night-900 border border-white/10 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 text-slate-100">
         <h2 className="font-black text-lg flex items-center gap-2">
-          <Gift size={20} className="text-gold" /> Tes points
+          <Gift size={20} className="text-corail" /> Tes points
         </h2>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-3xl font-black text-gold">
+            <p className="text-3xl font-black text-corail">
               {summary.points.balance.toLocaleString('fr-FR')} points
             </p>
             <p className="text-sm text-slate-300 mt-1">
@@ -229,7 +229,7 @@ export function DriverEarnings() {
         </div>
         <div className="h-3 rounded-full bg-white/10 overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-or via-gold to-cyan transition-all"
+            className="h-full rounded-full bg-gradient-to-r from-rose-500 via-corail to-sarcelle transition-all"
             style={{ width: `${Math.round(summary.points.progress * 100)}%` }}
           />
         </div>
@@ -242,7 +242,7 @@ export function DriverEarnings() {
           type="button"
           onClick={redeemPoints}
           disabled={redeeming || summary.points.balance < POINTS_REDEEM_TARGET}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-black bg-or text-night-900 hover:bg-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-black bg-rose-500 text-night-900 hover:bg-corail transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {redeeming ? (
             <>
@@ -355,19 +355,19 @@ export function DriverEarnings() {
       {/* Quête du jour + série */}
       <section className="bg-night-900 border border-white/10 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 text-slate-100">
         <h2 className="font-black text-lg flex items-center gap-2">
-          <Sparkles size={20} className="text-gold" /> Quête du jour
+          <Sparkles size={20} className="text-corail" /> Quête du jour
         </h2>
         <div className="flex items-center justify-between gap-3">
           <p className="font-black">
             {summary.quest.day.done} / {summary.quest.day.target} courses
           </p>
-          <span className="text-sm font-black text-gold">
+          <span className="text-sm font-black text-corail">
             Bonus : +{summary.quest.day.bonus.toLocaleString('fr-FR')} points
           </span>
         </div>
         <div className="h-3 rounded-full bg-white/10 overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-or via-gold to-cyan transition-all"
+            className="h-full rounded-full bg-gradient-to-r from-rose-500 via-corail to-sarcelle transition-all"
             style={{ width: `${questPct}%` }}
           />
         </div>
@@ -381,11 +381,11 @@ export function DriverEarnings() {
         <div className="flex flex-wrap items-center gap-4 text-sm">
           {summary.streakDays > 0 && (
             <span className="inline-flex items-center gap-1 font-bold">
-              <Flame size={16} className="text-or" /> Série : {summary.streakDays} jour{summary.streakDays > 1 ? 's' : ''} d’affilée
+              <Flame size={16} className="text-rose-300" /> Série : {summary.streakDays} jour{summary.streakDays > 1 ? 's' : ''} d’affilée
             </span>
           )}
           <span className="inline-flex items-center gap-1 font-bold">
-            <CalendarDays size={16} className="text-cyan" />
+            <CalendarDays size={16} className="text-sarcelle" />
             Défi semaine : {summary.quest.week.done} / {summary.quest.week.target} → +{summary.quest.week.bonus.toLocaleString('fr-FR')} points
           </span>
         </div>
@@ -426,7 +426,7 @@ export function DriverEarnings() {
                 <span
                   key={badgeId}
                   title={def?.description ?? badgeId}
-                  className="inline-flex items-center gap-1 text-xs font-black px-3 py-1.5 rounded-full bg-gold/15 text-amber-800 border border-gold/40"
+                  className="inline-flex items-center gap-1 text-xs font-black px-3 py-1.5 rounded-full bg-corail/15 text-amber-800 border border-corail/40"
                 >
                   <ShieldCheck size={13} /> {def?.title ?? badgeId}
                 </span>
@@ -436,7 +436,7 @@ export function DriverEarnings() {
         )}
         {summary.driverOfWeek && (
           <p className="text-sm text-slate-600 flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-2xl p-3">
-            <Crown size={16} className="text-gold shrink-0" />
+            <Crown size={16} className="text-corail shrink-0" />
             Chauffeur de la semaine : <strong>{summary.driverOfWeek.name ?? '—'}</strong> —{' '}
             {summary.driverOfWeek.rides} courses
             {summary.driverOfWeek.rating !== null ? ` · note ${summary.driverOfWeek.rating}/5` : ''}.
@@ -492,7 +492,7 @@ export function DriverEarnings() {
                       ? `${r.pickup} → ${r.destination}`
                       : `${formatFcfa(r.fare)} le trajet`}
                     {r.isDoubleRide && (
-                      <span className="ml-2 text-xs font-black px-2 py-0.5 rounded-full bg-gold/20 text-amber-800 border border-gold/40">
+                      <span className="ml-2 text-xs font-black px-2 py-0.5 rounded-full bg-corail/20 text-amber-800 border border-corail/40">
                         COURSE DOUBLE
                       </span>
                     )}

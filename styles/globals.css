@@ -35,7 +35,7 @@ input::-ms-clear {
 
 /* 🪟 Feuille glassmorphism nuit — la feuille de demande (v2.1) */
 .sheet-glass {
-  background: linear-gradient(180deg, rgba(18, 24, 43, 0.92) 0%, rgba(11, 16, 32, 0.94) 100%);
+  background: linear-gradient(180deg, rgba(42, 29, 85, 0.92) 0%, rgba(25, 20, 50, 0.94) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -56,18 +56,18 @@ input::-ms-clear {
   box-shadow: 0 30px 60px -15px rgba(11, 110, 79, 0.12);
 }
 
-/* 💊 BOUTONS D'ACTION — orange braise (identité v2.1) */
+/* 💊 BOUTONS D'ACTION — rose vif (identité v2.44, palette « Nuit violette ») */
 .btn-action {
-  @apply bg-or text-white rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-or/40 hover:bg-or-light hover:shadow-or/60 active:scale-95;
+  @apply bg-rose-500 text-night-950 rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/40 hover:bg-rose-300 hover:shadow-rose-500/60 active:scale-95;
 }
 
 .btn-outline {
-  @apply bg-white/5 text-slate-100 border-2 border-white/15 rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 hover:border-cyan/50 active:scale-95;
+  @apply bg-white/5 text-slate-100 border-2 border-white/15 rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 hover:border-sarcelle/50 active:scale-95;
 }
 
 /* 💰 BOUTON PRIX */
 .btn-price {
-  @apply bg-gold text-night-900 rounded-full py-3 px-6 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-gold/30 hover:bg-yellow-300 active:scale-95;
+  @apply bg-corail text-night-950 rounded-full py-3 px-6 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-corail/30 hover:bg-rose-300 active:scale-95;
 }
 
 /* 🏷️ BADGES — type de course */
@@ -104,15 +104,28 @@ html {
   scroll-behavior: smooth;
 }
 
-/* 🗺️ CARTE LEAFLET — fond Plan OpenStreetMap clair depuis la v2.41 (filtre nuit retiré le 14/11 ~21h58, décision du propriétaire : carte claire comme Skatta) */
+/* 🗺️ CARTE LEAFLET — fond Plan CARTO dark_all depuis la v2.46 (fond
+   OpenStreetMap clair en v2.41, filtre nuit retiré le 14/11 ~21h58 ;
+   retour au sombre le 15/11 ~07h44, demande du propriétaire : la carte
+   prend la palette « Nuit violette » — en VRAI sombre natif, aucun
+   filtre CSS sur les tuiles). Le fond du conteneur est le violet-nuit
+   #191432 (`night-950`) : c'est la teinte violette visible pendant le
+   chargement des tuiles et aux bords de la carte — les tuiles CARTO
+   elles-mêmes sont quasi noires (#090909), la palette est portée par
+   les surcouches (libellés, POI, itinéraire, marqueurs). */
 .leaflet-container {
   font: inherit;
-  background: #0b1020;
+  /* !important : `leaflet/dist/leaflet.css` (importé par le composant,
+     après ce fichier) met `#ddd` avec la même spécificité — sans lui,
+     le fond violet ne s'applique pas (vérifié : le conteneur calculait
+     `rgb(221, 221, 221)`). Même motif que les autres surcharges Leaflet
+     ci-dessous (attribution, zoom). */
+  background: #191432 !important;
   z-index: 0;
 }
 .leaflet-control-attribution {
   font-size: 10px;
-  background: rgba(7, 11, 22, 0.8) !important;
+  background: rgba(23, 17, 46, 0.8) !important;
   color: #94a3b8 !important;
   padding: 1px 6px;
   border-radius: 6px;
@@ -130,24 +143,24 @@ html {
   width: 36px !important;
   height: 36px !important;
   line-height: 36px !important;
-  background: #12182b !important;
+  background: #2A1D55 !important;
   color: #f4f6ff !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 .leaflet-control-zoom a:hover {
-  background: #1a2340 !important;
+  background: #352463 !important;
 }
 .map-tooltip {
   font-weight: 700;
   font-size: 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background: #12182b !important;
+  background: #2A1D55 !important;
   color: #f4f6ff !important;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
 }
 .map-tooltip::before {
-  border-top-color: #12182b !important;
+  border-top-color: #2A1D55 !important;
 }
 .map-driver-icon,
 .map-pickup-icon,
@@ -159,7 +172,7 @@ html {
 }
 
 /* 🚦 Marqueur trafic communautaire (v2.27) : pastille blanche, pictogramme
-   du type de signalement. Confirmé par plusieurs chauffeurs : anneau doré
+   du type de signalement. Confirmé par plusieurs chauffeurs : anneau rose
    + halo — c'est lui qu'on voit en premier sur la carte. Expire tout
    seul (30–60 min) : le marqueur disparaît au prochain rafraîchissement. */
 .map-traffic-marker {
@@ -176,18 +189,18 @@ html {
   line-height: 1;
 }
 .map-traffic-marker.confirmed {
-  border-color: #ffd60a;
+  border-color: #FF4D8D;
   box-shadow:
-    0 0 0 3px rgba(255, 214, 10, 0.55),
+    0 0 0 3px rgba(255, 77, 141, 0.55),
     0 4px 10px rgba(0, 0, 0, 0.5);
   animation: traffic-halo 2s ease-in-out infinite;
 }
 @keyframes traffic-halo {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 214, 10, 0.55), 0 4px 10px rgba(0, 0, 0, 0.5); }
-  50% { box-shadow: 0 0 0 7px rgba(255, 214, 10, 0.15), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 77, 141, 0.55), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 77, 141, 0.15), 0 4px 10px rgba(0, 0, 0, 0.5); }
 }
 
-/* 🚗 Marqueur chauffeur v2.5 « Nuit dorée » : pastille or, glyph sombre,
+/* 🚗 Marqueur chauffeur v2.5 « Nuit violette » : pastille rose, glyph sombre,
    anneau cyan discret qui pulse = en ligne. La moto a son propre glyph.
    Le badge ★ (note) reste fixe pendant que le glyph tourne avec le cap.
    Sélectionné : bordure blanche + anneau cyan fort. Assigné : rebond
@@ -196,10 +209,10 @@ html {
   width: 44px;
   height: 44px;
   border-radius: 9999px;
-  background: linear-gradient(145deg, #ffd60a 0%, #ffc700 55%, #f0b400 100%);
-  border: 2px solid #070b16;
+  background: linear-gradient(145deg, #FF7EB0 0%, #FF4D8D 55%, #D6336C 100%);
+  border: 2px solid #17112E;
   box-shadow:
-    0 0 0 3px rgba(34, 211, 238, 0.35),
+    0 0 0 3px rgba(47, 214, 200, 0.35),
     0 6px 16px rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
@@ -222,9 +235,9 @@ html {
   transform: translateX(-50%);
   padding: 1px 5px;
   border-radius: 9999px;
-  background: #070b16;
-  border: 1px solid rgba(255, 199, 0, 0.65);
-  color: #ffd60a;
+  background: #17112E;
+  border: 1px solid rgba(255, 77, 141, 0.65);
+  color: #FF4D8D;
   font-size: 10px;
   font-weight: 800;
   line-height: 1.5;
@@ -232,8 +245,8 @@ html {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 @keyframes driver-halo {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.38), 0 6px 16px rgba(0, 0, 0, 0.55); }
-  50% { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0.1), 0 6px 16px rgba(0, 0, 0, 0.55); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(47, 214, 200, 0.38), 0 6px 16px rgba(0, 0, 0, 0.55); }
+  50% { box-shadow: 0 0 0 7px rgba(47, 214, 200, 0.1), 0 6px 16px rgba(0, 0, 0, 0.55); }
 }
 /* Anneau qui s'étend autour de la pastille (v2.7) : la carte respire.
    Décalé par chauffeur (animation-delay en ligne sur le span), masqué
@@ -242,7 +255,7 @@ html {
   position: absolute;
   inset: -5px;
   border-radius: 9999px;
-  border: 2px solid rgba(34, 211, 238, 0.55);
+  border: 2px solid rgba(47, 214, 200, 0.55);
   pointer-events: none;
   animation: driver-ring 2.6s ease-out infinite;
 }
@@ -259,8 +272,8 @@ html {
   transform: scale(1.18);
   border-color: #ffffff;
   box-shadow:
-    0 0 0 4px rgba(34, 211, 238, 0.65),
-    0 0 18px rgba(34, 211, 238, 0.45),
+    0 0 0 4px rgba(47, 214, 200, 0.65),
+    0 0 18px rgba(47, 214, 200, 0.45),
     0 6px 16px rgba(0, 0, 0, 0.55);
   animation: none;
 }
@@ -276,9 +289,9 @@ html {
   width: 18px;
   height: 18px;
   border-radius: 9999px;
-  background: #070b16;
-  color: #ffd60a;
-  border: 2px solid #ffd60a;
+  background: #17112E;
+  color: #FF4D8D;
+  border: 2px solid #FF4D8D;
   font-size: 11px;
   font-weight: 800;
   line-height: 14px;
@@ -308,17 +321,17 @@ html {
   pointer-events: none;
 }
 /* Point or devant le nom du quartier (v2.7) : le libellé devient un
-   point sur la carte, rattaché à l'identité « Nuit dorée ». */
+   point sur la carte, rattaché à l'identité « Nuit violette ». */
 .map-neighborhood-label::before {
   content: '';
   display: inline-block;
   width: 4px;
   height: 4px;
   border-radius: 9999px;
-  background: #ffc700;
+  background: #FF4D8D;
   margin-right: 5px;
   vertical-align: 1px;
-  box-shadow: 0 0 5px rgba(255, 199, 0, 0.9);
+  box-shadow: 0 0 5px rgba(255, 77, 141, 0.9);
 }
 
 /* 🏪 Points d'intérêt (v2.6, cliquables depuis la v2.13) : pastille
@@ -350,10 +363,10 @@ html {
   width: 44px;
   height: 44px;
 }
-/* Lieu sélectionné (v2.13) : anneau or + halo autour du pictogramme. */
+/* Lieu sélectionné (v2.13) : anneau rose + halo autour du pictogramme. */
 .map-poi-marker.selected .map-poi-glyph {
-  border-color: #ffd60a;
-  box-shadow: 0 0 0 3px rgba(255, 199, 0, 0.35), 0 0 16px rgba(255, 199, 0, 0.85);
+  border-color: #FF4D8D;
+  box-shadow: 0 0 0 3px rgba(255, 77, 141, 0.35), 0 0 16px rgba(255, 77, 141, 0.85);
 }
 .map-poi-glyph {
   display: flex;
@@ -362,9 +375,9 @@ html {
   width: 24px;
   height: 24px;
   border-radius: 9999px;
-  background: rgba(7, 11, 22, 0.88);
-  border: 1.5px solid rgba(255, 199, 0, 0.75);
-  color: #ffc700;
+  background: rgba(23, 17, 46, 0.88);
+  border: 1.5px solid rgba(255, 77, 141, 0.75);
+  color: #FF4D8D;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
 }
 .map-poi-label {
@@ -376,80 +389,96 @@ html {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.9);
 }
 /* Libellés POI visibles seulement à partir du zoom 15 (classe posée
-   sur le conteneur Leaflet) : à 13-14, pictogrammes seuls. */
-.map-poi-labels-on .map-poi-label {
+   sur le conteneur Leaflet) : à 13-14, pictogrammes seuls. Les
+   catégories denses (bars, restaurants — marqueurs `dense`) n'affichent
+   leur libellé qu'à partir du zoom 16 (classe `map-poi-labels-dense-on`,
+   v2.43) : sinon leurs libellés se chevauchent dans les quartiers
+   denses. */
+.map-poi-labels-on .map-poi-marker:not(.dense) .map-poi-label {
   display: block;
+}
+.map-poi-labels-dense-on .map-poi-marker.dense .map-poi-label {
+  display: block;
+}
+/* v2.43 — règle anti-double (v2.42 appliquée aux lieux) : quand
+   CARTO imprime déjà le nom du lieu sur la tuile, le libellé Drive est masqué (classe `label-carto` posée par `updateLabels`) —
+   le nom reste visible une fois, via la tuile. En Satellite, la
+   classe n'est jamais posée (tuiles Esri sans aucun libellé). */
+.map-poi-marker.label-carto .map-poi-label {
+  display: none !important;
 }
 /* Accents couleur par catégorie (v2.7) : le pictogramme et sa bordure
    prennent la couleur de la catégorie — la carte se lit en un coup
    d'œil, sans quitter la nuit (tons assourdis). Le supermarché garde
-   l'or par défaut. */
+   le rose par défaut. */
 .map-poi-marker.cat-marche .map-poi-glyph { color: #34d399; border-color: rgba(52, 211, 153, 0.75); }
-.map-poi-marker.cat-station .map-poi-glyph { color: #fb923c; border-color: rgba(251, 146, 60, 0.75); }
-.map-poi-marker.cat-pharmacie .map-poi-glyph { color: #22d3ee; border-color: rgba(34, 211, 238, 0.75); }
+.map-poi-marker.cat-station .map-poi-glyph { color: #F5A623; border-color: rgba(245, 166, 35, 0.75); }
+.map-poi-marker.cat-pharmacie .map-poi-glyph { color: #2FD6C8; border-color: rgba(47, 214, 200, 0.75); }
 .map-poi-marker.cat-hotel .map-poi-glyph { color: #c084fc; border-color: rgba(192, 132, 252, 0.75); }
 .map-poi-marker.cat-sante .map-poi-glyph { color: #f87171; border-color: rgba(248, 113, 113, 0.75); }
 .map-poi-marker.cat-lieu .map-poi-glyph { color: #94a3b8; border-color: rgba(148, 163, 184, 0.75); }
 .map-poi-marker.cat-aeroport .map-poi-glyph { color: #38bdf8; border-color: rgba(56, 189, 248, 0.75); }
-.map-poi-marker.cat-port .map-poi-glyph { color: #2dd4bf; border-color: rgba(45, 212, 191, 0.75); }
+.map-poi-marker.cat-port .map-poi-glyph { color: #2FD6C8; border-color: rgba(47, 214, 200, 0.75); }
 .map-poi-marker.cat-stade .map-poi-glyph { color: #fbbf24; border-color: rgba(251, 191, 36, 0.75); }
 .map-poi-marker.cat-musee .map-poi-glyph { color: #e879f9; border-color: rgba(232, 121, 249, 0.75); }
 .map-poi-marker.cat-plage .map-poi-glyph { color: #fde047; border-color: rgba(253, 224, 71, 0.75); }
 .map-poi-marker.cat-gare .map-poi-glyph { color: #a5b4fc; border-color: rgba(165, 180, 252, 0.75); }
+.map-poi-marker.cat-bar .map-poi-glyph { color: #FF7EB0; border-color: rgba(255, 126, 176, 0.75); }
+.map-poi-marker.cat-restaurant .map-poi-glyph { color: #FF5F6D; border-color: rgba(255, 95, 109, 0.75); }
 
 /* 🛰️ Vue Satellite (v2.13) : l'image est variée (sable, végétation,
    toits) — les libellés de quartiers et de POI prennent un fond
    sombre semi-transparent et une ombre plus forte pour rester
    lisibles, et les pastilles POI sont un peu plus opaques. */
 .map-satellite .map-neighborhood-label {
-  background: rgba(7, 11, 22, 0.6);
+  background: rgba(23, 17, 46, 0.6);
   padding: 1px 6px;
   border-radius: 6px;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 1);
 }
 .map-satellite .map-poi-label {
-  background: rgba(7, 11, 22, 0.6);
+  background: rgba(23, 17, 46, 0.6);
   padding: 1px 5px;
   border-radius: 5px;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 1);
 }
 .map-satellite .map-poi-glyph {
-  background: rgba(7, 11, 22, 0.95);
+  background: rgba(23, 17, 46, 0.95);
 }
 
-/* 📍 Point de départ : pastille orange braise pulsante */
+/* 📍 Point de départ : pastille roseange braise pulsante */
 .map-pickup-marker {
   width: 20px;
   height: 20px;
   border-radius: 9999px;
-  background: #FFC700;
+  background: #FF4D8D;
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 6px rgba(255, 199, 0, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 6px rgba(255, 77, 141, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5);
   animation: pickup-pulse 2s ease-out infinite;
 }
 @keyframes pickup-pulse {
-  0% { box-shadow: 0 0 0 4px rgba(255, 199, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5); }
-  70% { box-shadow: 0 0 0 14px rgba(255, 199, 0, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
-  100% { box-shadow: 0 0 0 4px rgba(255, 199, 0, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  0% { box-shadow: 0 0 0 4px rgba(255, 77, 141, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(255, 77, 141, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  100% { box-shadow: 0 0 0 4px rgba(255, 77, 141, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
 }
 
-/* 🧍 « Vous êtes ici » : pastille cyan pulsante, halo large */
+/* 🧍 « Vous êtes ici » : pastille sarcelle pulsante, halo large */
 .map-user-marker {
   width: 22px;
   height: 22px;
   border-radius: 9999px;
-  background: #22D3EE;
+  background: #2FD6C8;
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 6px rgba(34, 211, 238, 0.3), 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 6px rgba(47, 214, 200, 0.3), 0 4px 12px rgba(0, 0, 0, 0.5);
   animation: user-pulse 1.8s ease-out infinite;
 }
 @keyframes user-pulse {
-  0% { box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.45), 0 4px 12px rgba(0, 0, 0, 0.5); }
-  70% { box-shadow: 0 0 0 16px rgba(34, 211, 238, 0), 0 4px 12px rgba(0, 0, 0, 0.5); }
-  100% { box-shadow: 0 0 0 4px rgba(34, 211, 238, 0), 0 4px 12px rgba(0, 0, 0, 0.5); }
+  0% { box-shadow: 0 0 0 4px rgba(47, 214, 200, 0.45), 0 4px 12px rgba(0, 0, 0, 0.5); }
+  70% { box-shadow: 0 0 0 16px rgba(47, 214, 200, 0), 0 4px 12px rgba(0, 0, 0, 0.5); }
+  100% { box-shadow: 0 0 0 4px rgba(47, 214, 200, 0), 0 4px 12px rgba(0, 0, 0, 0.5); }
 }
 
-/* 📌 Destination : épingle or */
+/* 📌 Destination : épingle rose */
 .map-dest-marker {
   width: 36px;
   height: 36px;
@@ -467,16 +496,16 @@ html {
   to { stroke-dashoffset: -22; }
 }
 
-/* 📡 RADAR : anneaux pulsants cyan autour du point de recherche */
+/* 📡 RADAR : anneaux pulsants sarcelle autour du point de recherche */
 .radar-ring {
   position: absolute;
   border-radius: 9999px;
-  border: 2px solid rgba(34, 211, 238, 0.55);
+  border: 2px solid rgba(47, 214, 200, 0.55);
   animation: radar-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
   pointer-events: none;
 }
 
-/* 🌍 Écran hors zone (v2.32) : la tuile icône or reprend le halo
+/* 🌍 Écran hors zone (v2.32) : la tuile icône rose reprend le halo
  *  pulsant des marqueurs chauffeurs (`driver-halo`) — même
  *  vocabulaire animé, rien de nouveau. */
 .out-of-zone-tile {
@@ -515,7 +544,7 @@ html {
 .sheet-handle:hover .sheet-handle-bar,
 .sheet-handle:active .sheet-handle-bar {
   width: 3.5rem;
-  background-color: #FFC700;
+  background-color: #FF4D8D;
 }
 
 /* 🔢 Prix animé : petit « pop » quand l'estimation change */
@@ -525,13 +554,13 @@ html {
   100% { transform: scale(1); }
 }
 
-/* ⏳ Barre de chargement du prix (v2.11) : shimmer or/cyan qui remplace
+/* ⏳ Barre de chargement du prix (v2.11) : shimmer rose/sarcelle qui remplace
  *  le prix pendant le (re)calcul de l'estimation. */
 .price-skeleton {
   background: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.06) 25%,
-    rgba(255, 199, 0, 0.28) 50%,
+    rgba(255, 77, 141, 0.28) 50%,
     rgba(255, 255, 255, 0.06) 75%
   );
   background-size: 200% 100%;

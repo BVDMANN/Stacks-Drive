@@ -48,7 +48,7 @@ export function RideReceiptCard({ receipt }: { receipt: RideReceipt }) {
       </h2>
       <div className="bg-night-900 rounded-2xl p-5 text-center">
         <p className="text-xs font-black uppercase tracking-widest text-slate-400">Montant payé</p>
-        <p className="font-black text-3xl text-gold mt-1">{receipt.priceLabel}</p>
+        <p className="font-black text-3xl text-corail mt-1">{receipt.priceLabel}</p>
         <p className="text-xs text-slate-400 mt-1">
           Prix convenu et figé à l’acceptation — aucun supplément ajouté en route.
         </p>

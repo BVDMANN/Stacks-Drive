@@ -27,7 +27,7 @@
 - **Prix :** estimation indicative au km — prise en charge + prix au kilomètre (Solo 500 + 210 FCFA/km, Groupe 300 + 135 FCFA/km, Moto = Solo ×0,6), **jamais de surge** ; AUCUN tarif fixe défini par la plateforme. Le prix final est convenu entre le passager et le chauffeur — le chauffeur propose, le passager peut proposer son prix à la demande et contre-proposer — puis il est figé à l'acceptation. Planchers de l'estimation Solo 550 / Groupe 400 FCFA.
 <!-- /DOC-SYNC -->
 <!-- DOC-SYNC: etat-map -->
-- **Carte :** 70 quartiers de Libreville avec leurs noms affichés sur la carte (12 visibles au zoom 12, 27 au zoom 13, 69 au zoom 14), 43 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics — pictogrammes dès le zoom 13, noms dès le zoom 15), icônes chauffeurs dorées avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.
+- **Carte :** 70 quartiers de Libreville avec leurs noms affichés sur la carte (12 visibles au zoom 12, 27 au zoom 13, 69 au zoom 14 en Satellite ; en Plan, 6 / 11 / 17 — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), 59 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants — pictogrammes dès le zoom 14, noms dès le zoom 15 ; bars et restaurants : pictogrammes dès le zoom 15, noms dès le zoom 16), icônes chauffeurs roses avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.
 <!-- /DOC-SYNC -->
 <!-- DOC-SYNC: etat-difficult -->
 - **Quartiers à accès difficile :** 15 quartiers ne sont pas desservis sur route bitumée — la course s'y arrête par défaut à un point de dépôt sur route bitumée (Bikélé, Angondjé, Nzeng-Ayong, Owendo, PK12 selon la zone) ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **800 FCFA**, que le chauffeur est libre d'accepter ou non. La commission est calculée sur le total, supplément compris. Tous les PK jusqu'à PK12 inclus sont bitumés et normaux.
@@ -55,7 +55,7 @@
 | Gamification (quêtes, niveaux, célébrations) | **Oui** | Quêtes / Boost (programme mondial Uber/Yango) | Défis (programme Gozem) | Inconnu | Inconnu | Non |
 | Paiement | Espèces ou P2P Airtel Money / Moov Money direct au chauffeur | Carte / Mobile Money via l'appli | Mobile Money via l'appli | Airtel / Moov Money | Inconnu | Espèces |
 | Fidélité passager | **10e course offerte** | Promos de lancement | Inconnu | Inconnu | Inconnu | Non |
-| Quartiers et lieux sur la carte | <!-- DOC-SYNC: etat-table-map -->**Oui — 70 quartiers nommés + 43 lieux**<!-- /DOC-SYNC --> | Inconnu | Inconnu | Inconnu | Inconnu | Non |
+| Quartiers et lieux sur la carte | <!-- DOC-SYNC: etat-table-map -->**Oui — 70 quartiers nommés + 59 lieux**<!-- /DOC-SYNC --> | Inconnu | Inconnu | Inconnu | Inconnu | Non |
 | Routes non bitumées | **Oui — point de dépôt + supplément 800 FCFA, chauffeur libre d'accepter** | Inconnu | Inconnu | Inconnu | Inconnu | Au cas par cas |
 | Disponibilité | Libreville seulement, 0 chauffeur réel pour l'instant | En croissance depuis août 2026 | Présent depuis 2021 | Présent | Présent | Partout, immédiatement |
 | Notoriété | Aucune | Forte (marque mondiale) | Forte (super-app) | Locale | Locale | Totale (habitude) |
@@ -118,7 +118,7 @@ Depuis la v2.2 : estimation calculée côté serveur uniquement, bornes absolues
 | Règles de commission | `lib/commission.ts` | <!-- DOC-SYNC: etat-paperasse-commission -->5 % / 8 % / plafond 10 %. Ne pas toucher aux taux sans décision du propriétaire.<!-- /DOC-SYNC --> |
 | Estimation indicative (`lib/pricing.ts`) | `lib/pricing.ts` | <!-- DOC-SYNC: etat-paperasse-pricing -->Prise en charge + prix au km (Solo 500 + 210/km, Groupe 300 + 135/km, Moto ×0,6), AUCUN tarif fixe — le prix final est convenu entre le passager et le chauffeur, supplément route non bitumée 800 FCFA.<!-- /DOC-SYNC --> |
 | Quartiers et accès difficile | `lib/neighborhoods.ts` | <!-- DOC-SYNC: etat-paperasse-neighborhoods -->70 quartiers, 15 à accès difficile, points de dépôt.<!-- /DOC-SYNC --> |
-| Lieux sur la carte | `lib/pois.ts` | <!-- DOC-SYNC: etat-paperasse-pois -->43 lieux.<!-- /DOC-SYNC --> |
+| Lieux sur la carte | `lib/pois.ts` | <!-- DOC-SYNC: etat-paperasse-pois -->59 lieux.<!-- /DOC-SYNC --> |
 | Modèle de variables d'environnement | `.env.example` | Fait. |
 | Migration v2.17 (règles 1 et 2) | `supabase/migration-v2.17-mode-rules.sql` | À exécuter une seule fois, pas encore appliquée — verrouillage du switch Passager → Chauffeur + mise en ligne (trigger anti-escalade). |
 | Code source complet | `app/`, `components/`, `lib/`, `styles/`, `public/`, `types/` | En ligne (v2.6, commit `65996054`). |

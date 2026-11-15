@@ -138,21 +138,21 @@ export function ProposalCard({
     <article className="rise-in bg-white/5 border border-white/10 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="w-11 h-11 rounded-full bg-or text-night-900 font-black flex items-center justify-center shrink-0">
+          <span className="w-11 h-11 rounded-full bg-rose-500 text-night-900 font-black flex items-center justify-center shrink-0">
             {driverDisplayName.trim().charAt(0) ?? 'C'}
           </span>
           <div className="min-w-0">
             <p className="font-black text-white flex flex-wrap items-center gap-1.5">
               <span className="truncate">{driverDisplayName}</span>
               {driver?.isVerified && (
-                <span className="inline-flex items-center gap-0.5 text-xs font-black text-cyan shrink-0">
+                <span className="inline-flex items-center gap-0.5 text-xs font-black text-sarcelle shrink-0">
                   <BadgeCheck size={14} /> Vérifié
                 </span>
               )}
             </p>
             <p className="text-xs text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="inline-flex items-center gap-1">
-                <Star size={12} className="text-gold fill-gold" />
+                <Star size={12} className="text-corail fill-corail" />
                 {driver?.rating ? driver.rating.toFixed(1) : 'Nouveau'} · {driver?.trips ?? 0} courses
               </span>
               <span className="inline-flex items-center gap-1">
@@ -208,7 +208,7 @@ export function ProposalCard({
               prend la piste jusqu'à la destination ou s'il s'arrête au
               point de dépôt (supplément retiré). */}
           {dropOffPoint && (
-            <p className="inline-flex items-center gap-1 text-gold">
+            <p className="inline-flex items-center gap-1 text-corail">
               <MapPin size={13} />
               {proposal.unpavedAccepted
                 ? `Route non bitumée acceptée jusqu’à ${destinationLabel ?? 'la destination'}`
@@ -221,7 +221,7 @@ export function ProposalCard({
       {/* Contre-proposition du passager (v2.11) : propose ton prix au
           chauffeur — il peut l'accepter ou proposer un autre prix. */}
       {counterSent !== null && !showCounter ? (
-        <p className="text-sm font-bold text-cyan bg-cyan/10 border border-cyan/30 rounded-2xl px-3.5 py-2.5">
+        <p className="text-sm font-bold text-sarcelle bg-sarcelle/10 border border-sarcelle/30 rounded-2xl px-3.5 py-2.5">
           Ta contre-proposition : {formatFcfa(counterSent)} — en attente du chauffeur.
           <button
             type="button"
@@ -250,12 +250,12 @@ export function ProposalCard({
               onChange={(e) => setCounterValue(e.target.value)}
               placeholder="Ton prix (FCFA)"
               aria-label="Ta contre-proposition en FCFA"
-              className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm font-bold text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+              className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm font-bold text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
             />
             <button
               type="submit"
               disabled={counterBusy}
-              className="px-4 py-2.5 rounded-xl bg-cyan text-night-900 text-sm font-black hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-50"
+              className="px-4 py-2.5 rounded-xl bg-sarcelle text-night-900 text-sm font-black hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-50"
             >
               {counterBusy ? 'Envoi…' : 'Proposer'}
             </button>
@@ -275,7 +275,7 @@ export function ProposalCard({
         <button
           type="button"
           onClick={() => setShowCounter(true)}
-          className="text-sm font-bold text-cyan hover:underline self-start"
+          className="text-sm font-bold text-sarcelle hover:underline self-start"
         >
           Contre-proposer un prix →
         </button>
@@ -300,7 +300,7 @@ export function ProposalCard({
           type="button"
           disabled={busy}
           onClick={() => onAccept(proposal.id)}
-          className="flex-1 inline-flex items-center justify-center gap-2 bg-or text-night-900 font-black py-3 rounded-full shadow-md shadow-or/30 hover:bg-or-light active:scale-[0.98] transition-all disabled:opacity-50"
+          className="flex-1 inline-flex items-center justify-center gap-2 bg-rose-500 text-night-900 font-black py-3 rounded-full shadow-md shadow-rose-500/30 hover:bg-rose-300 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {/* Règle 1 (v2.17) : l'acceptation d'un prix attend le serveur
               — le bouton le montre, il n'est pas juste grisé. */}

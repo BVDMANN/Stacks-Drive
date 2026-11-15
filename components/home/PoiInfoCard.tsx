@@ -81,7 +81,7 @@ export function PoiInfoCard({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-night-800/90 border border-white/15 text-slate-300 hover:border-cyan/60 active:scale-90 transition-all"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-night-800/90 border border-white/15 text-slate-300 hover:border-sarcelle/60 active:scale-90 transition-all"
             aria-label="Fermer la carte du lieu"
           >
             <X size={16} />
@@ -89,7 +89,7 @@ export function PoiInfoCard({
         </div>
 
         <p className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
-          <Navigation size={15} className="text-cyan shrink-0" />
+          <Navigation size={15} className="text-sarcelle shrink-0" />
           {distanceLabel} · ~{info.durationMin} min de trajet
         </p>
 
@@ -100,7 +100,7 @@ export function PoiInfoCard({
           <div className="grid grid-cols-2 gap-2.5">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <p className="flex items-center gap-1.5 font-black text-white text-sm">
-                <Users size={15} className="text-cyan" /> Groupe
+                <Users size={15} className="text-sarcelle" /> Groupe
               </p>
               <p className="font-black text-lg text-white leading-tight mt-1">
                 {formatFcfa(info.groupe)}
@@ -110,7 +110,7 @@ export function PoiInfoCard({
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <p className="flex items-center gap-1.5 font-black text-white text-sm">
-                <Car size={15} className="text-gold" /> Solo
+                <Car size={15} className="text-corail" /> Solo
               </p>
               <p className="font-black text-lg text-white leading-tight mt-1">
                 {formatFcfa(info.solo)}
@@ -128,7 +128,7 @@ export function PoiInfoCard({
         <button
           type="button"
           onClick={() => onGoTo(poi)}
-          className="w-full bg-or text-night-900 font-black text-base py-3.5 rounded-full shadow-lg shadow-or/40 hover:bg-or-light active:scale-[0.98] transition-all"
+          className="w-full bg-rose-500 text-night-900 font-black text-base py-3.5 rounded-full shadow-lg shadow-rose-500/40 hover:bg-rose-300 active:scale-[0.98] transition-all"
         >
           Y aller →
         </button>

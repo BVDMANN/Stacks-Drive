@@ -102,7 +102,8 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
       {/* Statut */}
       <div className="flex flex-wrap gap-2">
         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-slate-100 text-slate-700">
-          Compte {isDriver ? 'chauffeur' : 'passager'}
+          {/* v2.45 — le compte admin n'est ni chauffeur ni passager. */}
+          Compte {profile.is_admin ? 'admin' : isDriver ? 'chauffeur' : 'passager'}
         </span>
         {isDriver && (
           <VerificationStatusBadge

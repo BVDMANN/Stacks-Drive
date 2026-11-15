@@ -57,7 +57,7 @@ export default function ReinitialiserMotDePassePage() {
           Les liens de réinitialisation expirent après un certain délai et ne
           peuvent servir qu’une fois. Redemande un nouveau lien.
         </p>
-        <Link href="/mot-de-passe-oublie" className="block text-center text-cyan font-bold text-sm hover:underline">
+        <Link href="/mot-de-passe-oublie" className="block text-center text-sarcelle font-bold text-sm hover:underline">
           Redemander un lien
         </Link>
       </AuthCard>
@@ -85,7 +85,7 @@ export default function ReinitialiserMotDePassePage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="6 caractères minimum"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
           />
         </div>
         <div className="space-y-1.5">
@@ -101,10 +101,10 @@ export default function ReinitialiserMotDePassePage() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             placeholder="Retape ton mot de passe"
-            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-cyan focus:outline-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-night-900 border border-white/15 text-white placeholder:text-slate-500 focus:border-sarcelle focus:outline-none"
           />
         </div>
-        <PremiumButton variant="or" type="submit" isLoading={loading || hasSession === null} className="w-full justify-center py-4">
+        <PremiumButton variant="rose" type="submit" isLoading={loading || hasSession === null} className="w-full justify-center py-4">
           Enregistrer le nouveau mot de passe
         </PremiumButton>
       </form>

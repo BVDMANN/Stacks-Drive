@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
  *    l'efface. Si la recherche ne donne rien, un message clair
  *    l'indique au lieu d'une liste vide.
  *
- *  Style « Nuit dorée » (feuille d'accueil) : à n'utiliser que sur
+ *  Style « Nuit violette » (feuille d'accueil) : à n'utiliser que sur
  *  fond sombre. Les autres listes de quartiers (accueil chauffeur,
  *  tableau de bord, profil) gardent leur `<select>` natif, avec la
  *  même liste triée — la recherche n'y est pas demandée. */
@@ -213,8 +213,8 @@ export function NeighborhoodSelect({
                     onMouseEnter={() => setActiveIdx(i)}
                     className={cn(
                       'w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left text-sm font-bold transition-colors',
-                      i === activeIdx ? 'bg-cyan/15 text-cyan' : 'text-white hover:bg-white/5',
-                      n === value && 'text-cyan'
+                      i === activeIdx ? 'bg-sarcelle/15 text-sarcelle' : 'text-white hover:bg-white/5',
+                      n === value && 'text-sarcelle'
                     )}
                   >
                     {n}

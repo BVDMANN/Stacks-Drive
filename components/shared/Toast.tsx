@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 /** Notifications pop-up (toasts) in-app — v2.12. Pas de notification
  *  push navigateur, pas de son : des cartes discrètes qui apparaissent
  *  en haut de l'écran pendant la négociation du prix, puis se ferment
- *  toutes seules (~6 s). Style « Nuit dorée » (or/cyan), jamais de
+ *  toutes seules (~6 s). Style « Nuit violette » (rose/sarcelle), jamais de
  *  numéro de téléphone affiché — prénom et prix uniquement. */
 
 export interface ToastAction {
@@ -27,9 +27,9 @@ export interface ToastItem {
 }
 
 const VARIANT_STYLES: Record<ToastVariant, { border: string; icon: string; Icon: typeof Bell }> = {
-  offer: { border: 'border-gold/60', icon: 'text-gold', Icon: Handshake },
-  info: { border: 'border-cyan/60', icon: 'text-cyan', Icon: Bell },
-  success: { border: 'border-gold/60', icon: 'text-gold', Icon: CheckCircle2 },
+  offer: { border: 'border-corail/60', icon: 'text-corail', Icon: Handshake },
+  info: { border: 'border-sarcelle/60', icon: 'text-sarcelle', Icon: Bell },
+  success: { border: 'border-corail/60', icon: 'text-corail', Icon: CheckCircle2 },
 };
 
 /** Pile de toasts : un seul composant partagé par le passager
@@ -80,7 +80,7 @@ export function ToastStack({
                         className={cn(
                           'px-3.5 py-2 rounded-full text-xs font-black transition-all active:scale-95',
                           a.primary
-                            ? 'bg-or text-night-900 shadow-md shadow-or/30 hover:bg-or-light'
+                            ? 'bg-rose-500 text-night-900 shadow-md shadow-rose-500/30 hover:bg-rose-300'
                             : 'bg-white/10 text-white hover:bg-white/20'
                         )}
                       >

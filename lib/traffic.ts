@@ -14,7 +14,7 @@
  *    disparaît de la carte, sans action manuelle.
  *  - MODÉRATION AUTO (item 15 du lot D, qui attendait ce lot) : un
  *    signalement confirmé par au moins 2 chauffeurs
- *    (`TRAFFIC_CONFIRM_MIN`) est affiché EN ÉVIDENCE (marqueur doré)
+ *    (`TRAFFIC_CONFIRM_MIN`) est affiché EN ÉVIDENCE (marqueur rose)
  *    ; sinon il reste affiché normalement jusqu'à expiration — il
  *    n'est jamais « mis en avant » sans confirmation. Un chauffeur
  *    ne peut pas confirmer son propre signalement, ni confirmer deux

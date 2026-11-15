@@ -87,9 +87,23 @@ export async function POST(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name, email, verification_status')
+    .select('role, full_name, email, verification_status, is_admin')
     .eq('id', user.id)
     .single();
+  // v2.45 — compte admin = admin uniquement : l'admin ne devient
+  // pas chauffeur (la vérification ne concerne que les chauffeurs —
+  // le contrôle de rôle ci-dessous le bloquerait déjà, l'admin
+  // étant « passager » en base ; ce rejet explicite verrouille le
+  // cas où le rôle venait à changer).
+  if (profile?.is_admin === true) {
+    return NextResponse.json(
+      {
+        error: 'Le compte administrateur ne peut pas devenir chauffeur.',
+        code: 'admin_not_allowed',
+      },
+      { status: 403 }
+    );
+  }
   if (profile?.role !== 'chauffeur') {
     return NextResponse.json(
       { error: 'La vérification concerne les comptes chauffeurs.' },

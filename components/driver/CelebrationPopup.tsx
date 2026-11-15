@@ -26,10 +26,10 @@ export interface CelebrationData {
   completedRides: number;
 }
 
-const CONFETTI_COLORS = ['#FFC700', '#22D3EE', '#FFD60A', '#FFFFFF', '#3A75C4', '#FCD116'];
+const CONFETTI_COLORS = ['#FF4D8D', '#2FD6C8', '#FF5F6D', '#FFFFFF', '#F5A623', '#FF7EB0'];
 
 /** Popup de célébration après chaque course terminée (v2.2, points
- *  en v2.3) : confettis, flash doré, montant gardé en gros, % gardé,
+ *  en v2.3) : confettis, flash rose, montant gardé en gros, % gardé,
  *  points gagnés, progression de la quête.
  *  Les chiffres sont VRAIS (montants de la base) — on met en scène des
  *  gains réels, on n'invente rien. */
@@ -69,7 +69,7 @@ export function CelebrationPopup({
       aria-label="Course terminée — tes gains"
       onClick={onClose}
     >
-      {/* Flash doré */}
+      {/* Flash rose */}
       <motion.div
         className="pointer-events-none absolute inset-0"
         initial={{ opacity: 0.9 }}
@@ -77,7 +77,7 @@ export function CelebrationPopup({
         transition={{ duration: 1.2, ease: 'easeOut' }}
         style={{
           background:
-            'radial-gradient(circle at 50% 40%, rgba(255, 214, 10, 0.55) 0%, rgba(255, 199, 0, 0.25) 35%, transparent 70%)',
+            'radial-gradient(circle at 50% 40%, rgba(255, 77, 141, 0.55) 0%, rgba(255, 77, 141, 0.25) 35%, transparent 70%)',
         }}
       />
       {/* Confettis */}
@@ -120,7 +120,7 @@ export function CelebrationPopup({
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 15 }}
-          className="mx-auto w-16 h-16 rounded-full bg-gold flex items-center justify-center text-night-950 shadow-lg shadow-gold/40"
+          className="mx-auto w-16 h-16 rounded-full bg-corail flex items-center justify-center text-night-950 shadow-lg shadow-corail/40"
         >
           {celebration.isDoubleRide ? <PartyPopper size={30} /> : <Trophy size={30} />}
         </motion.div>
@@ -139,7 +139,7 @@ export function CelebrationPopup({
         </p>
 
         <motion.p
-          className="font-black text-5xl text-cyan mt-4 tracking-tight"
+          className="font-black text-5xl text-sarcelle mt-4 tracking-tight"
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.25, type: 'spring', stiffness: 200, damping: 14 }}
@@ -154,13 +154,13 @@ export function CelebrationPopup({
         </p>
 
         {celebration.pointsEarned > 0 && (
-          <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-gold bg-gold/10 border border-gold/30 rounded-full px-4 py-2">
+          <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-corail bg-corail/10 border border-corail/30 rounded-full px-4 py-2">
             <Sparkles size={15} /> +{celebration.pointsEarned} points gagnés !
           </p>
         )}
 
         {celebration.questBonus > 0 && (
-          <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-gold bg-gold/10 border border-gold/30 rounded-full px-4 py-2">
+          <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-corail bg-corail/10 border border-corail/30 rounded-full px-4 py-2">
             <Sparkles size={15} /> Bonus de quête : +{celebration.questBonus} points !
           </p>
         )}
@@ -171,13 +171,13 @@ export function CelebrationPopup({
             <p className="text-sm font-black">
               Quête du jour : {celebration.questDone} / {celebration.questTarget} courses
             </p>
-            <span className="text-xs font-black text-gold">
+            <span className="text-xs font-black text-corail">
               +{celebration.questBonusAmount} points
             </span>
           </div>
           <div className="h-3 rounded-full bg-white/10 overflow-hidden">
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-or via-gold to-cyan"
+              className="h-full rounded-full bg-gradient-to-r from-rose-500 via-corail to-sarcelle"
               initial={{ width: 0 }}
               animate={{ width: `${questPct}%` }}
               transition={{ delay: 0.4, duration: 0.8, ease: 'easeOut' }}
@@ -193,7 +193,7 @@ export function CelebrationPopup({
         <div className="flex items-center justify-center gap-4 mt-4 text-sm text-slate-300">
           {celebration.streakDays > 1 && (
             <span className="inline-flex items-center gap-1 font-bold">
-              <Flame size={16} className="text-or" /> Série : {celebration.streakDays} jours
+              <Flame size={16} className="text-rose-300" /> Série : {celebration.streakDays} jours
             </span>
           )}
           <span className="font-bold">Niveau {celebration.tier}</span>
@@ -203,7 +203,7 @@ export function CelebrationPopup({
         <button
           type="button"
           onClick={onClose}
-          className="mt-6 w-full py-4 rounded-full bg-or text-night-900 font-black shadow-lg shadow-or/30 hover:bg-or-light transition-colors"
+          className="mt-6 w-full py-4 rounded-full bg-rose-500 text-night-900 font-black shadow-lg shadow-rose-500/30 hover:bg-rose-300 transition-colors"
         >
           Continuer — prochaine course
         </button>
