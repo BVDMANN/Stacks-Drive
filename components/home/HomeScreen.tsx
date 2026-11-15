@@ -123,7 +123,12 @@ const ROUTE_SHORTCUTS: { pickup: Neighborhood; destination: Neighborhood; label:
  *  visible), aperçu (30) et pleine (58). Le cran mini n'existe qu'en
  *  phase idle : glisser la feuille vers le bas l'y range et libère la
  *  carte. Pas de cran 88 : la pleine hauteur suffit, même en course. */
-const SHEET_SNAPS = [15, 30, 58];
+/** Crans de la feuille (v2.53) : 15 = mini (poignée + titre, la carte
+ *  est libérée), 30 = aperçu, 58 = formulaire complet, 88 = quasi
+ *  plein écran (la feuille recouvre la carte — c'est le cran « remonter
+ *  sur la carte » demandé par le propriétaire, 15/11 : à 58 la feuille
+ *  ne recouvrait que la moitié basse de l'écran). */
+const SHEET_SNAPS = [15, 30, 58, 88];
 
 interface Draft {
   pickup: Neighborhood | '';
@@ -351,7 +356,16 @@ export function HomeScreen({
   // Pendant un glisser, pas de transition (la feuille suit le doigt 1:1) ;
   // au relâcher / au tap, la hauteur glisse vers le cran (ressort).
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef<{ startY: number; startH: number; moved: boolean; pointerId: number } | null>(null);
+  const dragRef = useRef<{ startY: number; startH: number; moved: boolean; pointerId: number; minPx: number } | null>(null);
+  // Clic fantôme après un glisser (v2.53) : le clic qui suit le
+  // relâcher retomberait sinon sur le contenu qui vient de glisser
+  // sous le doigt (ex. la carte « Trajets » ouvrirait la recherche
+  // au lieu de replier la feuille) — il est supprimé une fois, voir
+  // `onDragPointerUp`.
+  const suppressClickRef = useRef(false);
+  // `phaseRef` (déclarée plus bas, miroir de `phase`) est lue par les
+  // écouteurs natifs du glisser : ils sont posés sur `window` au début
+  // du geste et ne voient pas les rendus suivants.
 
   // Le cran mini n'existe qu'en phase idle : dès qu'une recherche ou une
   // course démarre, la feuille remonte à mi-hauteur pour rester lisible.
@@ -363,22 +377,30 @@ export function HomeScreen({
   // Recentrer, barre « Vers où ? ») ne s'effacent PLUS quand la
   // feuille se déplie — l'ancien fondu les rendait invisibles et
   // incliquables alors qu'elles sont dans le haut de l'écran, jamais
-  // recouvertes par la feuille (58 dvh max, par le bas). Sur mobile,
+  // recouvertes par la feuille (88 dvh max, par le bas). Sur mobile,
   // la feuille est dépliée pendant presque toute la commande : c'est
   // là que l'utilisateur en a le plus besoin. (La bascule
   // Plan/Satellite a été retirée en v2.50 : une seule carte.)
-  // Feuille à pleine hauteur : le chevron de la poignée pointe vers le
-  // bas (replier), sinon vers le haut (déplier).
-  const atFull = sheetH >= 58;
+  // Feuille à pleine hauteur (cran 88) : le chevron de la poignée
+  // pointe vers le bas (replier), sinon vers le haut (déplier).
+  const atFull = sheetH >= 88;
 
-  // Crans autorisés selon la phase : en idle les trois, sinon aperçu et
-  // pleine seulement (la feuille reste utilisable pendant une course).
+  // Crans autorisés selon la phase : en idle les quatre, sinon aperçu,
+  // pleine et quasi plein écran seulement (la feuille reste utilisable
+  // pendant une course).
   function allowedSnaps() {
     return phase === 'idle' ? SHEET_SNAPS : SHEET_SNAPS.filter((s) => s >= 30);
   }
-  // Bascule entre crans, dans l'ordre : mini → aperçu → pleine → mini
-  // (idle) ou aperçu ↔ pleine (recherche / course). Utilisée par le tap
-  // sur la poignée et par le bouton chevron — jamais de saut direct.
+  // Bascule entre crans, dans l'ordre : mini → aperçu → pleine →
+  // quasi plein écran → mini (idle) ou aperçu → pleine → quasi plein
+  // écran → aperçu (recherche / course). Utilisée par le tap sur la
+  // poignée et par le bouton chevron — jamais de saut direct. Le
+  // cycle passe par le `onClick` du bouton (v2.53), pas par le
+  // `pointerup` : le cycle au `pointerup` se jouait AVANT le clic,
+  // donc la feuille changeait de hauteur sous le doigt et le clic
+  // qui suivait pouvait retomber sur un contenu qui venait de se
+  // monter (ex. l'input de recherche prenait le focus et faisait
+  // sauter la feuille en pleine hauteur au lieu du cran suivant).
   function cycleSheet() {
     const snaps = allowedSnaps();
     setSheetH((h) => {
@@ -1253,6 +1275,78 @@ export function HomeScreen({
   }
 
   // --- Feuille draggable : glisser la poignée, relâcher = cran le plus proche. ---
+  // Réécrit en v2.53 (diagnostic 15/11 — la feuille restait figée à
+  // ~30 dvh sur téléphone) : les écouteurs de glisser sont posés sur
+  // `window`, pas sur le bouton. L'ancienne version utilisait
+  // `setPointerCapture` : la capture se comporte mal sur certains
+  // mobiles (le glisser s'interrompt quand le doigt sort du bouton,
+  // haut de 22 px seulement), et le cycle au `pointerup` se jouait
+  // avant le clic — la feuille changeait de hauteur sous le doigt et
+  // le clic qui suivait pouvait retomber sur un contenu qui venait de
+  // se monter (focus volé par l'input de recherche → saut en pleine
+  // hauteur). Maintenant : le cycle passe par le `onClick` du bouton
+  // (après le clic, cible fiable), et le clic qui suit un vrai glisser
+  // est supprimé une fois (voir `onDragPointerUp`).
+  const onDragPointerMove = useCallback((e: PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const vh = window.innerHeight;
+    if (Math.abs(drag.startY - e.clientY) > 6) drag.moved = true;
+    const px = Math.min(0.9 * vh, Math.max(drag.minPx, drag.startH + (drag.startY - e.clientY)));
+    setSheetH((px / vh) * 100);
+  }, []);
+  const onDragPointerUp = useCallback(
+    (e: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      dragRef.current = null;
+      setIsDragging(false);
+      window.removeEventListener('pointermove', onDragPointerMove);
+      window.removeEventListener('pointerup', onDragPointerUp);
+      window.removeEventListener('pointercancel', onDragPointerUp);
+      if (!drag.moved) return; // Tap : le `onClick` du bouton fait le cycle.
+      // Glisser : on s'arrête au cran le plus proche. Hors phase idle, le
+      // cran mini n'existe pas : le minimum est 30.
+      const snaps = phaseRef.current === 'idle' ? SHEET_SNAPS : SHEET_SNAPS.filter((s) => s >= 30);
+      setSheetH((h) => {
+        let best = snaps[0];
+        let bestDist = Infinity;
+        snaps.forEach((s) => {
+          const d = Math.abs(h - s);
+          if (d < bestDist) {
+            bestDist = d;
+            best = s;
+          }
+        });
+        return best;
+      });
+      // Supprimer le clic fantôme : après un glisser, le navigateur
+      // envoie un `click` sur l'élément qui se trouve sous le doigt au
+      // relâcher — la feuille vient de bouger, donc ce n'est plus la
+      // poignée mais un contenu qui vient de glisser dessous (ex. la
+      // carte « Trajets » ouvrirait la recherche). Un écouteur de capture
+      // unique avale ce clic, puis se retire (500 ms, marge large).
+      suppressClickRef.current = true;
+      const stopClick = (ev: MouseEvent) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        suppressClickRef.current = false;
+      };
+      window.addEventListener('click', stopClick, true);
+      window.setTimeout(() => window.removeEventListener('click', stopClick, true), 500);
+    },
+    [onDragPointerMove],
+  );
+  // Si le composant se démonte en plein glisser (navigation), retirer
+  // les écouteurs posés sur `window`.
+  useEffect(
+    () => () => {
+      window.removeEventListener('pointermove', onDragPointerMove);
+      window.removeEventListener('pointerup', onDragPointerUp);
+      window.removeEventListener('pointercancel', onDragPointerUp);
+    },
+    [onDragPointerMove, onDragPointerUp],
+  );
   function onHandlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     const vh = window.innerHeight;
     dragRef.current = {
@@ -1260,47 +1354,28 @@ export function HomeScreen({
       startH: (sheetH / 100) * vh,
       moved: false,
       pointerId: e.pointerId,
+      // En phase idle on peut descendre jusqu'au cran mini (12 dvh) ;
+      // pendant une recherche / course, la feuille ne descend pas sous 30.
+      minPx: phase === 'idle' ? 0.1 * vh : 0.28 * vh,
     };
     setIsDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // Pas de `setPointerCapture` (v2.53) : la capture interrompt le
+    // glisser sur certains mobiles — les écouteurs `window` ci-dessus
+    // suivent le doigt partout, y compris hors du bouton.
+    window.addEventListener('pointermove', onDragPointerMove);
+    window.addEventListener('pointerup', onDragPointerUp);
+    window.addEventListener('pointercancel', onDragPointerUp);
   }
-  function onHandlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
-    const drag = dragRef.current;
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    const vh = window.innerHeight;
-    if (Math.abs(drag.startY - e.clientY) > 6) drag.moved = true;
-    // En phase idle on peut descendre jusqu'au cran mini (12 dvh) ;
-    // pendant une recherche / course, la feuille ne descend pas sous 30.
-    const minPx = phase === 'idle' ? 0.1 * vh : 0.28 * vh;
-    const px = Math.min(0.9 * vh, Math.max(minPx, drag.startH + (drag.startY - e.clientY)));
-    setSheetH((px / vh) * 100);
-  }
-  function onHandlePointerUp(e: React.PointerEvent<HTMLButtonElement>) {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    setIsDragging(false);
-    if (!drag) return;
-    if (!drag.moved) {
-      // Simple tap sur la poignée : bascule au cran suivant (mini →
-      // aperçu → pleine → mini en idle ; aperçu ↔ pleine sinon).
-      cycleSheet();
+  // Tap sur la poignée (v2.53) : le cycle passe par le clic, pas par
+  // le `pointerup` (voir commentaire de `cycleSheet`). Après un vrai
+  // glisser, le clic fantôme a déjà été avalé par l'écouteur de
+  // capture — la garde ci-dessous n'est qu'une ceinture de sécurité.
+  function onHandleClick() {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
       return;
     }
-    // Glisser : on s'arrête au cran le plus proche. Hors phase idle, le
-    // cran mini n'existe pas : le minimum est 30.
-    const snaps = allowedSnaps();
-    setSheetH((h) => {
-      let best = snaps[0];
-      let bestDist = Infinity;
-      snaps.forEach((s) => {
-        const d = Math.abs(h - s);
-        if (d < bestDist) {
-          bestDist = d;
-          best = s;
-        }
-      });
-      return best;
-    });
+    cycleSheet();
   }
 
   async function commander() {
@@ -1553,9 +1628,21 @@ export function HomeScreen({
   const etaAcceptedRoad = acceptedRoadRoute?.durationMin ?? etaAccepted;
 
   return (
-    <div className="relative flex-1 min-h-0">
+    <div
+      className="relative flex-1 min-h-0"
+      // v2.53 — hauteur de la feuille pour la carte : les boutons +/−
+      // (coin bas droit) sont remontés au-dessus de la feuille sur
+      // mobile (voir `.map-with-sheet` dans globals.css) — sinon la
+      // feuille les recouvre même au cran mini et ils sont incliquables.
+      // `--sheet-fab` : au cran mini, le bouton flottant rose
+      // « Remonter la feuille » (48 px + 14 px de marge) occupe le
+      // coin bas droit juste au-dessus de la feuille — les boutons +/−
+      // sont remontés d'autant, sinon le bouton − serait caché
+      // derrière lui.
+      style={{ '--sheet-h': `${sheetH}dvh`, '--sheet-fab': isMini ? '62px' : '0px' } as React.CSSProperties}
+    >
       <LibrevilleMap
-        className="absolute inset-0 h-full w-full"
+        className="map-with-sheet absolute inset-0 h-full w-full"
         drivers={isChauffeurMode ? [] : mapDrivers}
         pickup={pickupPoint}
         destination={destinationPoint}
@@ -1648,7 +1735,7 @@ export function HomeScreen({
           passager, carte seulement (pas en ajustement d'épingle,
           pas en mode chauffeur). Sous le bouton Recentrer (la
           bascule Plan/Satellite a été retirée en v2.50 : une seule
-          carte, fond CARTO — ADR 0026). */}
+          carte, fond OpenStreetMap clair depuis la v2.53 — ADR 0026, ADR 0029). */}
       {phase === 'idle' && !isMini && !isChauffeurMode && !adjusting && (
         <button
           type="button"
@@ -1687,11 +1774,9 @@ export function HomeScreen({
           <div className="relative">
             <button
               type="button"
-              className="sheet-handle touch-none w-full pt-2.5 pb-1.5 flex justify-center"
+              className="sheet-handle touch-none w-full pt-3.5 pb-2.5 flex justify-center"
               onPointerDown={onHandlePointerDown}
-              onPointerMove={onHandlePointerMove}
-              onPointerUp={onHandlePointerUp}
-              onPointerCancel={onHandlePointerUp}
+              onClick={onHandleClick}
               aria-label="Glisser pour agrandir ou réduire la feuille"
             >
               <span className="sheet-handle-bar w-10 h-1.5 rounded-full bg-white/30" />
@@ -2514,7 +2599,7 @@ export function HomeScreen({
                 {' · '}
                 <Link href="/cookies" className="underline hover:text-sarcelle">Cookies</Link>
                 {' · '}
-                <span>© OpenStreetMap · © CARTO</span>
+                <span>© OpenStreetMap</span>
               </p>
 
               {/* Côté chauffeur : uniquement pour ceux que ça intéresse. */}

@@ -24,7 +24,7 @@ Une appli type Uber, pensée pour Libreville : le passager demande une course, l
 <!-- /DOC-SYNC -->
 - **Sécurité :** vérification chauffeur automatisée dès l'inscription (selfie + pièce d'identité, décision automatique ou ticket admin), SOS (112), partage de course en direct, code PIN à 4 chiffres donné au chauffeur pour démarrer la course.
 <!-- DOC-SYNC: readme-map -->
-- **Carte :** 75 quartiers de Libreville avec leurs noms affichés sur la carte (6 visibles au zoom 12, 11 au zoom 13, 17 au zoom 14 — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), 90 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants, épiceries OSM), icônes chauffeurs roses avec note, feuille de demande à 3 positions (façon Uber) avec bouton pour la replier et voir la carte.
+- **Carte :** 75 quartiers de Libreville avec leurs noms affichés sur la carte (6 visibles au zoom 12, 11 au zoom 13, 17 au zoom 14 — les autres noms sont déjà affichés par le fond OpenStreetMap standard (clair), jamais en double), 90 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants, épiceries OSM), icônes chauffeurs roses avec note, feuille de demande à 3 positions (façon Uber) avec bouton pour la replier et voir la carte.
 <!-- /DOC-SYNC -->
 <!-- DOC-SYNC: readme-difficult -->
 - **Quartiers à accès difficile :** 15 quartiers ne sont pas desservis sur route bitumée — la course s'arrête par défaut à un point de dépôt sur route bitumée ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **800 FCFA**, que le chauffeur est libre d'accepter ou non.
@@ -36,7 +36,7 @@ Une appli type Uber, pensée pour Libreville : le passager demande une course, l
 - **Front / back :** Next.js (App Router, React 19) — TypeScript
 - **Base de données + Auth :** Supabase (Postgres + RLS) — projet « stacks-drive », région Francfort
 - **Hébergement :** Vercel (projet « stacks-drive »)
-- **Carte :** Leaflet vanilla + tuiles CARTO dark_all (une seule carte, fond sombre natif, clé API gratuite `NEXT_PUBLIC_CARTO_API_KEY`) — jamais react-leaflet (conflit peer dep React 19)
+- **Carte :** Leaflet vanilla + tuiles OpenStreetMap standard (une seule carte, fond clair, sans clé — v2.53, ADR 0029) — jamais react-leaflet (conflit peer dep React 19)
 - **E-mails admin :** Resend (`RESEND_API_KEY` configurée dans Vercel, Production)
 
 ## Documentation technique
@@ -44,7 +44,7 @@ Une appli type Uber, pensée pour Libreville : le passager demande une course, l
 Pour un informaticien qui lit le dépôt — stack justifiée choix par
 choix, modèle de données, modèle de sécurité, modèle de menaces avec
 pointeurs vers le code : **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**.
-Décisions une par une : [`docs/adr/`](docs/adr/) (Leaflet + CARTO,
+Décisions une par une : [`docs/adr/`](docs/adr/) (Leaflet + OSM,
 OSRM, commission par course, RLS + trigger, estimation indicative,
 paiement hors appli, Realtime + sondage, vérification automatisée,
 périmètre 5 km, prix sur distance routière). Signaler une faille :
@@ -56,7 +56,7 @@ et maintenance : [`SETUP.md`](SETUP.md).
 
 ```mermaid
 flowchart TB
-    UI["Navigateur — Next.js App Router<br/>pages + carte Leaflet (tuiles CARTO dark_all)"]
+    UI["Navigateur — Next.js App Router<br/>pages + carte Leaflet (tuiles OpenStreetMap standard)"]
     API["Vercel — routes API /api/*<br/>validation Zod, bornes fare-guard"]
     PG[("Supabase Postgres<br/>29 tables, RLS, triggers")]
     RT["Supabase Realtime<br/>+ sondage en repli"]

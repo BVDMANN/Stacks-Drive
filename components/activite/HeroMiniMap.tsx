@@ -5,14 +5,11 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchRoadRouteViaApi, type RoadRoute, type RoutePoint } from '@/lib/routing';
 
-/** Fond Plan CARTO dark_all — la même tuile que la carte Drive
- *  (v2.46), clé publique éventuelle comme dans LibrevilleMap.
- *  Sans clé, CARTO sert une tuile filigranée (comportement
- *  existant de la carte principale, jamais une fausse carte). */
-const CARTO_API_KEY = process.env.NEXT_PUBLIC_CARTO_API_KEY ?? '';
-const CARTO_DARK_ALL_URL = `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png${CARTO_API_KEY ? `?key=${CARTO_API_KEY}` : ''}`;
-const CARTO_ATTRIBUTION =
-  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>';
+/** Fond Plan OpenStreetMap standard — la même tuile que la carte
+ *  Drive (v2.53, ADR 0029 : retour au fond clair, sans clé). */
+const OSM_TILES_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_ATTRIBUTION =
+  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 /** Marqueur étiqueté : pastille de couleur + libellé « Départ /
  *  Arrivée · quartier » au-dessus — départ et arrivée ne sont
@@ -30,7 +27,7 @@ function labeledIcon(label: string, sub: string, color: string): L.DivIcon {
   });
 }
 
-/** Mini-carte réelle Drive (v2.51) : fond CARTO dark_all, itinéraire
+/** Mini-carte réelle Drive (v2.51, fond OSM clair depuis la v2.53) : fond OpenStreetMap standard, itinéraire
  *  routier OSRM via /api/route quand il est disponible, sinon ligne
  *  droite entre départ et destination — jamais de fausse carte.
  *  Non interactive : ni glisser, ni zoom, ni molette, ni clavier.
@@ -84,8 +81,8 @@ export function HeroMiniMap({
       touchZoom: false,
       zoomSnap: 0.5,
     });
-    L.tileLayer(CARTO_DARK_ALL_URL, {
-      attribution: CARTO_ATTRIBUTION,
+    L.tileLayer(OSM_TILES_URL, {
+      attribution: OSM_ATTRIBUTION,
       maxZoom: 19,
     }).addTo(map);
     map.fitBounds(

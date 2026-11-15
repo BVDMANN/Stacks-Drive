@@ -22,23 +22,26 @@
  *  des autres) : à 14 leurs pictogrammes se toucheraient, à 15 leurs
  *  libellés se chevaucheraient (voir `POI_DENSE_CATEGORIES`).
  *
- *  RÈGLE v2.42 APPLIQUÉE AUX LIEUX (v2.43, recalibrée en v2.46 pour
- *  CARTO dark_all) : quand le fond imprime déjà le nom d'un lieu
- *  sur ses tuiles, le libellé Drive ne doit pas se poser par-dessus
- *  — `cartoLabelMinZoom` = premier zoom où CARTO affiche le nom.
- *  Le libellé Drive est masqué à partir de ce zoom (le nom reste
- *  visible une fois, via la tuile). Sans ce champ, le libellé Drive
- *  s'affiche à tous les zooms de son tier.
- *  RÈGLE CARTO (style dark matter, `labels.mss`, section « poi
- *  labels ») : seuls les parcs, stades (rang ≤ 3), cimetières
- *  (rang ≤ 3) et attractions (rang ≤ 3) sont labellisés — à partir
- *  de z15 (rang ≤ 1), z16 (rang ≤ 2), z17 (rang ≤ 3), z18. Les
- *  hôtels, écoles, ronds-points et autres lieux ne sont JAMAIS
- *  labellisés par CARTO : leur `osmLabelMinZoom` v2.43 (mesuré sur
- *  tuiles OSM) est retiré en v2.46 — le libellé Drive est le seul
- *  nom. Seul le Palais des Sports (stade, plus grande salle de la
- *  ville, rang ≤ 2 plausible) garde un champ (16) — approximation,
- *  à confirmer en live après push (voir ADR 0021). */
+ *  RÈGLE v2.42 APPLIQUÉE AUX LIEUX (v2.43, retour aux règles OSM
+ *  en v2.53 — voir ADR 0029) : quand le fond imprime déjà le nom
+ *  d'un lieu sur ses tuiles, le libellé Drive ne doit pas se poser
+ *  par-dessus — `osmLabelMinZoom` = premier zoom où OSM affiche le
+ *  nom. Le libellé Drive est masqué à partir de ce zoom (le nom
+ *  reste visible une fois, via la tuile). Sans ce champ, le libellé
+ *  Drive s'affiche à tous les zooms de son tier.
+ *  RÈGLE OSM (style standard, vérifié tuile par tuile en v2.43 :
+ *  32 tuiles OSM, z15, z16, z17, lues visuellement) : seuls 5 des
+ *  16 lieux ajoutés en v2.43 sont labellisés par OSM — Lycée
+ *  National Léon Mba dès z15, Palais des Sports dès z16, Park Inn
+ *  by Radisson, Rond-Point de la Démocratie et Institut Français du
+ *  Gabon dès z17. Les hôtels, écoles, restaurants, bars et autres
+ *  lieux ne sont pas labellisés par OSM aux zooms vérifiés : leur
+ *  libellé Drive est le seul nom. PARENTHÈSE v2.46 (historique) :
+ *  le fond était passé à un fond sombre et le champ avait été
+ *  renommé pour ce fond, retiré de 4 des 5 lieux (seul le
+ *  Palais des Sports, stade, l'avait gardé) — en v2.53, le fond
+ *  redevient OSM standard : les 5 valeurs v2.43 sont restaurées
+ *  (voir ADR 0018 pour le détail des vérifications). */
 
 import type { Neighborhood } from './neighborhoods';
 import { nearestNeighborhood } from './geo';
@@ -121,13 +124,13 @@ export interface Poi {
    *  dans la fiche et la recherche pour lever l'ambiguïté entre
    *  deux lieux au même nom. */
   detail?: string;
-  /** Premier zoom où CARTO dark_all imprime déjà ce nom sur la tuile
-   *  — approximation dérivée du style CARTO (v2.46, voir l'en-tête
-   *  du fichier). Le libellé Drive est masqué à partir de ce zoom
-   *  (le nom reste visible une fois, via la tuile). Absent = CARTO
-   *  ne labellise jamais ce lieu : le libellé Drive s'affiche à
-   *  tous les zooms de son tier. */
-  cartoLabelMinZoom?: number;
+  /** Premier zoom où OSM standard imprime déjà ce nom sur la tuile
+   *  — mesuré sur tuiles OSM (v2.43, voir l'en-tête du fichier).
+   *  Le libellé Drive est masqué à partir de ce zoom (le nom reste
+   *  visible une fois, via la tuile). Absent = OSM ne labellise
+   *  jamais ce lieu : le libellé Drive s'affiche à tous les zooms
+   *  de son tier. */
+  osmLabelMinZoom?: number;
 }
 
 /** Catégories denses (v2.43) : pictogramme un zoom plus tard (15 au
@@ -189,12 +192,10 @@ export const POIS: Poi[] = [
   { name: 'Le Méridien Re-Ndama', category: 'hotel', neighborhood: 'Centre-ville', lat: 0.393, lng: 9.45 },
   { name: 'Hôtel Tropicana', category: 'hotel', neighborhood: 'Centre-ville', lat: 0.388, lng: 9.453 },
   // v2.43 — 7 boulevard de Nice, vérifié (recherche de lieux :
-  // place_id 770676590930235). OSM imprimait « Park Inn » dès le
-  // zoom 17 (tuile z17 vérifiée en v2.43) — mais CARTO ne labellise
-  // pas les hôtels (style dark matter : seuls parcs, stades,
-  // cimetières et attractions sont labellisés) : pas de
-  // `cartoLabelMinZoom` en v2.46 — le libellé Drive est le seul nom.
-  { name: 'Park Inn by Radisson', category: 'hotel', neighborhood: 'Trois Quartiers', lat: 0.430673, lng: 9.419899 },
+  // place_id 770676590930235). OSM imprime « Park Inn » dès le
+  // zoom 17 (tuile z17 vérifiée en v2.43) : le libellé Drive est
+  // masqué à partir de z17 (voir ADR 0018).
+  { name: 'Park Inn by Radisson', category: 'hotel', neighborhood: 'Trois Quartiers', lat: 0.430673, lng: 9.419899, osmLabelMinZoom: 17 },
 
   // --- Santé ---
   { name: 'CHU de Libreville', category: 'sante', neighborhood: 'Nzeng-Ayong', lat: 0.44, lng: 9.47 },
@@ -220,8 +221,8 @@ export const POIS: Poi[] = [
   // Grands restaurants de Libreville, noms exacts + coordonnées
   // vérifiés par recherche de lieux (place_id) ou OpenStreetMap /
   // Nominatim (voir ADR 0018). OSM n'imprime le nom d'aucun d'eux
-  // (tuiles z16 et z17 vérifiées en v2.43) — et CARTO ne labellise
-  // pas les restaurants : pas de `cartoLabelMinZoom`. Catégorie
+  // (tuiles z16 et z17 vérifiées en v2.43) — et OSM ne labellise
+  // pas les restaurants : pas de `osmLabelMinZoom`. Catégorie
   // dense : pictogramme dès z15, libellé dès z16.
   { name: 'Roma Restaurant & Hotel', category: 'restaurant', neighborhood: 'Louis', lat: 0.410493, lng: 9.430753 },
   { name: 'Bantu Restaurant', category: 'restaurant', neighborhood: 'Oloumi', lat: 0.372511, lng: 9.458357 },
@@ -244,16 +245,15 @@ export const POIS: Poi[] = [
   // Repères de Libreville, vérifiés (recherche de lieux, Wikipédia,
   // Nominatim — voir ADR 0018). En v2.43, OSM imprimait déjà leur nom
   // (vérifié tuile par tuile : z15, z16, z17) et le libellé Drive
-  // était masqué à partir du zoom indiqué. En v2.46, CARTO
-  // ne labellise que les stades (parmi ces quatre lieux) : seul le
-  // Palais des Sports garde un champ (16, approximation — rang ≤ 2
-  // plausible pour la plus grande salle de la ville, à confirmer en
-  // live) ; les trois autres n'ont plus de champ — le libellé Drive
-  // est le seul nom.
-  { name: 'Palais des Sports', category: 'stade', neighborhood: 'Petit Paris', lat: 0.3948925, lng: 9.4530049, cartoLabelMinZoom: 16 },
-  { name: 'Rond-Point de la Démocratie', category: 'lieu', neighborhood: 'Sotega', lat: 0.4249165, lng: 9.4553274 },
-  { name: 'Institut Français du Gabon', category: 'lieu', neighborhood: 'Sainte-Marie', lat: 0.4074526, lng: 9.4387226 },
-  { name: 'Lycée National Léon Mba', category: 'lieu', neighborhood: 'Trois Quartiers', lat: 0.4279831, lng: 9.422459 },
+  // était masqué à partir du zoom indiqué : Lycée National Léon Mba
+  // dès z15, Palais des Sports dès z16, Rond-Point de la Démocratie
+  // et Institut Français du Gabon dès z17. En v2.46, le champ avait
+  // été retiré de 3 d'entre eux (fond sombre) — en v2.53, les 4
+  // valeurs v2.43 sont restaurées (fond OSM standard).
+  { name: 'Palais des Sports', category: 'stade', neighborhood: 'Petit Paris', lat: 0.3948925, lng: 9.4530049, osmLabelMinZoom: 16 },
+  { name: 'Rond-Point de la Démocratie', category: 'lieu', neighborhood: 'Sotega', lat: 0.4249165, lng: 9.4553274, osmLabelMinZoom: 17 },
+  { name: 'Institut Français du Gabon', category: 'lieu', neighborhood: 'Sainte-Marie', lat: 0.4074526, lng: 9.4387226, osmLabelMinZoom: 17 },
+  { name: 'Lycée National Léon Mba', category: 'lieu', neighborhood: 'Trois Quartiers', lat: 0.4279831, lng: 9.422459, osmLabelMinZoom: 15 },
 
   // --- Épiceries (v2.51) ---
   // Commerces OSM (`shop=supermarket / convenience / grocery`),

@@ -221,22 +221,29 @@ export const NEIGHBORHOOD_COORDS: Record<Neighborhood, { lat: number; lng: numbe
  *  libellés sont visibles dès l'arrivée — les tiers ne changent pas,
  *  c'est le zoom d'ouverture qui a changé (avant : zoom 12).
  *  'Autre' n'a pas de libellé (ce n'est pas un lieu).
- *  v2.42 : ces chiffres sont ceux du fond CARTO dark_all (une seule
- *  carte depuis la v2.50 — la bascule Plan/Satellite est retirée) :
- *  aux zooms 12 à 16, le fond CARTO affiche déjà la plupart des
- *  noms, donc le libellé Drive des quartiers listés dans
- *  NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM est masqué sur la plage où
- *  CARTO le montre (6 libellés Drive au zoom 12, 11 au zoom 13, 17
- *  au zoom 14, 14 aux zooms 15-16 — chaque nom n'apparaît qu'une
- *  seule fois à l'écran).
- *  v2.46 : PK5 n'est plus masqué (`place=quarter`, CARTO ne
+ *  v2.42 : ces chiffres sont ceux du fond OpenStreetMap standard
+ *  (une seule carte depuis la v2.50 — la bascule Plan/Satellite est
+ *  retirée) : aux zooms 12 à 16, le fond OSM affiche déjà la plupart
+ *  des noms, donc le libellé Drive des quartiers listés dans
+ *  NEIGHBORHOOD_OSM_LABEL_MIN_ZOOM est masqué sur la plage où OSM
+ *  le montre (6 libellés Drive au zoom 12, 11 au zoom 13, 17 au
+ *  zoom 14, 14 aux zooms 15-16 — chaque nom n'apparaît qu'une seule
+ *  fois à l'écran).
+ *  v2.46 : PK5 n'est plus masqué (`place=quarter`, le fond ne
  *  labellise pas les `quarter`) — d'où 17 libellés Drive au zoom
  *  14 en Plan au lieu de 16 ; Akanda réapparaît dès le zoom 15
  *  (borne haute 14, règle `city`).
+ *  v2.53 : RETOUR au fond OSM standard (décision du propriétaire,
+ *  15/11 : les noms de quartiers étaient illisibles sur le fond
+ *  sombre (v2.46) — les tables reprennent leur nom OSM et
+ *  les valeurs v2.42, mesurées sur les vraies tuiles OSM (voir
+ *  `NEIGHBORHOOD_OSM_LABEL_MIN_ZOOM`) ; PK5 reste hors table
+ *  (jamais vu sur une tuile OSM en v2.42, `place=quarter` confirmé
+ *  Photon le 15/11) et Akanda garde sa borne haute 14.
  *  v2.51 : 5 quartiers ajoutés (tier 3, `place=suburb` vérifiés
  *  Photon) — masqués z12–16 comme les autres suburbs : leur libellé
  *  Drive n'apparaît qu'à partir du zoom 17 (le nom reste visible
- *  avant, via la tuile CARTO) ; les chiffres z12/13/14 ne bougent
+ *  avant, via la tuile OSM) ; les chiffres z12/13/14 ne bougent
  *  pas (6 / 11 / 17), le total passe à 74 dès le zoom 17. */
 export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
   'Centre-ville': 1,
@@ -323,9 +330,10 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
 };
 
 /** Zoom minimum à partir duquel le fond Plan affiche DÉJÀ le nom de
- *  ce quartier (v2.42, recalibré en v2.46 pour CARTO dark_all) — le
- *  libellé Drive est alors masqué en Plan tant que z <= borne haute
- *  (16 par défaut, voir `NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM`), sinon
+ *  ce quartier (v2.42 — observations de tuiles OSM, retour aux règles
+ *  OSM en v2.53, voir ADR 0029) — le libellé Drive est alors masqué
+ *  en Plan tant que z <= borne haute
+ *  (16 par défaut, voir `NEIGHBORHOOD_OSM_LABEL_MAX_ZOOM`), sinon
  *  le nom apparaît deux fois à l'écran (une fois sur la tuile, une
  *  fois par-dessus, à une position légèrement différente : le rendu
  *  place le nom au centre de la zone, les coordonnées Drive sont des
@@ -356,19 +364,21 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
  *  fond ne les montre pas non plus (listes et recherche inchangées :
  *  les quartiers restent sélectionnables comme départ et
  *  destination).
- *  RECALIBRAGE v2.46 (15/11/2026) — APPROXIMATION DÉRIVÉE DU STYLE,
- *  À CONFIRMER EN LIVE APRÈS PUSH : le fond Plan n'est plus OSM
- *  standard mais CARTO dark_all. Les plages ci-dessus ne sont donc
- *  plus des observations de tuiles mais une lecture de la définition
- *  publique du style CARTO dark matter (dépôt CartoDB/basemap-styles,
- *  `cartocss/web-styles/dark-matter.tm2/labels.mss`, style partagé
- *  `shared/mss/labels.mss`, variables `style.mss`) : city z8–14,
- *  town z9–16, village z12–16, suburb z12–16, neighbourhood z13–17
- *  (hamlet z14–17) — AUCUNE règle pour `place=quarter`. Les zooms
- *  minimums v2.42 sont CONSERVÉS : CARTO utilise les mêmes données
- *  OSM (mêmes noms, mêmes objets `place`) et ses premiers zooms par
- *  classe (suburb z12, neighbourhood z13) sont cohérents avec les
- *  z12–15 observés (l'écart vient des collisions entre libellés).
+ *  PARENTHÈSE v2.46 (15/11/2026) — HISTORIQUE : le fond Plan était
+ *  passé à un fond sombre (v2.46), et les plages ci-dessus avaient
+ *  été relues d'après la définition publique de son style
+ *  (city z8–14, town z9–16, village z12–16, suburb z12–16,
+ *  neighbourhood z13–17, aucune règle pour `place=quarter`) —
+ *  approximation dérivée du style, jamais vérifiée sur tuile. Les
+ *  zooms minimums v2.42 avaient été CONSERVÉS (mêmes données OSM
+ *  sous ce fond) : en v2.53, le fond redevient OSM standard, donc les
+ *  valeurs de cette table redeviennent ce qu'elles ont toujours
+ *  été — des observations de tuiles OSM (v2.42), pas une lecture de
+ *  style. Aucune valeur ne change dans ce lot : seul le fondement
+ *  redevient l'observation. La réserve v2.46 sur les vérifications
+ *  curl depuis cette VM (proxy qui renvoie un contenu fixe par
+ *  hôte) vaut toujours : les bornes seront re-vérifiées en live
+ *  après push, sur le téléphone du propriétaire (voir ADR 0029).
  *  Classe OSM de chaque quartier recoupée le 15/11 via Photon
  *  (recherche « <nom>, Libreville », objet `place` retourné) : 40
  *  `suburb`, 1 `city` (Akanda), 1 `quarter` (PK5), 15 non retrouvés
@@ -380,14 +390,12 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
  *  qu'ils le soient aussi est forte, et un double serait pire
  *  qu'un nom masqué un zoom de trop). Les 15 restent à reclasser
  *  au premier recoupement Overpass possible.
- *  PK5 RETIRÉ de la table en v2.46 : `place=quarter`, et ni le
- *  style raster CARTO ni le style vectoriel CARTO actuel
- *  (`dark-matter-gl-style`, couches `place_*`) ne contiennent de
- *  règle pour `quarter` — CARTO n'imprime très probablement pas
- *  ce nom, le libellé Drive est donc le seul à l'écran et ne doit
- *  pas être masqué. Si la vérification live montre un double
- *  « PK5 » (la chaîne CARTO mapperait alors `quarter` vers
- *  `suburb`), le remettre ici avec 14 — voir ADR 0021.
+ *  PK5 HORS TABLE depuis la v2.46 (conservé en v2.53) :
+ *  `place=quarter` (Photon, 15/11) et jamais vu sur une tuile OSM
+ *  en v2.42 (il fait partie des 13 quartiers jamais masqués) — le
+ *  libellé Drive est donc le seul nom à l'écran et ne doit pas être
+ *  masqué. Si la vérification live montre un double « PK5 », le
+ *  remettre ici avec 14 — voir ADR 0029.
  *  VARIANTES DE NOMS (même lieu, libellé OSM différent) : Aéroport
  *  Léon-Mba → « Aéroport » ; Alenakiri → « Alénakirie » ; Akébé →
  *  « Akébé-Ville » / « Akébé Plaine » ; Kinguele → « Akébé-Kinguélé » ;
@@ -409,7 +417,7 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
  *  Barracuda, Cap Caravane, Bizango. Si le fond ajoute un jour un
  *  de ces noms, il suffit d'ajouter une ligne ici — aucune autre
  *  modification. */
-export const NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM: Partial<Record<Neighborhood, number>> = {
+export const NEIGHBORHOOD_OSM_LABEL_MIN_ZOOM: Partial<Record<Neighborhood, number>> = {
   // Visibles sur les tuiles dès z12 (grands noms + villages de la N1).
   Akanda: 12,
   Avorbam: 12,
@@ -436,8 +444,8 @@ export const NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM: Partial<Record<Neighborhood, num
   Essassa: 12,
   Nkok: 12,
   Nkoltang: 12,
-  // Ajoutés v2.51 (`place=suburb` vérifiés Photon) : CARTO labellise
-  // les suburbs dès z12 (règle du style, comme les autres suburbs).
+  // Ajoutés v2.51 (`place=suburb` vérifiés Photon) : OSM labellise
+  // les suburbs dès z12 (comme les autres suburbs, v2.42).
   'Cité de la Caisse': 12,
   'Lalala-Droite': 12,
   'Plaine Niger': 12,
@@ -469,8 +477,9 @@ export const NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM: Partial<Record<Neighborhood, num
   Charbonnages: 14,
   'Trois Quartiers': 14,
   'Camp de Gaulle': 14,
-  // PK5 RETIRÉ en v2.46 : `place=quarter` (Photon, 15/11), aucune
-  // règle CARTO pour `quarter` — le libellé Drive est le seul nom.
+  // PK5 HORS TABLE depuis la v2.46 (conservé en v2.53) :
+  // `place=quarter` (Photon, 15/11), jamais vu sur une tuile OSM —
+  // le libellé Drive est le seul nom.
   Igoumié: 14,
   Akournam: 14,
   Ozangué: 14,
@@ -482,22 +491,22 @@ export const NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM: Partial<Record<Neighborhood, num
   'Petit Paris': 15,
 };
 
-/** Borne haute du masquage par quartier (v2.46) — dernier zoom où le
- *  fond Plan CARTO dark_all imprime encore le nom. Défaut : 16
- *  (règles du style : suburb / village / town s'arrêtent à z16).
+/** Borne haute du masquage par quartier (v2.42, conservée en v2.53)
+ *  — dernier zoom où le fond Plan OpenStreetMap imprime encore le
+ *  nom. Défaut : 16 (tuiles OSM vérifiées en v2.42 : les noms de
+ *  quartiers s'affichent de z12 à z16 et disparaissent à z17-18).
  *  Seule exception connue : Akanda (14) — `place=city` (Photon,
- *  15/11), et la règle `city` du style s'arrête à z14 (le nom
- *  disparaît à z15). La règle `city` est en plus conditionnée par
- *  le rang (z8–14, rang ≤ 11/12/15 selon le zoom — rang d'Akanda
- *  inconnu : si la vérification live montre « Akanda » absent à
- *  z12–14, retirer Akanda de la table des minimums). Un quartier
- *  `place=neighbourhood` aurait une borne à 17 (règle
- *  neighbourhood z13–17) — aucun dans la table au 15/11 (Photon :
- *  0 `neighbourhood` parmi les 57) ; si un jour un quartier est
- *  reclassé `neighbourhood`, ajouter ici `Nom: 17`.
- *  Approximation dérivée du style, comme la table des minimums —
- *  à confirmer en live après push (voir ADR 0021). */
-export const NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM: Partial<Record<Neighborhood, number>> = {
+ *  15/11 ; en v2.46, la règle `city` du style sombre de l'époque
+ *  s'arrêtait à z14 — pour OSM standard, la borne 14 est l'hypothèse
+ *  reprise de la v2.46, à confirmer en live : si la vérification montre
+ *  « Akanda » encore présent à z15-16, retirer la borne ; s'il est
+ *  absent à z12–14, retirer Akanda de la table des minimums).
+ *  Un quartier `place=neighbourhood` aurait une borne à 17 — aucun
+ *  dans la table au 15/11 (Photon : 0 `neighbourhood` parmi les
+ *  57) ; si un jour un quartier est reclassé `neighbourhood`,
+ *  ajouter ici `Nom: 17`.
+ *  Bornes à confirmer en live après push (voir ADR 0029). */
+export const NEIGHBORHOOD_OSM_LABEL_MAX_ZOOM: Partial<Record<Neighborhood, number>> = {
   Akanda: 14,
 };
 

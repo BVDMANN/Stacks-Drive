@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { LIBREVILLE_CENTER, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_LABEL_OFFSET, NEIGHBORHOOD_LABEL_TIER, NEIGHBORHOOD_NO_LABEL, NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM, NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM, type Neighborhood } from '@/lib/neighborhoods';
+import { LIBREVILLE_CENTER, NEIGHBORHOOD_COORDS, NEIGHBORHOOD_LABEL_OFFSET, NEIGHBORHOOD_LABEL_TIER, NEIGHBORHOOD_NO_LABEL, NEIGHBORHOOD_OSM_LABEL_MIN_ZOOM, NEIGHBORHOOD_OSM_LABEL_MAX_ZOOM, type Neighborhood } from '@/lib/neighborhoods';
 import { DRIVERS_AROUND_RADIUS_KM, MAP_INITIAL_ZOOM, MAP_MIN_ZOOM, SERVICE_BOUNDS } from '@/lib/geo';
 import { POIS, POI_CATEGORY_LABELS, poiIconMinZoom, poiLabelMinZoom, type Poi, type PoiCategory } from '@/lib/pois';
 import { DEMO_ROUTES, type DemoRoutePoint } from '@/lib/demo-routes';
@@ -200,74 +200,73 @@ interface DriverMarkerEntry {
   lastIconKey: string;
 }
 
-/** Zooms de la carte — une seule carte, fond CARTO dark_all
+/** Zooms de la carte — une seule carte, fond OpenStreetMap clair
  *  (v2.50, ADR 0026 : la bascule Plan/Satellite est RETIRÉE —
- *  Yango n'a pas de choix de fond de carte, Drive non plus).
+ *  Yango n'a pas de choix de fond de carte, Drive non plus ;
+ *  v2.53, ADR 0029 : retour au fond clair — le fond sombre de la
+ *  v2.46 rendait les noms de quartiers illisibles sur téléphone).
  *
  *  Historique des plafonds : v2.18 (satellite Esri : tuiles réelles
  *  jusqu'au zoom 18, au-delà une tuile grise « pas de données »),
  *  v2.39 (plafond 20 → 18 : l'agrandissement ×2/×4 rendait les
  *  contours flous), v2.41 (fond Plan OpenStreetMap, z19 réelle
- *  partout dans la zone), v2.46 (fond Plan CARTO dark_all, plafond
- *  19 conservé — CARTO sert les zooms 0 à 20 ; le plafond 19 est
- *  celui de la carte, pas une limite des tuiles).
+ *  partout dans la zone), v2.46 (fond Plan sombre, plafond 19
+ *  conservé — le plafond 19 est celui de la carte, pas une limite
+ *  des tuiles).
  *
  *  Plafond unique : 19 (natif 19). Le bouton + s'y grise ;
  *  l'utilisateur ne peut plus zoomer dans le flou.
  *
- *  ⚠️ RÉSERVE v2.46 (15/11/2026) sur les vérifications curl : le
- *  proxy de sortie de la VM intercepte désormais les tuiles et
- *  renvoie un contenu FIXE par hôte (OSM = toujours les mêmes
- *  6 725 o / md5 8e8d1ff4, que ce soit Libreville ou Paris centre ;
- *  CARTO = contenu fixe aussi, identique pour Paris et Libreville)
- *  — un HTTP 200 ne prouve donc plus que l'hôte répond, JAMAIS le
- *  contenu d'une tuile. Les « 9 md5 distincts » de la v2.41 ont été
- *  mesurés AVANT ce constat, quand curl rapportait encore des
- *  contenus variés par tuile (tailles et nombres de couleurs
- *  différents selon la zone — un placeholder fixe n'aurait pas pu
- *  produire ces variations) : la vérification reste plausible, mais
- *  elle ne peut plus être REFAITE ni confirmée depuis cette VM. La
- *  preuve visuelle réelle du fond Plan actuel (CARTO dark_all)
- *  viendra de la vérification navigateur live après push et du
- *  téléphone du propriétaire — voir ADR 0021. Ne jamais présenter
- *  un résultat curl de cette VM comme une preuve de contenu de
- *  tuile. */
+ *  ⚠️ RÉSERVE (15/11/2026) sur les vérifications curl : le proxy
+ *  de sortie de la VM intercepte désormais les tuiles et renvoie un
+ *  contenu FIXE par hôte (OSM = toujours les mêmes 6 725 o /
+ *  md5 8e8d1ff4, que ce soit Libreville ou Paris centre) — un HTTP
+ *  200 ne prouve donc plus que l'hôte répond, JAMAIS le contenu
+ *  d'une tuile. Les « 9 md5 distincts » de la v2.41 ont été mesurés
+ *  AVANT ce constat, quand curl rapportait encore des contenus
+ *  variés par tuile (tailles et nombres de couleurs différents
+ *  selon la zone — un placeholder fixe n'aurait pas pu produire ces
+ *  variations) : la vérification reste plausible, mais elle ne peut
+ *  plus être REFAITE ni confirmée depuis cette VM. La preuve
+ *  visuelle réelle du fond Plan actuel viendra de la vérification
+ *  navigateur live après push et du téléphone du propriétaire —
+ *  voir ADR 0029. Ne jamais présenter un résultat curl de cette VM
+ *  comme une preuve de contenu de tuile. */
 const PLAN_MAX_ZOOM = 19;
 const PLAN_MAX_NATIVE_ZOOM = 19;
 
-/** Fond Plan CARTO dark_all (v2.46) — tuiles raster CARTO, style
- *  « dark matter » (fond quasi noir #090909, routes et libellés en
- *  gris — voir ADR 0021 pour la lecture complète du style).
- *  URL (format documenté actuel, docs CARTO sept. 2026) :
- *  `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png`
- *  (pas de sous-domaines `{s}`, pas de suffixe retina `{r}` — le
- *  format documenté n'en prévoit pas ; ordre {z}/{x}/{y}, comme OSM.
- *  L'ancien format `{s}.basemaps.cartocdn.com/dark_all/…`
- *  a été remplacé par celui-ci avant le push : c'est le seul dont la
- *  documentation en vigueur garantit le fonctionnement avec clé.)
- *  CLÉ API OBLIGATOIRE (changement CARTO, confirmé par la
- *  documentation officielle — dépôt CartoDB/basemap-styles, README :
- *  « Raster basemaps require an API key. Requests without a key are
- *  served with an "API key required" watermark. ») : sans clé, CARTO
- *  sert une tuile filigranée « API KEY REQUIRED » à la place de la
- *  carte. La clé est gratuite (5 M de requêtes/mois hors commercial,
- *  1 M en commercial) et se crée sur https://carto.com/basemaps/apikey/
- *  — c'est une clé de fond de carte, conçue pour être embarquée dans
- *  le code client (l'exemple Leaflet officiel la met dans l'URL).
- *  Elle se configure par `NEXT_PUBLIC_CARTO_API_KEY` (`.env.local`
- *  en dev, variables Vercel en production — à créer par le
- *  propriétaire, qui crée ses comptes lui-même). Sans clé configurée,
- *  l'URL part sans `?key=` et la carte affiche le filigrane CARTO :
- *  l'appli ne casse pas, mais le fond Plan est inutilisable tant que
- *  la clé n'est pas posée — c'est l'étape restante après le push,
- *  avec la vérification live (voir ADR 0021). */
-const CARTO_API_KEY = process.env.NEXT_PUBLIC_CARTO_API_KEY ?? '';
-const CARTO_DARK_ALL_URL = `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png${CARTO_API_KEY ? `?key=${CARTO_API_KEY}` : ''}`;
-/** Mention d'attribution exacte exigée par la licence CARTO
- *  (exemple officiel Leaflet, dépôt CartoDB/basemap-styles) :
- *  « © OpenStreetMap contributors © CARTO ». */
-const CARTO_ATTRIBUTION =
-  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>';
+/** Fond Plan OpenStreetMap standard (v2.53, ADR 0029) — tuiles
+ *  raster OSM, fond clair (terre claire, routes blanches, eau
+ *  bleue, noms de quartiers et de rues en sombre — lisibles en
+ *  plein jour, comme sur la v2.41). AUCUNE clé : les tuiles OSM
+ *  standard se servent sans clé (`https://tile.openstreetmap.org/
+ *  {z}/{x}/{y}.png`, ordre {z}/{x}/{y}). Aucun filtre CSS sombre
+ *  sur les tuiles — le thème sombre avait été retiré le 14/11
+ *  ~21h58 sur décision du propriétaire (« Retire le thème sombre
+ *  là-dessus »), puis remis en sombre natif en v2.46 (15/11 ~07h44,
+ *  « La carte à mes palettes de couleur demandées ») : c'est ce
+ *  fond sombre que le propriétaire signale illisible le 15/11
+ *  (noms de quartiers sombres sur fond noir), d'où ce retour au
+ *  clair. La palette « Nuit violette » de l'APPLI ne change pas
+ *  (fond #191432, accent #A134F5, rose #FF4D8D) : seuls les fonds
+ *  de carte changent — la palette est portée par les surcouches
+ *  (libellés Drive, POI, itinéraire, marqueurs) et par le fond du
+ *  conteneur `.leaflet-container` (terre claire, voir
+ *  `styles/globals.css`) — jamais par les tuiles.
+ *  Politique d'usage OSM : attribution obligatoire (texte exact
+ *  ci-dessous), tuiles directes OK pour le lancement mais trafic
+ *  de production lourd déconseillé — prévoir un fournisseur de
+ *  tuiles ou l'auto-hébergement au lancement (même logique que le
+ *  serveur OSRM démo de la v2.27, voir ADR 0002).
+ *  L'ancienne clé de fond de carte (variable Vercel posée en
+ *  v2.46) n'est plus lue par le code : elle peut rester définie
+ *  côté Vercel, elle est ignorée. */
+const OSM_TILES_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+/** Mention d'attribution exigée par la licence OSM : « ©
+ *  OpenStreetMap contributors », seule — plus de second
+ *  contributeur depuis le retrait du fond sombre (v2.53). */
+const OSM_ATTRIBUTION =
+  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 export function LibrevilleMap({
   drivers,
   pickup,
@@ -386,7 +385,7 @@ export function LibrevilleMap({
       // La vue ville (zoom 12) reste accessible en dézoomant —
       // `minZoom` l'autorise, et rien en dessous. À ce zoom, 6
       // libellés Drive restent visibles (v2.42 : les autres noms
-      // sont déjà sur les tuiles CARTO).
+      // sont déjà sur les tuiles OSM).
       center: [LIBREVILLE_CENTER.lat, LIBREVILLE_CENTER.lng],
       zoom: MAP_INITIAL_ZOOM,
       minZoom: MAP_MIN_ZOOM,
@@ -400,50 +399,50 @@ export function LibrevilleMap({
         [SERVICE_BOUNDS.north, SERVICE_BOUNDS.east]
       ),
       maxBoundsViscosity: 1.0,
-      // Zoom max 19 (v2.41, conservé en v2.46, v2.50) : 19 est le
-      // plafond du fond CARTO dark_all (tuiles servies jusqu'au
-      // zoom 20). Le bouton + s'y grise.
+      // Zoom max 19 (v2.41, conservé en v2.46, v2.50, v2.53) : 19 est
+      // le plafond de la carte (tuiles OSM servies jusqu'au zoom
+      // 19). Le bouton + s'y grise.
       maxZoom: PLAN_MAX_ZOOM,
       zoomControl: false,
       attributionControl: false,
       scrollWheelZoom: true,
     });
-    // Fond de carte « vivant » (v2.7, fond Plan remplacé en v2.41
-    // puis en v2.46) : CARTO dark_all — rues, eau, parcs et noms de
-    // rues réels à Libreville, en sombre natif. Le fond
-    // « World Dark Gray » précédent était quasi vide : 3 grands axes,
-    // aucun libellé, pas d'eau ni de parcs visibles. Le filtre sombre
-    // CSS (`.map-tiles-dark` : inversion + rotation de teinte) a été
-    // RETIRÉ le 14/11 ~21h58, décision du propriétaire (« Retire le
-    // thème sombre là-dessus ») : la carte Plan était alors CLAIRE,
-    // comme celle de Skatta. Le 15/11 ~07h44, le propriétaire demande
-    // la carte aux couleurs de sa palette (« La carte à mes palettes
-    // de couleur demandées ») : le fond Plan repasse en sombre, mais
-    // en VRAI sombre natif (tuiles dark_all), PAS par le filtre qui
+    // Fond de carte « vivant » (v2.7, fond Plan remplacé en v2.41,
+    // v2.46, puis en v2.53) : tuiles OpenStreetMap standard — rues,
+    // eau, parcs et noms de rues réels à Libreville, en CLAIR. Le
+    // fond « World Dark Gray » précédent était quasi vide : 3 grands
+    // axes, aucun libellé, pas d'eau ni de parcs visibles. Le filtre
+    // sombre CSS (`.map-tiles-dark` : inversion + rotation de
+    // teinte) a été RETIRÉ le 14/11 ~21h58, décision du propriétaire
+    // (« Retire le thème sombre là-dessus ») : la carte Plan était
+    // alors CLAIRE, comme celle de Skatta. Le 15/11 ~07h44, le
+    // propriétaire demande la carte aux couleurs de sa palette
+    // (« La carte à mes palettes de couleur demandées ») : le fond
+    // Plan repasse en sombre natif en v2.46, PAS par le filtre qui
     // lavait les détails et rendait la carte illisible (v2.41) —
-    // aucun `filter` sur le panneau de tuiles, le fond CARTO porte
-    // ses propres couleurs. La teinte violette #191432 n'est PAS dans
-    // les tuiles (CARTO dark_all est quasi noir #090909) : elle est
-    // portée par les surcouches de l'appli — libellés Drive, POI,
-    // ligne d'itinéraire rose, marqueurs, fond du conteneur
-    // `.leaflet-container` (#191432, `styles/globals.css`) — voir
-    // ADR 0021. Un vrai fond violet demanderait un style vectoriel
-    // personnalisé (lot ultérieur possible, non implémenté ici).
-    // CLÉ API CARTO OBLIGATOIRE (voir `CARTO_DARK_ALL_URL`) : sans
-    // clé, CARTO sert une tuile filigranée « API KEY REQUIRED » —
-    // la clé gratuite se crée sur https://carto.com/basemaps/apikey/
-    // et se pose en variable `NEXT_PUBLIC_CARTO_API_KEY` (Vercel).
-    // Politique d'usage CARTO : attribution obligatoire (texte exact
-    // ci-dessous), tuiles directes OK dans la limite du forfait
-    // gratuit (5 M de requêtes/mois hors commercial, 1 M en
-    // commercial — au-delà, forfait « Basemaps Commercial ») ; un
-    // trafic de production lourd au-delà du forfait demanderait un
-    // fournisseur de tuiles ou l'auto-hébergement au lancement (même
-    // logique que le serveur OSRM démo de la v2.27, voir ADR 0002).
-    // CARTO dark_all a été écarté en v2.41 parce qu'il exigeait déjà
-    // une clé (tuile « API KEY REQUIRED » vue par curl le 14/11) ;
-    // en v2.46 la clé devient une étape assumée du lot (à créer par
-    // le propriétaire), pas un motif d'écart — voir ADR 0021.
+    // aucun `filter` sur le panneau de tuiles, le fond sombre
+    // portait ses propres couleurs. Le 15/11, le propriétaire
+    // signale sur son téléphone que les noms de quartiers sont
+    // sombres et illisibles sur ce fond noir : en v2.53, le fond
+    // Plan redevient CLAIR (OSM standard, voir ADR 0029) — aucun
+    // `filter` non plus, les tuiles portent leurs propres couleurs.
+    // La teinte violette #191432 n'est PAS dans les tuiles (OSM
+    // standard est clair) : elle est portée par les surcouches de
+    // l'appli — libellés Drive, POI, ligne d'itinéraire rose,
+    // marqueurs — voir ADR 0019. Un vrai fond violet demanderait
+    // un style vectoriel personnalisé (lot ultérieur possible, non
+    // implémenté ici).
+    // AUCUNE CLÉ (voir `OSM_TILES_URL`) : les tuiles OSM standard
+    // se servent sans clé. L'ancienne clé de fond de carte (variable
+    // Vercel posée en v2.46) n'est plus lue par le code.
+    // Politique d'usage OSM : attribution obligatoire (texte exact
+    // ci-dessous), tuiles directes OK pour le lancement mais trafic
+    // de production lourd déconseillé — prévoir un fournisseur de
+    // tuiles ou l'auto-hébergement au lancement (même logique que
+    // le serveur OSRM démo de la v2.27, voir ADR 0002).
+    // Le fond sombre de la v2.46 a été écarté en v2.53 parce que
+    // ses libellés étaient illisibles sur téléphone (voir ADR 0029)
+    // — pas à cause de sa clé (elle avait été obtenue et posée).
     // Stadia exige aussi une clé (401, v2.41). Le fond Plan Esri
     // World Street Map a été remplacé en v2.41 (ADR 0016) : ses
     // tuiles z19 n'étaient réelles qu'au Centre-ville (tuile grise
@@ -452,23 +451,23 @@ export function LibrevilleMap({
     // d'usage (403) » de la v2.7 n'est plus reproduite le 14/11 au
     // soir : curl obtient HTTP 200 sur les tuiles z18 et z19 (avec
     // ou sans User-Agent explicite — les requêtes Leaflet partent du
-    // navigateur, avec un vrai User-Agent) — et la réserve v2.46 sur
-    // les vérifications curl depuis cette VM figure dans le bloc des
-    // constantes ci-dessus (ADR 0021). Attribution CARTO obligatoire
-    // (texte exact du service : « © OpenStreetMap contributors
-    // © CARTO »). La couche de référence « World Dark Gray » est
-    // supprimée : le fond Plan porte déjà ses propres libellés (la
-    // doubler surchargerait la carte).
-    tileLayerRef.current = L.tileLayer(CARTO_DARK_ALL_URL, {
-      subdomains: 'abcd',
-      // v2.46 : maxZoom 19 + maxNativeZoom 19 — sans maxNativeZoom,
-      // Leaflet demanderait des tuiles au zoom affiché, donc des
-      // tuiles z20 inexistantes (tuile grise vide) ; sans le plafond
-      // 19, il agrandirait les tuiles z19 et les contours se
-      // perdraient (observation live 14/11, v2.39).
+    // navigateur, avec un vrai User-Agent) — et la réserve sur les
+    // vérifications curl depuis cette VM figure dans le bloc des
+    // constantes ci-dessus (ADR 0029). Attribution OSM obligatoire
+    // (texte exact : « © OpenStreetMap contributors »). La couche
+    // de référence « World Dark Gray » est supprimée : le fond Plan
+    // porte déjà ses propres libellés (la doubler surchargerait
+    // la carte).
+    tileLayerRef.current = L.tileLayer(OSM_TILES_URL, {
+      // v2.41 / v2.53 : maxZoom 19 + maxNativeZoom 19 — sans
+      // maxNativeZoom, Leaflet demanderait des tuiles au zoom
+      // affiché, donc des tuiles z20 inexistantes (tuile grise
+      // vide) ; sans le plafond 19, il agrandirait les tuiles z19
+      // et les contours se perdraient (observation live 14/11,
+      // v2.39).
       maxZoom: PLAN_MAX_ZOOM,
       maxNativeZoom: PLAN_MAX_NATIVE_ZOOM,
-      attribution: CARTO_ATTRIBUTION,
+      attribution: OSM_ATTRIBUTION,
     }).addTo(map);
     L.control.attribution({ position: 'topright' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -487,10 +486,10 @@ export function LibrevilleMap({
     // tuiles z12 à z16, noms OSM de z12 à z16, plus rien à z17-18) :
     // afficher le libellé Drive par-dessus doublait chaque nom, à
     // une position légèrement différente. Les quartiers listés dans
-    // `NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM` ont donc leur libellé Drive
+    // `NEIGHBORHOOD_OSM_LABEL_MIN_ZOOM` ont donc leur libellé Drive
     // masqué entre leur zoom minimum et leur borne haute
     // (16 par défaut, 14 pour Akanda — voir
-    // `NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM`) — le nom reste visible
+    // `NEIGHBORHOOD_OSM_LABEL_MAX_ZOOM`) — le nom reste visible
     // UNE fois, via la tuile. Hors de cette plage (zoom < min, ou
     // zoom > borne haute : le fond ne labellise plus rien), le libellé
     // Drive s'affiche normalement. Les 13 quartiers que le fond ne
@@ -499,19 +498,21 @@ export function LibrevilleMap({
     // libellé Drive à tous les zooms. Les données ne bougent pas :
     // seul l'affichage est filtré — listes, recherche, tarifs et
     // « Me localiser » utilisent les mêmes coordonnées.
-    // v2.46 — le fond Plan est CARTO dark_all, plus OSM standard :
-    // les plages de masquage sont RECALIBRÉES d'après la définition
-    // publique du style CARTO dark matter (pas d'après des tuiles
-    // vues — les tuiles ne sont pas vérifiables depuis cette VM,
-    // voir ADR 0021) : suburb / village / town z12–16, city z8–14,
+    // v2.46 — le fond Plan était passé à un fond sombre : les
+    // plages de masquage avaient été relues d'après la définition
+    // publique de son style (pas d'après des tuiles vues — les
+    // tuiles ne sont pas vérifiables depuis cette VM, voir
+    // ADR 0021) : suburb / village / town z12–16, city z8–14,
     // neighbourhood z13–17, aucune règle pour `quarter` (PK5 n'est
-    // donc plus masqué). Les zooms minimums v2.42 sont conservés
-    // (mêmes données OSM sous CARTO) ; la borne haute passe à 14
-    // pour Akanda (`place=city`). Approximation explicite, à
-    // confirmer en live après push.
+    // donc plus masqué). Les zooms minimums v2.42 avaient été
+    // conservés (mêmes données OSM sous ce fond) ; la borne haute
+    // passe à 14 pour Akanda (`place=city`). En v2.53, le fond
+    // redevient OSM standard : les plages redeviennent les
+    // observations de tuiles OSM de la v2.42 (valeurs inchangées),
+    // à confirmer en live après push — voir ADR 0029.
     // 'Autre' n'est pas un lieu : pas de libellé.
     const labelLayer = L.layerGroup().addTo(map);
-    const labelEntries: { marker: L.Marker; tierMin: number; cartoMin: number | null; cartoMax: number }[] = [];
+    const labelEntries: { marker: L.Marker; tierMin: number; osmMin: number | null; osmMax: number }[] = [];
     (Object.keys(NEIGHBORHOOD_COORDS) as Neighborhood[]).forEach((n) => {
       if (n === 'Autre' || NEIGHBORHOOD_NO_LABEL.has(n)) return;
       const c = NEIGHBORHOOD_COORDS[n];
@@ -534,8 +535,8 @@ export function LibrevilleMap({
       labelEntries.push({
         marker,
         tierMin: tier === 1 ? 11 : tier === 2 ? 13 : 14,
-        cartoMin: NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM[n] ?? null,
-        cartoMax: NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM[n] ?? 16,
+        osmMin: NEIGHBORHOOD_OSM_LABEL_MIN_ZOOM[n] ?? null,
+        osmMax: NEIGHBORHOOD_OSM_LABEL_MAX_ZOOM[n] ?? 16,
       });
     });
     // Points d'intérêt (v2.6, cliquables depuis la v2.13) : pictogramme
@@ -583,14 +584,14 @@ export function LibrevilleMap({
     });
     const updateLabels = () => {
       const z = map.getZoom();
-      // Libellés de quartiers (v2.42, recalibré v2.46 pour CARTO) :
-      // visibles selon le tier ET selon le fond. Un quartier que
-      // CARTO labellise déjà (cartoMin) n'affiche son libellé Drive
-      // qu'en dehors de la plage [cartoMin, cartoMax] — à
+      // Libellés de quartiers (v2.42, retour aux règles OSM en
+      // v2.53) : visibles selon le tier ET selon le fond. Un
+      // quartier que OSM labellise déjà (osmMin) n'affiche son
+      // libellé Drive qu'en dehors de la plage [osmMin, osmMax] — à
       // l'intérieur, le nom est déjà sur la tuile, une fois suffit.
-      labelEntries.forEach(({ marker, tierMin, cartoMin, cartoMax }) => {
+      labelEntries.forEach(({ marker, tierMin, osmMin, osmMax }) => {
         const visible =
-          z >= tierMin && (cartoMin == null || z < cartoMin || z > cartoMax);
+          z >= tierMin && (osmMin == null || z < osmMin || z > osmMax);
         if (visible) marker.addTo(labelLayer);
         else labelLayer.removeLayer(marker);
       });
@@ -606,11 +607,11 @@ export function LibrevilleMap({
       // partir du zoom 16 (`map-poi-labels-dense-on`, marqueurs
       // `dense`) — sinon leurs marqueurs se touchent dans les
       // quartiers denses. Et la règle v2.42 s'applique aux lieux
-      // (recalibrée v2.46 pour CARTO) : un lieu que CARTO labellise
-      // déjà (`cartoLabelMinZoom`) n'affiche pas son libellé Drive
-      // à partir de ce zoom (classe `label-carto` sur le marqueur —
+      // (retour aux règles OSM en v2.53) : un lieu que OSM labellise
+      // déjà (`osmLabelMinZoom`) n'affiche pas son libellé Drive
+      // à partir de ce zoom (classe `label-osm` sur le marqueur —
       // le nom reste visible une fois, via la tuile). Sans
-      // `cartoLabelMinZoom`, le libellé Drive s'affiche à tous les
+      // `osmLabelMinZoom`, le libellé Drive s'affiche à tous les
       // zooms de son tier.
       if (z >= 14) poiLayer.addTo(map);
       else map.removeLayer(poiLayer);
@@ -621,15 +622,15 @@ export function LibrevilleMap({
       poiMarkersRef.current.forEach((marker, key) => {
         const poi = poiByKey.get(key);
         const hideLabel =
-          poi?.cartoLabelMinZoom != null && z >= poi.cartoLabelMinZoom;
+          poi?.osmLabelMinZoom != null && z >= poi.osmLabelMinZoom;
         marker
           .getElement()
           ?.querySelector('.map-poi-marker')
-          ?.classList.toggle('label-carto', hideLabel);
+          ?.classList.toggle('label-osm', hideLabel);
       });
       // Déclutter des libellés POI (v2.51 — Centre-ville z16) : deux
       // libellés qui se chevaucheraient à l'écran (mêmes seuils que
-      // le CSS : z15 non denses, z16 denses, hors règle `label-carto`)
+      // le CSS : z15 non denses, z16 denses, hors règle `label-osm`)
       // — on garde le premier (ordre POIS) et on masque les suivants
       // trop proches (classe `label-hidden` : le pictogramme reste,
       // seul le texte disparaît ; la fiche reste au tap). Les
@@ -642,8 +643,8 @@ export function LibrevilleMap({
         const poi = poiByKey.get(key);
         const dense = poi ? poiIconMinZoom(poi.category) > 14 : false;
         const labelOn = dense ? z >= poiLabelMinZoom('bar') : z >= 15;
-        const cartoHidden = poi?.cartoLabelMinZoom != null && z >= poi.cartoLabelMinZoom;
-        if (!labelOn || cartoHidden) {
+        const osmHidden = poi?.osmLabelMinZoom != null && z >= poi.osmLabelMinZoom;
+        if (!labelOn || osmHidden) {
           el.classList.remove('label-hidden');
           return;
         }
@@ -696,10 +697,11 @@ export function LibrevilleMap({
     });
   }, [selectedPoi]);
 
-  // v2.50 (ADR 0026) : une seule carte, fond CARTO dark_all — la
-  // bascule Plan/Satellite est retirée (plus de second fond, plus
-  // d'effet de bascule). L'attribution reste « © OpenStreetMap
-  // contributors © CARTO » (voir la création de la couche).
+  // v2.50 (ADR 0026) : une seule carte, fond OpenStreetMap clair
+  // depuis la v2.53 (ADR 0029) — la bascule Plan/Satellite est
+  // retirée (plus de second fond, plus d'effet de bascule).
+  // L'attribution reste « © OpenStreetMap contributors »
+  // (voir la création de la couche).
 
   // Itinéraire + départ + destination + « Vous êtes ici ».
   useEffect(() => {

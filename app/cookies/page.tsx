@@ -50,7 +50,7 @@ export default async function CookiesPage() {
             </table>
           </div>
           <p>
-            La carte (Leaflet / CARTO, données OpenStreetMap) affiche des
+            La carte (Leaflet, tuiles OpenStreetMap) affiche des
             tuiles d’images publiques ; elle ne dépose pas de cookie de
             suivi. Aucun outil de mesure d’audience ni de publicité n’est
             installé à ce jour : si un jour nous en ajoutons un, cette page

@@ -115,12 +115,24 @@ export function DestinationSearch({
   // ouvert, résultats visibles). Pas au montage : on ne veut pas
   // ouvrir le clavier à l'arrivée sur la page.
   const mountedRef = useRef(false);
+  // Dernière valeur de `focusKey` vue (v2.53) : le focus ne se fait
+  // que quand la clé CHANGE — jamais au premier passage de l'effet
+  // (montage, remontage quand la feuille se rouvre, ou double
+  // invocation des effets en dev). Sans cette garde, un focus volé
+  // ouvrait le clavier et faisait sauter la feuille en pleine hauteur
+  // alors que l'utilisateur venait juste de taper la poignée
+  // (15 → 30 devenait 15 → 58, diagnostic 15/11).
+  const lastKeyRef = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (focusKey === undefined) return;
-    if (!mountedRef.current) {
-      mountedRef.current = true;
+    const firstRun = !mountedRef.current;
+    mountedRef.current = true;
+    if (firstRun) {
+      lastKeyRef.current = focusKey;
       return;
     }
+    if (lastKeyRef.current === focusKey) return;
+    lastKeyRef.current = focusKey;
     inputRef.current?.focus({ preventScroll: true });
   }, [focusKey]);
 

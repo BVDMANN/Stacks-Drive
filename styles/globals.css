@@ -223,23 +223,24 @@ html {
   scroll-behavior: smooth;
 }
 
-/* 🗺️ CARTE LEAFLET — fond Plan CARTO dark_all depuis la v2.46 (fond
-   OpenStreetMap clair en v2.41, filtre nuit retiré le 14/11 ~21h58 ;
-   retour au sombre le 15/11 ~07h44, demande du propriétaire : la carte
-   prend la palette « Nuit violette » — en VRAI sombre natif, aucun
-   filtre CSS sur les tuiles). Le fond du conteneur est le violet-nuit
-   #191432 (`night-950`) : c'est la teinte violette visible pendant le
-   chargement des tuiles et aux bords de la carte — les tuiles CARTO
-   elles-mêmes sont quasi noires (#090909), la palette est portée par
-   les surcouches (libellés, POI, itinéraire, marqueurs). */
+/* 🗺️ CARTE LEAFLET — fond Plan OpenStreetMap clair depuis la v2.53
+   (fond clair en v2.41, filtre nuit retiré le 14/11 ~21h58 ;
+   fond sombre en v2.46, retiré en v2.53 sur signalement du
+   propriétaire : les noms de quartiers y étaient illisibles —
+   voir ADR 0029). Le fond du conteneur est une terre claire
+   #E9E6DB, cohérente avec les tuiles OSM : c'est la teinte visible
+   pendant le chargement des tuiles et aux bords de la carte — la
+   carte n'est plus jamais noire. Les libellés Drive sont sombres
+   (violet-nuit #191432, opacité pleine) avec un halo clair : ils
+   se lisent sur le fond clair comme sur les tuiles. */
 .leaflet-container {
   font: inherit;
   /* !important : `leaflet/dist/leaflet.css` (importé par le composant,
      après ce fichier) met `#ddd` avec la même spécificité — sans lui,
-     le fond violet ne s'applique pas (vérifié : le conteneur calculait
+     le fond clair ne s'applique pas (vérifié : le conteneur calculait
      `rgb(221, 221, 221)`). Même motif que les autres surcharges Leaflet
      ci-dessous (attribution, zoom). */
-  background: #191432 !important;
+  background: #E9E6DB !important;
   z-index: 0;
 }
 .leaflet-control-attribution {
@@ -268,6 +269,26 @@ html {
 }
 .leaflet-control-zoom a:hover {
   background: #352463 !important;
+}
+/* v2.53 — boutons +/− au-dessus de la feuille (mobile) : la feuille
+   recouvre le bas de la carte même au cran mini (15 dvh), donc les
+   contrôles de zoom (coin bas droit) étaient incliquables — vérifié
+   en rendu : `elementFromPoint` sur le bouton + retournait la
+   feuille. Le coin bas droit est remonté de la hauteur de la feuille
+   (`--sheet-h`, posée par l'accueil sur le conteneur de la carte) +
+   12 px de marge + la place du bouton flottant rose « Remonter la
+   feuille » (`--sheet-fab`, 62 px au cran mini, 0 sinon — sinon le
+   bouton − se retrouve caché derrière lui), sans jamais remonter plus
+   haut que 200 px sous le haut de l'écran (au cran 88, la remontée
+   brute les mettrait sous les pastilles du haut). Sur écran large la
+   feuille est une carte de 440 px en bas à gauche : les contrôles
+   restent en bas à droite, sans décalage. Les autres cartes (suivi,
+   mini-cartes) n'ont pas la classe `.map-with-sheet` : elles gardent
+   la position Leaflet. */
+@media (max-width: 639px) {
+  .map-with-sheet .leaflet-bottom.leaflet-right {
+    bottom: min(calc(var(--sheet-h, 15dvh) + 12px + var(--sheet-fab, 0px)), calc(100dvh - 200px)) !important;
+  }
 }
 .map-tooltip {
   font-weight: 700;
@@ -443,21 +464,27 @@ html {
   50% { transform: translateY(-5px); }
 }
 
-/* 🏘️ Libellés de quartiers (v2.5) : petites capitales discrètes,
-   semi-transparentes, centrées sur le centre du quartier, jamais
-   cliquables (pointer-events: none) et sous les marqueurs. */
+/* 🏘️ Libellés de quartiers (v2.5) : petites capitales, centrées sur
+   le centre du quartier, jamais cliquables (pointer-events: none)
+   et sous les marqueurs. v2.53 (ADR 0029) — fond clair : texte
+   violet-nuit #191432, OPACITÉ PLEINE (plus de 0.55) avec halo
+   clair (blanc, 2 couches) pour se lire sur les tuiles OSM comme
+   sur les routes et les parcs. */
 .map-neighborhood-label {
   position: absolute;
   left: 0;
   top: 0;
   transform: translate(-50%, -50%);
   white-space: nowrap;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(244, 246, 255, 0.55);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.9);
+  color: #191432;
+  text-shadow:
+    0 0 3px rgba(255, 255, 255, 0.95),
+    0 0 7px rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(255, 255, 255, 0.9);
   pointer-events: none;
 }
 /* Point or devant le nom du quartier (v2.7) : le libellé devient un
@@ -525,13 +552,19 @@ html {
 .map-poi-glyph svg {
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
 }
+/* v2.53 (ADR 0029) — fond clair : libellé POI sombre violet-nuit
+ *  #191432, opacité pleine, halo clair (comme les libellés de
+ *  quartiers) : lisible sur les tuiles OSM. */
 .map-poi-label {
   display: none;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: rgba(244, 246, 255, 0.85);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.9);
+  color: #191432;
+  text-shadow:
+    0 0 3px rgba(255, 255, 255, 0.95),
+    0 0 6px rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(255, 255, 255, 0.9);
 }
 /* Libellés POI visibles seulement à partir du zoom 15 (classe posée
    sur le conteneur Leaflet) : à 13-14, pictogrammes seuls. Les
@@ -546,11 +579,11 @@ html {
   display: block;
 }
 /* v2.43 — règle anti-double (v2.42 appliquée aux lieux) : quand
-   CARTO imprime déjà le nom du lieu sur la tuile, le libellé Drive est masqué (classe `label-carto` posée par `updateLabels`) —
+   OSM imprime déjà le nom du lieu sur la tuile, le libellé Drive est masqué (classe `label-osm` posée par `updateLabels`) —
    le nom reste visible une fois, via la tuile. Depuis la v2.50 il n'y
-   a plus de mode Satellite : une seule carte CARTO, la classe
-   s'applique dès que CARTO labellise le lieu. */
-.map-poi-marker.label-carto .map-poi-label {
+   a plus de mode Satellite : une seule carte OSM, la classe
+   s'applique dès que OSM labellise le lieu. */
+.map-poi-marker.label-osm .map-poi-label {
   display: none !important;
 }
 /* Accents couleur par catégorie (v2.7) : le pictogramme et sa bordure
