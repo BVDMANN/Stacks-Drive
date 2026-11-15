@@ -269,7 +269,24 @@ export function HomeScreen({
   // de départ de l'ajustement (pour « Annuler » et pour revenir au
   // dernier point valide si l'épingle sort de la zone).
   const [adjusting, setAdjusting] = useState<'pickup' | 'destination' | null>(null);
-  const adjustStartRef = useRef<{ kind: 'pickup' | 'destination'; lat: number; lng: number } | null>(null);
+  // v2.54 — le point de départ de l'ajustement (pour « Annuler » et
+  // pour revenir au dernier point valide si l'épingle sort de la
+  // zone) : on mémorise AUSSI la source d'origine (et l'adresse du
+  // lieu, le cas échéant) — annuler ne doit pas transformer un centre
+  // de quartier en point « épingle » : le point revient tel qu'il
+  // était, source comprise. Le NOM du quartier est mémorisé aussi :
+  // glisser l'épingle change le quartier de rattachement (le plus
+  // proche), annuler doit remettre le quartier d'avant, pas seulement
+  // les coordonnées.
+  const adjustStartRef = useRef<{
+    kind: 'pickup' | 'destination';
+    lat: number;
+    lng: number;
+    neighborhood: Neighborhood | '';
+    source: 'gps' | 'neighborhood' | 'pin' | 'place';
+    address: string | null;
+    unpavedRoad: boolean;
+  } | null>(null);
   const [lastValidPoint, setLastValidPoint] = useState<{ lat: number; lng: number } | null>(null);
   // v2.47 — l'épingle « se pose » : la clé rejoue sa chute + son
   // rebond à chaque ouverture et après chaque glisser (la surcouche
@@ -479,7 +496,15 @@ export function HomeScreen({
           // le passager précise son point au lieu de commander sur
           // une position fausse.
           if (pos.accuracyM !== null && pos.accuracyM > GPS_ACCURACY_WARN_M) {
-            adjustStartRef.current = { kind: 'pickup', lat: pos.lat, lng: pos.lng };
+            adjustStartRef.current = {
+              kind: 'pickup',
+              lat: pos.lat,
+              lng: pos.lng,
+              neighborhood: nearest.neighborhood,
+              source: 'gps',
+              address: null,
+              unpavedRoad: false,
+            };
             setPinBounceKey((k) => k + 1);
             setAdjusting('pickup');
             setSheetH(30);
@@ -1056,7 +1081,15 @@ export function HomeScreen({
       // l'épingle pour préciser le point (même règle qu'au
       // chargement — on ne commande pas sur une position fausse).
       if (pos.accuracyM !== null && pos.accuracyM > GPS_ACCURACY_WARN_M) {
-        adjustStartRef.current = { kind: 'pickup', lat: pos.lat, lng: pos.lng };
+        adjustStartRef.current = {
+          kind: 'pickup',
+          lat: pos.lat,
+          lng: pos.lng,
+          neighborhood: nearest.neighborhood,
+          source: 'gps',
+          address: null,
+          unpavedRoad: false,
+        };
         setPinBounceKey((k) => k + 1);
         setAdjusting('pickup');
         setSheetH(30);
@@ -1106,7 +1139,15 @@ export function HomeScreen({
   function openAdjust(kind: 'pickup' | 'destination') {
     const point = kind === 'pickup' ? pickupCoords : destCoords;
     if (!point) return;
-    adjustStartRef.current = { kind, lat: point.lat, lng: point.lng };
+    adjustStartRef.current = {
+      kind,
+      lat: point.lat,
+      lng: point.lng,
+      neighborhood: kind === 'pickup' ? pickup : destination,
+      source: kind === 'pickup' ? pickupPointSource : destPointSource,
+      address: kind === 'pickup' ? null : destAddress,
+      unpavedRoad,
+    };
     focusNonceRef.current += 1;
     setFocusPoint({ lat: point.lat, lng: point.lng, zoom: 17, nonce: focusNonceRef.current });
     setPinBounceKey((k) => k + 1);
@@ -1150,6 +1191,30 @@ export function HomeScreen({
     setPinBounceKey((k) => k + 1);
   }
 
+  /** Restaurer le point d'avant l'ajustement (v2.54) : le point
+   *  EXACT est remis (ou effacé si le point d'avant était un centre
+   *  de quartier — pas de point exact), la source d'origine est
+   *  remise (un centre de quartier annulé ne devient pas un point
+   *  « épingle »), l'adresse du lieu et la demande de piste sont
+   *  remises aussi. La carte se recentre sur le point restauré. */
+  function restoreAdjustStart() {
+    const start = adjustStartRef.current;
+    if (!start) return;
+    if (start.kind === 'pickup') {
+      setPickup(start.neighborhood);
+      setPickupExact(start.source === 'neighborhood' ? null : { lat: start.lat, lng: start.lng });
+      setPickupPointSource(start.source);
+    } else {
+      setDestination(start.neighborhood);
+      setDestExact(start.source === 'neighborhood' ? null : { lat: start.lat, lng: start.lng });
+      setDestPointSource(start.source);
+      setDestAddress(start.address);
+      setUnpavedRoad(start.unpavedRoad);
+    }
+    focusNonceRef.current += 1;
+    setFocusPoint({ lat: start.lat, lng: start.lng, zoom: 17, nonce: focusNonceRef.current });
+  }
+
   /** Confirmer le point : on sort de l'ajustement. Si le point est
    *  hors zone, on revient au dernier point valide (sans bloquer —
    *  l'appli ne laisse jamais le passager coincé sur un point
@@ -1158,18 +1223,7 @@ export function HomeScreen({
     if (!adjusting) return;
     const point = adjusting === 'pickup' ? pickupCoords : destCoords;
     if (point && !isInServiceArea(point.lat, point.lng)) {
-      const start = adjustStartRef.current;
-      if (start && start.kind === adjusting) {
-        if (adjusting === 'pickup') {
-          setPickupExact({ lat: start.lat, lng: start.lng });
-          setPickupPointSource('pin');
-        } else {
-          setDestExact({ lat: start.lat, lng: start.lng });
-          setDestPointSource('pin');
-        }
-        focusNonceRef.current += 1;
-        setFocusPoint({ lat: start.lat, lng: start.lng, zoom: 17, nonce: focusNonceRef.current });
-      }
+      restoreAdjustStart();
       setError('Ce point est hors zone — Stacks Drive est à Libreville pour l’instant. On t’a remis sur ton dernier point valide : déplace l’épingle dans la zone, ou choisis un quartier dans la liste.');
       setAdjusting(null);
       setSheetH(58);
@@ -1182,18 +1236,7 @@ export function HomeScreen({
   /** Annuler l'ajustement : retour au point d'avant (sans rien
    *  valider), la feuille reprend sa hauteur. */
   function cancelAdjust() {
-    const start = adjustStartRef.current;
-    if (start) {
-      if (start.kind === 'pickup') {
-        setPickupExact({ lat: start.lat, lng: start.lng });
-        setPickupPointSource('pin');
-      } else {
-        setDestExact({ lat: start.lat, lng: start.lng });
-        setDestPointSource('pin');
-      }
-      focusNonceRef.current += 1;
-      setFocusPoint({ lat: start.lat, lng: start.lng, zoom: 17, nonce: focusNonceRef.current });
-    }
+    restoreAdjustStart();
     setAdjusting(null);
     setSheetH(58);
   }
@@ -2011,17 +2054,59 @@ export function HomeScreen({
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                       Destination
                     </p>
-                    {/* « Plus tard » (v2.51, façon Bolt) : active le
-                        mode planification existant (v2.30) et met le
-                        focus sur le champ date/heure. */}
-                    <button
-                      type="button"
-                      onClick={activatePlanMode}
-                      className="inline-flex items-center gap-1.5 text-xs font-black text-night-900 bg-white px-3 py-1.5 rounded-full hover:bg-slate-200 active:scale-95 transition-all"
-                    >
-                      <DriveCalendar size={13} /> Plus tard
-                    </button>
+                    {/* v2.54 — « Préciser » à côté du champ, comme le
+                        départ (même style, même endroit logique) :
+                        l'ancien bouton sous la recherche était sous
+                        le pli aux crans 30 et 58 — le propriétaire
+                        ne l'avait jamais vu. */}
+                    <span className="inline-flex items-center gap-1.5 shrink-0">
+                      {destination !== '' && (
+                        <button
+                          type="button"
+                          onClick={() => openAdjust('destination')}
+                          className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-white/10 border border-white/15 px-3 py-1.5 rounded-full hover:bg-white/20 active:scale-95 transition-all"
+                        >
+                          <DriveMove size={13} /> Préciser
+                        </button>
+                      )}
+                      {/* « Plus tard » (v2.51, façon Bolt) : active le
+                          mode planification existant (v2.30) et met le
+                          focus sur le champ date/heure. */}
+                      <button
+                        type="button"
+                        onClick={activatePlanMode}
+                        className="inline-flex items-center gap-1.5 text-xs font-black text-night-900 bg-white px-3 py-1.5 rounded-full hover:bg-slate-200 active:scale-95 transition-all"
+                      >
+                        <DriveCalendar size={13} /> Plus tard
+                      </button>
+                    </span>
                   </div>
+                  {/* v2.54 — adresse approximative : le point est le
+                      centre du quartier (source 'neighborhood'), pas
+                      un point exact — on le dit, comme la bannière
+                      GPS imprécis côté départ, et on propose
+                      l'épingle. Placée juste sous l'en-tête (avant
+                      la recherche) pour être visible dès le cran 58
+                      sans scroller — sous la recherche, la liste des
+                      quartiers la poussait sous le pli. La bannière
+                      disparaît dès que le point devient exact
+                      (épingle ou lieu choisi). */}
+                  {destination !== '' && destPointSource === 'neighborhood' && (
+                    <p className="mb-2 text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 flex items-center gap-2">
+                      <DriveAlert size={14} className="shrink-0" />
+                      <span className="flex-1">
+                        Adresse approximative — c’est le centre du quartier. Déplace l’épingle
+                        pour préciser le point exact.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openAdjust('destination')}
+                        className="shrink-0 font-black underline hover:text-amber-200 active:scale-95 transition-all"
+                      >
+                        Préciser
+                      </button>
+                    </p>
+                  )}
                   <DestinationSearch
                     origin={pickupCoords ?? (userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null)}
                     favorites={favoritePlaces}
@@ -2045,17 +2130,6 @@ export function HomeScreen({
                     onSetPickup={handlePickupChange}
                     onSetDestination={handleDestinationChange}
                   />
-                  {/* v2.47 — préciser la destination sur la carte
-                      (épingle), comme le départ. */}
-                  {destination !== '' && (
-                    <button
-                      type="button"
-                      onClick={() => openAdjust('destination')}
-                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-white bg-white/10 border border-white/15 px-3 py-2 rounded-full hover:bg-white/20 active:scale-95 transition-all"
-                    >
-                      <DriveMove size={14} /> Préciser sur la carte
-                    </button>
-                  )}
                   {/* Adresse de la destination résolue : squelette
                       pendant la résolution, repli coordonnées +
                       quartier si introuvable. */}
