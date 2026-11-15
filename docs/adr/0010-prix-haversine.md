@@ -1,6 +1,6 @@
 # ADR 0010 — Prix sur distance haversine, pas routière
 
-- Statut : Acceptée
+- Statut : **Remplacée** (15/11/2026, v2.50 — décision du propriétaire : le prix passe à la distance routière OSRM ; voir [ADR 0025](0025-prix-distance-routiere-osrm.md)). L'ADR reste pour l'historique : elle documente pourquoi le prix était en haversine de la v2.11 à la v2.49.
 - Date : 14/11/2026 (v2.11 / v2.27, décision antérieure documentée en v2.33)
 
 ## Contexte

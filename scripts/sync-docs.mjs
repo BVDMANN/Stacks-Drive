@@ -226,14 +226,13 @@ const TIER2_VISIBLE = NAMED.filter(
 ).length;
 const TIER_TOTAL = NAMED.filter((n) => !NO_LABEL.includes(n)).length;
 
-// Libellés Drive masqués en Plan (v2.42, NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM,
+// Libellés Drive masqués (v2.42, NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM,
 // recalibré v2.46 pour CARTO dark_all) : le fond CARTO affiche déjà
 // ces noms entre leur zoom minimum et leur borne haute (16 par défaut,
 // voir NEIGHBORHOOD_CARTO_LABEL_MAX_ZOOM — 14 pour Akanda, règle
-// `city`) — en Plan, seuls les libellés Drive hors de cette plage
-// s'affichent (jamais en double). En Satellite, tous les libellés du
-// tier s'affichent (aucun libellé sur les tuiles Esri) ; en Plan
-// au-delà de la borne haute aussi (CARTO ne labellise plus rien).
+// `city`) — seuls les libellés Drive hors de cette plage s'affichent
+// (jamais en double) ; au-delà de la borne haute aussi (CARTO ne
+// labellise plus rien).
 // Miroir exact de la règle dans `components/map/LibrevilleMap.tsx`
 // (`updateLabels`).
 const osmBody = objectBody(neighborhoodsSrc, 'NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM', 'lib/neighborhoods.ts');
@@ -257,11 +256,21 @@ const PLAN13 = planVisibleAt(13);
 const PLAN14 = planVisibleAt(14);
 
 const POIS_BODY = arrayBody(poisSrc, 'POIS', 'lib/pois.ts');
-const NB_POIS = (POIS_BODY.match(/name:\s*'/g) || []).length;
+const NB_POIS_LOCAL = (POIS_BODY.match(/name:\s*'/g) || []).length;
+// Épiceries (v2.51) : elles vivent dans `lib/epiceries.ts` (généré par
+// `scripts/fetch-epiceries.mjs`) et entrent dans POIS par spread
+// (`...EPICERIES.map(...)`) — le spread ne contient aucun `name: '`
+// littéral, donc le comptage ci-dessus les rate : on les compte ici.
+const epiceriesSrc = readOrThrow(path.join(REPO_ROOT, 'lib/epiceries.ts'), 'lib/epiceries.ts');
+const EPICERIES_BODY = arrayBody(epiceriesSrc, 'EPICERIES', 'lib/epiceries.ts');
+const NB_EPICERIES = (EPICERIES_BODY.match(/name:\s*'/g) || []).length;
+if (NB_EPICERIES === 0) fail('aucune épicerie trouvée dans lib/epiceries.ts');
+const NB_POIS = NB_POIS_LOCAL + NB_EPICERIES;
 if (NB_POIS === 0) fail('aucun lieu trouvé dans lib/pois.ts');
 
 // ---------------------------------------------------------------------------
-// Calculs — miroir exact de lib/pricing.ts (estimateFare) et lib/commission.ts
+// Calculs — miroir exact de lib/pricing.ts (estimateFareForDistance) et
+// lib/estimate-server.ts (estimateTripServer), et lib/commission.ts
 // ---------------------------------------------------------------------------
 function round50(n) {
   return Math.max(0, Math.round(n / 50) * 50);
@@ -282,16 +291,59 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 
 const AIRPORT = 'Aéroport Léon-Mba';
 
+/** Distances ROUTIÈRES mesurées le 15/11/2026 (OSRM, centres de
+ *  quartiers, v2.50, ADR 0025) — { km, min } par trajet, dans le
+ *  sens indiqué (la route retour peut différer légèrement, le
+ *  miroir prend le sens mesuré ou son inverse). L'ancre
+ *  Centre-ville ↔ Nzeng-Ayong est une valeur FIXE (Solo 1 500 /
+ *  Groupe 950), pas un calcul : sa distance routière est mesurée
+ *  (6,56 km) mais le prix ne bouge pas. Un trajet absent de cette
+ *  table retombe sur le vol d'oiseau (repli, marqué « approximative »
+ *  dans l'appli) — jamais de distance inventée. */
+const ROAD_KM = {
+  'Aéroport Léon-Mba>Centre-ville': { km: 10.62, min: 12 },
+  'Glass>Nzeng-Ayong': { km: 9.84, min: 11 },
+  'Charbonnages>Owendo': { km: 18.16, min: 18 },
+  'Centre-ville>Nzeng-Ayong': { km: 6.56, min: 10 },
+  'Akanda>Aéroport Léon-Mba': { km: 22.3, min: 38 },
+  'Nzeng-Ayong>Owendo': { km: 15.27, min: 16 },
+  'Centre-ville>PK12': { km: 10.53, min: 11 },
+  'Centre-ville>Nkoltang': { km: 29.11, min: 29 },
+};
+
+/** Ancre tarifaire FIGÉE (v2.16) : Centre-ville ↔ Nzeng-Ayong =
+ *  Solo 1 500 / Groupe 950 FCFA, dans les deux sens — valeur fixe,
+ *  lue dans `lib/pricing.ts`, pas un calcul. */
+const ANCHOR_SOLO = numConst(pricingSrc, 'ANCHOR_SOLO', 'lib/pricing.ts');
+const ANCHOR_GROUPE = numConst(pricingSrc, 'ANCHOR_GROUPE', 'lib/pricing.ts');
+
+function isAnchorTrip(pickup, destination) {
+  return (
+    (pickup === 'Centre-ville' && destination === 'Nzeng-Ayong') ||
+    (pickup === 'Nzeng-Ayong' && destination === 'Centre-ville')
+  );
+}
+
 function estimateFare(pickup, destination, rideType, vehiclePref = 'tous', unpaved = false) {
   const a = COORDS[pickup];
   const b = COORDS[destination];
   if (!a || !b) fail(`quartier inconnu : ${pickup} / ${destination}`);
-  const distanceKm = haversineKm(a.lat, a.lng, b.lat, b.lng);
-  const durationMin = Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
+  // Distance ROUTIÈRE (v2.50) : mesure OSRM du trajet, ou son
+  // inverse, ou le vol d'oiseau en repli (trajet non mesuré).
+  const road = ROAD_KM[`${pickup}>${destination}`] ?? ROAD_KM[`${destination}>${pickup}`];
+  const distanceKm = road ? road.km : haversineKm(a.lat, a.lng, b.lat, b.lng);
+  const durationMin = road
+    ? road.min
+    : Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
   const isAirport = pickup === AIRPORT || destination === AIRPORT;
   const pref = rideType === 'groupe' && vehiclePref === 'moto' ? 'voiture' : vehiclePref;
   let price;
-  if (rideType === 'solo') {
+  if (isAnchorTrip(pickup, destination)) {
+    // Ancre FIGÉE : le prix ne dépend pas de la distance.
+    const base = rideType === 'solo' ? ANCHOR_SOLO : ANCHOR_GROUPE;
+    price = rideType === 'solo' && pref === 'moto' ? round50(base * MOTO_FACTOR) : base;
+    price = Math.max(price, rideType === 'solo' ? P.minSolo : P.minGroupe);
+  } else if (rideType === 'solo') {
     price = round50(
       P.baseSolo + P.perKmSolo * distanceKm + (isAirport ? P.airSolo : 0)
     );
@@ -458,7 +510,7 @@ const G = {
 | Supplément route non bitumée | +${x.fmt(x.P.unpaved)} FCFA forfait, jamais remisé |
 | Prix à la minute | Aucun — la durée est affichée, jamais facturée |
 | Prix final | **Convenu entre le passager et le chauffeur, figé à l'acceptation, jamais de surge** |
-| Distance | Vol d'oiseau (haversine) entre quartiers |
+| Distance | Routière (OSRM) entre les points exacts ; repli vol d'oiseau, estimation marquée approximative |
 | Commission | ${x.pct(x.C.rateLaunch)} (${x.C.launchMonths} mois) puis ${x.pct(x.C.ratePermanent)}, plafond ${x.pct(x.C.rateCap)} |`,
 
   'fin-trips': (x) => `| Trajet | Solo | Groupe / passager | Moto |
@@ -592,7 +644,7 @@ ${x.SCENARIOS.map((s) => `| ${s.perDay} | ${x.fmt(s.perMonth)} | ${x.fmt(s.ca)} 
   'readme-commission': (x) => `- **Commission :** ${x.pct(x.C.rateLaunch)} au lancement (${x.C.launchMonths} mois), puis ${x.pct(x.C.ratePermanent)} permanent, **plafond ${x.pct(x.C.rateCap)} garanti** (voir \`lib/commission.ts\`). La commission est calculée sur le total de la course, supplément route non bitumée compris.
 - **Paiement :** le passager paie le chauffeur directement (espèces ou transfert P2P Airtel Money / Moov Money). L'appli ne touche jamais l'argent — elle compte seulement. Commission réglée 1 fois par semaine, en un seul transfert Mobile Money. Dépôt de garantie remboursable : ${x.fmt(x.DEPOSIT)} FCFA. Plafond de dette : ~${x.fmt(x.DEBT_CAP)} FCFA.`,
 
-  'readme-map': (x) => `- **Carte :** ${x.NB_QUARTIERS} quartiers de Libreville avec leurs noms affichés sur la carte (${x.TIER1} visibles au zoom 12, ${x.TIER2_VISIBLE} au zoom 13, ${x.TIER_TOTAL} au zoom 14 en Satellite ; en Plan, ${x.PLAN12} / ${x.PLAN13} / ${x.PLAN14} — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), ${x.NB_POIS} lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants), icônes chauffeurs roses avec note, feuille de demande à 3 positions (façon Uber) avec bouton pour la replier et voir la carte.`,
+  'readme-map': (x) => `- **Carte :** ${x.NB_QUARTIERS} quartiers de Libreville avec leurs noms affichés sur la carte (${x.PLAN12} visibles au zoom 12, ${x.PLAN13} au zoom 13, ${x.PLAN14} au zoom 14 — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), ${x.NB_POIS} lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants, épiceries OSM), icônes chauffeurs roses avec note, feuille de demande à 3 positions (façon Uber) avec bouton pour la replier et voir la carte.`,
 
   'readme-difficult': (x) => `- **Quartiers à accès difficile :** ${x.NB_DIFFICULT} quartiers ne sont pas desservis sur route bitumée — la course s'arrête par défaut à un point de dépôt sur route bitumée ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **${x.fmt(x.P.unpaved)} FCFA**, que le chauffeur est libre d'accepter ou non.`,
 
@@ -605,7 +657,7 @@ ${x.SCENARIOS.map((s) => `| ${s.perDay} | ${x.fmt(s.perMonth)} | ${x.fmt(s.ca)} 
 
   'etat-pricing': (x) => `- **Prix :** estimation indicative au km — prise en charge + prix au kilomètre (Solo ${x.fmt(x.P.baseSolo)} + ${x.fmt(x.P.perKmSolo)} FCFA/km, Groupe ${x.fmt(x.P.baseGroupe)} + ${x.fmt(x.P.perKmGroupe)} FCFA/km, Moto = Solo ×${String(x.MOTO_FACTOR).replace('.', ',')}), **jamais de surge** ; AUCUN tarif fixe défini par la plateforme. Le prix final est convenu entre le passager et le chauffeur — le chauffeur propose, le passager peut proposer son prix à la demande et contre-proposer — puis il est figé à l'acceptation. Planchers de l'estimation Solo ${x.fmt(x.P.minSolo)} / Groupe ${x.fmt(x.P.minGroupe)} FCFA.`,
 
-  'etat-map': (x) => `- **Carte :** ${x.NB_QUARTIERS} quartiers de Libreville avec leurs noms affichés sur la carte (${x.TIER1} visibles au zoom 12, ${x.TIER2_VISIBLE} au zoom 13, ${x.TIER_TOTAL} au zoom 14 en Satellite ; en Plan, ${x.PLAN12} / ${x.PLAN13} / ${x.PLAN14} — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), ${x.NB_POIS} lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants — pictogrammes dès le zoom 14, noms dès le zoom 15 ; bars et restaurants : pictogrammes dès le zoom 15, noms dès le zoom 16), icônes chauffeurs roses avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.`,
+  'etat-map': (x) => `- **Carte :** ${x.NB_QUARTIERS} quartiers de Libreville avec leurs noms affichés sur la carte (${x.PLAN12} visibles au zoom 12, ${x.PLAN13} au zoom 13, ${x.PLAN14} au zoom 14 — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), ${x.NB_POIS} lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants, épiceries OSM — pictogrammes dès le zoom 14, noms dès le zoom 15 ; bars, restaurants et épiceries : pictogrammes dès le zoom 15, noms dès le zoom 16), icônes chauffeurs roses avec note, feuille de demande à 3 positions avec bouton pour la replier et voir la carte.`,
 
   'etat-difficult': (x) => `- **Quartiers à accès difficile :** ${x.NB_DIFFICULT} quartiers ne sont pas desservis sur route bitumée — la course s'y arrête par défaut à un point de dépôt sur route bitumée (${x.DROP_OFFS.join(', ')} selon la zone) ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **${x.fmt(x.P.unpaved)} FCFA**, que le chauffeur est libre d'accepter ou non. La commission est calculée sur le total, supplément compris. Tous les PK jusqu'à PK${x.MAX_BITUME_PK} inclus sont bitumés et normaux.`,
 

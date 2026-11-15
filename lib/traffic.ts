@@ -37,14 +37,6 @@ export const TRAFFIC_LABELS: Record<TrafficType, string> = {
   route_fermee: 'Route fermée',
 };
 
-/** Pictogramme affiché sur la carte (marqueur Leaflet). */
-export const TRAFFIC_EMOJIS: Record<TrafficType, string> = {
-  embouteillage: '🚗',
-  accident: '💥',
-  travaux: '🚧',
-  route_fermee: '⛔',
-};
-
 /** Durée de vie d'un signalement, en minutes, par type. */
 export const TRAFFIC_EXPIRY_MIN: Record<TrafficType, number> = {
   embouteillage: 30,

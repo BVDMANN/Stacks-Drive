@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, Gift, Users } from 'lucide-react';
+import { DriveCheck, DriveCopy, DriveGift, DriveUsers } from '@/components/icons/DriveUi';
 
 /** Carte parrainage chauffeurs (v2.25, lot C) — SILENCIEUSE : visible
  *  uniquement ici (tableau de bord chauffeur) et côté admin, jamais
@@ -94,7 +94,7 @@ export function DriverReferralCard() {
   return (
     <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
       <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-        <Users size={20} className="text-stacks-green" /> Parrainage chauffeurs
+        <DriveUsers size={20} className="text-stacks-green" /> Parrainage chauffeurs
       </h2>
       {!data.verified ? (
         <p className="text-sm text-slate-500">
@@ -125,7 +125,7 @@ export function DriverReferralCard() {
               onClick={copyCode}
               className="inline-flex items-center gap-1.5 px-4 py-3 rounded-full text-sm font-black bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
             >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? <DriveCheck size={16} /> : <DriveCopy size={16} />}
               {copied ? 'Copié !' : 'Copier'}
             </button>
           </div>
@@ -160,7 +160,7 @@ export function DriverReferralCard() {
       {!data.hasReferrer && (
         <div className="border-t border-slate-100 pt-4 space-y-2">
           <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Gift size={16} className="text-stacks-green" />
+            <DriveGift size={16} className="text-stacks-green" />
             Tu as été parrainé ?
           </p>
           <div className="flex flex-wrap items-center gap-2">

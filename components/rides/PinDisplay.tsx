@@ -1,4 +1,4 @@
-import { KeyRound } from 'lucide-react';
+import { DriveKey } from '@/components/icons/DriveUi';
 
 /** Code PIN du passager (v2.2) — affiché sur la page de la course
  *  acceptée. Le passager le donne au chauffeur quand il arrive : c'est
@@ -13,7 +13,7 @@ export function PinDisplay({ pinCode }: { pinCode: string }) {
     <div className="bg-night-900 border border-white/10 rounded-3xl p-6 shadow-sm text-slate-100 flex flex-wrap items-center justify-between gap-4">
       <div>
         <p className="font-black text-lg flex items-center gap-2">
-          <KeyRound size={20} className="text-corail" />
+          <DriveKey size={20} className="text-corail" />
           Ton code de démarrage
         </p>
         <p className="text-sm text-slate-300 mt-1">

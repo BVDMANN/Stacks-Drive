@@ -64,7 +64,10 @@ export function PageShell({
           </div>
         </div>
       </header>
-      <main className="px-4 sm:px-6 py-8 max-w-5xl mx-auto space-y-6">
+      <main className="px-4 sm:px-6 pt-8 pb-[calc(104px+env(safe-area-inset-bottom))] sm:pb-8 max-w-5xl mx-auto space-y-6">
+        {/* v2.51 — bas réservé pour la navigation basse (mobile) :
+            le contenu ne passe jamais derrière la barre. Sur écran
+            large (barre masquée), le padding redevient normal. */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className={cn('text-3xl font-black tracking-tight', dark ? 'text-white' : 'text-slate-900')}>{title}</h1>

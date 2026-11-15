@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plane, Snowflake, Undo2 } from 'lucide-react';
+import { DrivePlane, DriveSnowflake, DriveUndo } from '@/components/icons/DriveUi';
 import { type Neighborhood } from '@/lib/neighborhoods';
 import { NeighborhoodSelect } from '@/components/shared/NeighborhoodSelect';
 import { COMFORT_MIN_RATING } from '@/lib/comfort';
@@ -103,7 +103,7 @@ export function DriverBeyondPanel() {
           note ≥ 4,5★ pour recevoir les courses Confort. */}
       <div className="space-y-1.5">
         <p className="flex items-center gap-2 font-black text-slate-900 text-sm">
-          <Snowflake size={16} className="text-cyan-600" /> Climatisation — classe Confort
+          <DriveSnowflake size={16} className="text-cyan-600" /> Climatisation — classe Confort
         </p>
         <p className="text-xs text-slate-500 leading-snug">
           Avec la clim déclarée et une note moyenne de {COMFORT_MIN_RATING}★ ou plus, tu reçois
@@ -135,7 +135,7 @@ export function DriverBeyondPanel() {
           désactivable à tout moment. */}
       <div className="space-y-1.5">
         <p className="flex items-center gap-2 font-black text-slate-900 text-sm">
-          <Undo2 size={16} className="text-stacks-green" /> Courses sur le chemin du retour
+          <DriveUndo size={16} className="text-stacks-green" /> Courses sur le chemin du retour
         </p>
         <p className="text-xs text-slate-500 leading-snug">
           Définis ton quartier de retour : tu ne reçois alors que les demandes qui vont dans cette
@@ -174,7 +174,7 @@ export function DriverBeyondPanel() {
       {/* File d'attente aéroport (v2.34) : premier arrivé, premier servi. */}
       <div className="space-y-1.5">
         <p className="flex items-center gap-2 font-black text-slate-900 text-sm">
-          <Plane size={16} className="text-amber-600" /> File d’attente aéroport
+          <DrivePlane size={16} className="text-amber-600" /> File d’attente aéroport
         </p>
         <p className="text-xs text-slate-500 leading-snug">
           Présent à l’aéroport Léon-Mba ? Rejoins la file : la prochaine demande depuis l’aéroport

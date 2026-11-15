@@ -1,4 +1,5 @@
 import '@/styles/globals.css';
+import { BottomNav } from '@/components/shared/BottomNav';
 
 export const metadata = {
   title: 'Stacks Drive | Courses à Libreville — prix figé une fois accepté',
@@ -14,7 +15,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        {children}
+        <BottomNav />
+      </body>
     </html>
   );
 }

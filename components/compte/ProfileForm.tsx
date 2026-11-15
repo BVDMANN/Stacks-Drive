@@ -1,5 +1,7 @@
 "use client";
 
+import { DriveBriefcase, DriveHome } from '@/components/icons/DriveUi';
+
 import { useState } from 'react';
 import { PremiumButton } from '@/components/shared/PremiumButton';
 import { VerificationStatusBadge } from '@/components/shared/StatusBadge';
@@ -148,11 +150,11 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
       {/* Lieux favoris (v2.30) : domicile / travail — raccourcis 1 tap
           sur l'accueil pour définir le départ ou la destination.
           Vider le quartier + la précision supprime le lieu. */}
-      <div className="border-t border-slate-100 pt-5 space-y-5">
+      <div id="adresses" className="border-t border-slate-100 pt-5 space-y-5 scroll-mt-24">
         <h3 className="font-black text-slate-900">Mes lieux — Maison &amp; Travail</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label htmlFor="home-neighborhood" className={labelCls}>🏠 Maison — quartier</label>
+            <label htmlFor="home-neighborhood" className={labelCls}><DriveHome size={14} className="inline-block" /> Maison — quartier</label>
             <select
               id="home-neighborhood"
               value={homeNeighborhood}
@@ -187,7 +189,7 @@ export function ProfileForm({ profile }: { profile: SessionProfile }) {
             )}
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="work-neighborhood" className={labelCls}>💼 Travail — quartier</label>
+            <label htmlFor="work-neighborhood" className={labelCls}><DriveBriefcase size={14} className="inline-block" /> Travail — quartier</label>
             <select
               id="work-neighborhood"
               value={workNeighborhood}

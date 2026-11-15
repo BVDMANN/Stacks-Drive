@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, PartyPopper, Sparkles, Trophy, X } from 'lucide-react';
+import { DriveFlame, DriveSparkles, DriveTrophy, DriveX } from '@/components/icons/DriveUi';
 
 /** Données renvoyées par l'API à la clôture d'une course. Les bonus
  *  sont en POINTS depuis la v2.3 (plus d'argent direct). */
@@ -113,7 +113,7 @@ export function CelebrationPopup({
           className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20"
           aria-label="Fermer"
         >
-          <X size={16} />
+          <DriveX size={16} />
         </button>
 
         <motion.div
@@ -122,7 +122,7 @@ export function CelebrationPopup({
           transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 15 }}
           className="mx-auto w-16 h-16 rounded-full bg-corail flex items-center justify-center text-night-950 shadow-lg shadow-corail/40"
         >
-          {celebration.isDoubleRide ? <PartyPopper size={30} /> : <Trophy size={30} />}
+          {celebration.isDoubleRide ? <DriveTrophy size={30} /> : <DriveTrophy size={30} />}
         </motion.div>
 
         <h2 className="font-black text-2xl mt-4 tracking-tight">
@@ -155,13 +155,13 @@ export function CelebrationPopup({
 
         {celebration.pointsEarned > 0 && (
           <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-corail bg-corail/10 border border-corail/30 rounded-full px-4 py-2">
-            <Sparkles size={15} /> +{celebration.pointsEarned} points gagnés !
+            <DriveSparkles size={15} /> +{celebration.pointsEarned} points gagnés !
           </p>
         )}
 
         {celebration.questBonus > 0 && (
           <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-corail bg-corail/10 border border-corail/30 rounded-full px-4 py-2">
-            <Sparkles size={15} /> Bonus de quête : +{celebration.questBonus} points !
+            <DriveSparkles size={15} /> Bonus de quête : +{celebration.questBonus} points !
           </p>
         )}
 
@@ -193,7 +193,7 @@ export function CelebrationPopup({
         <div className="flex items-center justify-center gap-4 mt-4 text-sm text-slate-300">
           {celebration.streakDays > 1 && (
             <span className="inline-flex items-center gap-1 font-bold">
-              <Flame size={16} className="text-rose-300" /> Série : {celebration.streakDays} jours
+              <DriveFlame size={16} className="text-rose-300" /> Série : {celebration.streakDays} jours
             </span>
           )}
           <span className="font-bold">Niveau {celebration.tier}</span>

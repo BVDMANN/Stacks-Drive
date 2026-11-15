@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MessageCircle, Share2 } from 'lucide-react';
+import { DriveMessage, DriveShare } from '@/components/icons/DriveUi';
 import {
   buildTrustedShareText,
   smsShareLink,
@@ -57,7 +57,7 @@ export function TrustedSharePanel({
   return (
     <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">
       <h2 className="font-black text-slate-900 flex items-center gap-1.5">
-        <Share2 size={18} className="text-stacks-green" /> Suivi partagé avec tes proches
+        <DriveShare size={18} className="text-stacks-green" /> Suivi partagé avec tes proches
       </h2>
       <p className="text-sm text-slate-600">
         {emailed.length > 0
@@ -78,7 +78,7 @@ export function TrustedSharePanel({
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black bg-green-600 text-white hover:bg-green-700 transition-colors"
               >
-                <MessageCircle size={13} /> WhatsApp
+                <DriveMessage size={13} /> WhatsApp
               </a>
               <a
                 href={smsShareLink(c.phone, text)}

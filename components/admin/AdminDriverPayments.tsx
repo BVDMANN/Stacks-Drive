@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, ShieldCheck, Wallet } from 'lucide-react';
+import { DriveKey, DriveShield, DriveWallet } from '@/components/icons/DriveUi';
 import type { AdminDriverMoney } from '@/lib/earnings';
 import { DEPOSIT_FCFA } from '@/lib/gamification';
 import { formatFcfa } from '@/lib/commission';
@@ -103,7 +103,7 @@ export function AdminDriverPayments({
                         : 'bg-amber-50 text-amber-700 border-amber-200'
                     )}
                   >
-                    <ShieldCheck size={13} />
+                    <DriveShield size={13} />
                     {d.depositPaid
                       ? `Dépôt ${formatFcfa(d.depositAmount)} versé`
                       : 'Dépôt non versé'}
@@ -138,7 +138,7 @@ export function AdminDriverPayments({
                     onClick={() => act('settlement', { driverId: key, amount })}
                     className="px-4 py-2 rounded-full text-sm font-black bg-stacks-green text-white hover:bg-stacks-greenLight transition-colors disabled:opacity-50"
                   >
-                    <Wallet size={14} className="inline mr-1" />
+                    <DriveWallet size={14} className="inline mr-1" />
                     Enregistrer un règlement
                   </button>
                 </div>
@@ -151,7 +151,7 @@ export function AdminDriverPayments({
       {/* Courses verrouillées (5 codes PIN faux) */}
       <div className="space-y-3">
         <h3 className="font-black text-slate-900 flex items-center gap-1.5">
-          <KeyRound size={16} className="text-red-600" />
+          <DriveKey size={16} className="text-red-600" />
           Courses verrouillées ({lockedRides.length})
         </h3>
         {lockedRides.length === 0 ? (

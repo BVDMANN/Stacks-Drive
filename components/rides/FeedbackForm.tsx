@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MessageSquareWarning, Star, ThumbsUp } from 'lucide-react';
+import { DriveAlert, DriveCheck, DriveStar } from '@/components/icons/DriveUi';
 import { cn } from '@/lib/utils';
 
 const CATEGORIES = [
@@ -71,9 +71,9 @@ export function FeedbackForm({
   }
 
   const allKinds: { kind: Kind; label: string; icon: React.ReactNode }[] = [
-    { kind: 'note', label: `Noter ${otherLabel}`, icon: <Star size={15} /> },
-    { kind: 'plainte', label: 'Signaler un problème', icon: <MessageSquareWarning size={15} /> },
-    { kind: 'recommandation', label: 'Suggérer une amélioration', icon: <ThumbsUp size={15} /> },
+    { kind: 'note', label: `Noter ${otherLabel}`, icon: <DriveStar size={15} /> },
+    { kind: 'plainte', label: 'Signaler un problème', icon: <DriveAlert size={15} /> },
+    { kind: 'recommandation', label: 'Suggérer une amélioration', icon: <DriveCheck size={15} /> },
   ];
   const availableKinds = allKinds.filter((k) => !submitted.includes(k.kind));
 
@@ -134,7 +134,7 @@ export function FeedbackForm({
                 onClick={() => setStars(n)}
                 className="p-1"
               >
-                <Star
+                <DriveStar
                   size={28}
                   className={cn(
                     stars >= n ? 'text-stacks-amber fill-stacks-amber' : 'text-slate-300'

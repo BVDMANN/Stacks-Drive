@@ -1,12 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, MapPin, Route, Star, Users, X } from 'lucide-react';
+import { DriveClock, DrivePin, DriveRoute, DriveStar, DriveUsers, DriveX } from '@/components/icons/DriveUi';
 import type { PassengerRating, Ride } from '@/types';
 import { formatFcfa } from '@/lib/commission';
 import { UNPAVED_ROAD_SUPPLEMENT, estimateTrip } from '@/lib/pricing';
 import { timeAgo } from '@/lib/dates';
-import { dropOffPointFor, isDifficultAccess, type Neighborhood } from '@/lib/neighborhoods';
+import {
+  NEIGHBORHOOD_COORDS,
+  dropOffPointFor,
+  isDifficultAccess,
+  type Neighborhood,
+} from '@/lib/neighborhoods';
+import { useRoadRoute } from '@/lib/use-road-route';
 
 /** Pop-up reçue par le chauffeur en ligne quand une demande match son
  *  périmètre : détails de la demande + proposition (prix, places,
@@ -72,9 +78,20 @@ export function RequestPopup({
     setPrice((p) => p + (checked ? UNPAVED_ROAD_SUPPLEMENT : -UNPAVED_ROAD_SUPPLEMENT));
   }
 
-  // Trajet estimé (v2.2) : le chauffeur voit la distance et la durée
-  // avant de proposer son prix.
-  const tripEstimate = estimateTrip(ride.pickup as Neighborhood, ride.destination as Neighborhood);
+  // Trajet (v2.50, ADR 0025) : distance et durée ROUTIÈRES (OSRM)
+  // sur les points exacts du trajet (épingle ou centre de quartier)
+  // — les mêmes chiffres que l'estimation du passager. En attendant
+  // la route (ou si OSRM est indisponible), le vol d'oiseau sert
+  // d'affichage provisoire — jamais de prix calculé ici.
+  const pickupCoords = ride.pickupPoint ?? NEIGHBORHOOD_COORDS[ride.pickup as Neighborhood];
+  const destCoords =
+    ride.destinationPoint ?? NEIGHBORHOOD_COORDS[ride.destination as Neighborhood];
+  const { route: roadRoute } = useRoadRoute(pickupCoords, destCoords);
+  const fallbackTrip = estimateTrip(ride.pickup as Neighborhood, ride.destination as Neighborhood);
+  const tripEstimate =
+    roadRoute && roadRoute.source === 'osrm'
+      ? { distanceKm: roadRoute.distanceKm, durationMin: roadRoute.durationMin }
+      : fallbackTrip;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -131,7 +148,7 @@ export function RequestPopup({
                 décider d'accepter. « Nouveau passager » = aucune
                 course notée, pas une mauvaise note. */}
             <p className="text-sm font-bold text-slate-700 mt-1.5 flex items-center gap-1.5">
-              <Star size={15} className="text-stacks-amber fill-stacks-amber shrink-0" />
+              <DriveStar size={15} className="text-stacks-amber fill-stacks-amber shrink-0" />
               {passengerRating
                 ? `Note du passager : ${passengerRating.average}/5 (${passengerRating.count} course${passengerRating.count > 1 ? 's' : ''} notée${passengerRating.count > 1 ? 's' : ''})`
                 : 'Nouveau passager — aucune course notée pour l’instant'}
@@ -143,7 +160,7 @@ export function RequestPopup({
             className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0"
             aria-label="Ignorer pour l’instant"
           >
-            <X size={16} />
+            <DriveX size={16} />
           </button>
         </div>
 
@@ -165,7 +182,7 @@ export function RequestPopup({
         )}
 
         <p className="text-sm text-slate-600 flex items-center gap-1.5">
-          <Route size={15} className="text-stacks-green shrink-0" />
+          <DriveRoute size={15} className="text-stacks-green shrink-0" />
           ~{Math.max(1, Math.round(tripEstimate.distanceKm))} km · ~{tripEstimate.durationMin} min de trajet
         </p>
 
@@ -234,7 +251,7 @@ export function RequestPopup({
             {ride.rideType === 'groupe' && (
               <div className="space-y-1.5">
                 <label htmlFor="seats-left" className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
-                  <Users size={12} /> Places restantes
+                  <DriveUsers size={12} /> Places restantes
                 </label>
                 <input
                   id="seats-left"
@@ -257,7 +274,7 @@ export function RequestPopup({
             )}
             <div className={ride.rideType === 'solo' ? 'col-span-2 space-y-1.5' : 'space-y-1.5'}>
               <label htmlFor="first-stop" className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
-                <MapPin size={12} /> Premier arrêt
+                <DrivePin size={12} /> Premier arrêt
               </label>
               <input
                 id="first-stop"
@@ -273,7 +290,7 @@ export function RequestPopup({
             </div>
           </div>
           <p className="text-xs text-slate-400 flex items-start gap-1.5">
-            <Clock size={13} className="shrink-0 mt-0.5" />
+            <DriveClock size={13} className="shrink-0 mt-0.5" />
             Ta proposition expire après 60 secondes si le passager ne répond pas.
             En Groupe, le premier arrêt donne l’ordre des prises en charge.
           </p>

@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import { notFound, useSearchParams } from 'next/navigation';
 import { ProposalCard } from '@/components/home/ProposalCard';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { PinDisplay } from '@/components/rides/PinDisplay';
 import { PinEntry } from '@/components/driver/PinEntry';
 import { RequestPopup } from '@/components/driver/RequestPopup';
@@ -168,7 +169,7 @@ export default function TutoApercuPage() {
     <Suspense
       fallback={
         <div className="min-h-dvh bg-night-950 text-slate-100 flex items-center justify-center">
-          <p className="text-sm font-bold text-slate-400">Chargement de l’aperçu…</p>
+          <LogoLoader size={64} label="Chargement de l’aperçu…" />
         </div>
       }
     >

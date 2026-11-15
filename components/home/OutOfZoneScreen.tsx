@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, CheckCircle2, Globe, Loader2, Mail, MapPin } from 'lucide-react';
+import { DriveBell, DriveCheckBadge, DriveGlobe, DriveMail, DrivePin } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 
 /** Écran hors zone (v2.32) : quand la géolocalisation place
  *  quelqu'un hors de la zone de service (Grand Libreville,
@@ -189,11 +190,11 @@ export function OutOfZoneScreen({
 
       <div className="relative rise-in flex flex-col items-center max-w-md w-full">
         <div className="out-of-zone-tile w-16 h-16 rounded-2xl bg-rose-500 flex items-center justify-center text-night-900 shadow-lg shadow-rose-500/40">
-          <Globe size={32} />
+          <DriveGlobe size={32} />
         </div>
         {placeLabel && (
           <p className="inline-flex items-center gap-1.5 mt-5 text-xs font-black uppercase tracking-widest text-sarcelle">
-            <MapPin size={13} /> {placeLabel}
+            <DrivePin size={13} /> {placeLabel}
           </p>
         )}
         <h1 className="font-black text-2xl sm:text-3xl mt-4 tracking-tight leading-tight">
@@ -210,7 +211,7 @@ export function OutOfZoneScreen({
             data-testid="out-of-zone-explore"
             className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-rose-500 text-night-900 font-black shadow-lg shadow-rose-500/30 hover:bg-rose-300 transition-colors"
           >
-            <MapPin size={16} /> {t.explore}
+            <DrivePin size={16} /> {t.explore}
           </button>
         </div>
 
@@ -218,16 +219,16 @@ export function OutOfZoneScreen({
         <div className="w-full mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 text-left">
           {done ? (
             <p className="flex items-start gap-2 text-sm font-bold text-slate-100 leading-relaxed">
-              <CheckCircle2 size={18} className="text-rose-300 shrink-0 mt-0.5" />
+              <DriveCheckBadge size={18} className="text-rose-300 shrink-0 mt-0.5" />
               {done === 'already' ? t.already : t.success}
             </p>
           ) : (
             <form onSubmit={submitNotify} noValidate>
               <label htmlFor="out-of-zone-email" className="flex items-center gap-2 text-sm font-black text-slate-100">
-                <Bell size={16} className="text-rose-300" /> {t.notifyTitle}
+                <DriveBell size={16} className="text-rose-300" /> {t.notifyTitle}
               </label>
               <div className="flex items-center gap-2 mt-3 rounded-full bg-night-900 border border-white/15 px-4 focus-within:border-rose-500/60">
-                <Mail size={16} className="text-slate-400 shrink-0" />
+                <DriveMail size={16} className="text-slate-400 shrink-0" />
                 <input
                   id="out-of-zone-email"
                   type="email"
@@ -260,11 +261,11 @@ export function OutOfZoneScreen({
               >
                 {busy ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" /> {t.sending}
+                    <LogoLoader size={18} /> {t.sending}
                   </>
                 ) : (
                   <>
-                    <Bell size={16} /> {t.submit}
+                    <DriveBell size={16} /> {t.submit}
                   </>
                 )}
               </button>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldAlert } from 'lucide-react';
+import { DriveShieldAlert } from '@/components/icons/DriveUi';
 import { FRAUD_SIGNAL_LABELS } from '@/lib/fraud-labels';
 import type { FraudCase } from '@/lib/fraud';
 import { timeAgo } from '@/lib/dates';
@@ -107,7 +107,7 @@ export function FraudReview({
             return (
               <li key={c.id} className="py-3 flex flex-wrap items-start justify-between gap-3">
                 <div className="text-sm flex items-start gap-3">
-                  <ShieldAlert size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                  <DriveShieldAlert size={20} className="text-amber-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold text-slate-900">
                       {FRAUD_SIGNAL_LABELS[c.signal]} — {c.userName ?? 'Sans nom'}

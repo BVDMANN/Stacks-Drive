@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, HelpCircle, MessageCircleWarning, Search } from 'lucide-react';
+import { DriveAlert, DriveChevronDown, DriveHelp, DriveSearch } from '@/components/icons/DriveUi';
 import { FAQ_ITEMS, answerFaq } from '@/lib/faq';
 import { cn } from '@/lib/utils';
 
@@ -47,7 +47,7 @@ export function Faq() {
           Pose ta question
         </label>
         <div className="relative">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <DriveSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             id="faq-search"
             type="text"
@@ -63,7 +63,7 @@ export function Faq() {
       {query.trim() !== '' && match && (
         <div className="bg-green-50 border border-green-200 rounded-3xl p-5 space-y-2">
           <p className="font-black text-green-900 flex items-center gap-2">
-            <HelpCircle size={18} /> {match.question}
+            <DriveHelp size={18} /> {match.question}
           </p>
           <p className="text-sm text-green-800 leading-relaxed">{match.answer}</p>
         </div>
@@ -74,7 +74,7 @@ export function Faq() {
       {query.trim() !== '' && !match && (
         <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 space-y-3">
           <p className="font-black text-amber-800 flex items-center gap-2">
-            <MessageCircleWarning size={18} /> Pas de réponse automatique pour cette question
+            <DriveAlert size={18} /> Pas de réponse automatique pour cette question
           </p>
           <p className="text-sm text-amber-700 leading-relaxed">
             Ta question ne fait pas partie des questions courantes. Si elle
@@ -83,7 +83,7 @@ export function Faq() {
           </p>
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/mes-courses"
+              href="/activite"
               className="px-5 py-2.5 rounded-full text-sm font-black bg-stacks-green text-white shadow-md hover:bg-stacks-greenLight transition-colors"
             >
               Ouvrir un litige depuis ma course
@@ -123,7 +123,7 @@ export function Faq() {
                   className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left"
                 >
                   <span className="text-sm font-black text-slate-900">{item.question}</span>
-                  <ChevronDown
+                  <DriveChevronDown
                     size={18}
                     className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')}
                   />

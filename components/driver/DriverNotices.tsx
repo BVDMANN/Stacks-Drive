@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { PartyPopper, ShieldAlert, Clock, Wallet, X } from 'lucide-react';
+import { DriveClock, DriveShieldAlert, DriveTrophy, DriveWallet, DriveX } from '@/components/icons/DriveUi';
 import { formatFcfa } from '@/lib/commission';
 import type { DriverNotice } from '@/app/api/driver/notices/route';
 
@@ -73,7 +73,7 @@ export function DriverNotices({ settleHref = '#gains' }: { settleHref?: string }
               key={notice.kind}
               className="bg-green-50 border border-green-200 rounded-3xl p-5 shadow-sm flex flex-wrap items-start gap-4"
             >
-              <PartyPopper size={24} className="text-green-700 shrink-0 mt-0.5" />
+              <DriveTrophy size={24} className="text-green-700 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-[220px]">
                 <p className="font-black text-green-800">{notice.title}</p>
                 <p className="text-sm text-green-700 mt-1">{notice.message}</p>
@@ -84,7 +84,7 @@ export function DriverNotices({ settleHref = '#gains' }: { settleHref?: string }
                 aria-label="Fermer le message de bienvenue"
                 className="shrink-0 p-2 rounded-full text-green-700 hover:bg-green-100 transition-colors"
               >
-                <X size={18} />
+                <DriveX size={18} />
               </button>
             </div>
           );
@@ -95,7 +95,7 @@ export function DriverNotices({ settleHref = '#gains' }: { settleHref?: string }
               key={notice.kind}
               className="bg-amber-50 border border-amber-200 rounded-3xl p-5 shadow-sm flex flex-wrap items-start gap-4"
             >
-              <ShieldAlert size={24} className="text-amber-700 shrink-0 mt-0.5" />
+              <DriveShieldAlert size={24} className="text-amber-700 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-[220px]">
                 <p className="font-black text-amber-800">{notice.title}</p>
                 <p className="text-sm text-amber-700 mt-1">{notice.message}</p>
@@ -115,7 +115,7 @@ export function DriverNotices({ settleHref = '#gains' }: { settleHref?: string }
               key={notice.kind}
               className="bg-sky-50 border border-sky-200 rounded-3xl p-5 shadow-sm flex flex-wrap items-start gap-4"
             >
-              <Clock size={24} className="text-sky-700 shrink-0 mt-0.5" />
+              <DriveClock size={24} className="text-sky-700 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-[220px]">
                 <p className="font-black text-sky-800">{notice.title}</p>
                 <p className="text-sm text-sky-700 mt-1">{notice.message}</p>
@@ -140,7 +140,7 @@ export function DriverNotices({ settleHref = '#gains' }: { settleHref?: string }
               role="alert"
               className="bg-red-50 border border-red-200 rounded-3xl p-5 shadow-sm flex flex-wrap items-start gap-4"
             >
-              <ShieldAlert size={24} className="text-red-700 shrink-0 mt-0.5" />
+              <DriveShieldAlert size={24} className="text-red-700 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-[220px]">
                 <p className="font-black text-red-800">{notice.title}</p>
                 <p className="text-sm text-red-700 mt-1">{notice.message}</p>
@@ -155,7 +155,7 @@ export function DriverNotices({ settleHref = '#gains' }: { settleHref?: string }
             role="alert"
             className="bg-red-50 border border-red-200 rounded-3xl p-5 shadow-sm flex flex-wrap items-start gap-4"
           >
-            <Wallet size={24} className="text-red-700 shrink-0 mt-0.5" />
+            <DriveWallet size={24} className="text-red-700 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-[220px]">
               <p className="font-black text-red-800">
                 {notice.title}

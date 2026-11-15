@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { DriveChevronLeft, DriveChevronRight, DriveX } from '@/components/icons/DriveUi';
 import type { TutoStep } from './steps';
 
 /** Modale de tutoriel « Nuit violette » (v2.21) — étape par étape, courte
@@ -62,7 +62,7 @@ export function TutorialModal({
           aria-label="Fermer le tutoriel"
           className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-night-950/80 backdrop-blur border border-white/20 text-white hover:border-corail/60 active:scale-90 transition-all"
         >
-          <X size={18} />
+          <DriveX size={18} />
         </button>
 
         <p className="px-5 pt-5 text-[10px] font-black uppercase tracking-widest text-corail">
@@ -110,7 +110,7 @@ export function TutorialModal({
               disabled={index === 0}
               className="inline-flex items-center gap-1 px-4 py-3 rounded-full border border-white/15 text-sm font-black text-slate-200 hover:border-white/40 active:scale-95 transition-all disabled:opacity-40"
             >
-              <ChevronLeft size={16} /> Précédent
+              <DriveChevronLeft size={16} /> Précédent
             </button>
             {index < last ? (
               <button
@@ -118,7 +118,7 @@ export function TutorialModal({
                 onClick={() => setIndex((i) => Math.min(last, i + 1))}
                 className="flex-1 inline-flex items-center justify-center gap-1 px-4 py-3 rounded-full bg-rose-500 text-night-900 text-sm font-black shadow-lg shadow-rose-500/30 hover:bg-rose-300 active:scale-[0.98] transition-all"
               >
-                Suivant <ChevronRight size={16} />
+                Suivant <DriveChevronRight size={16} />
               </button>
             ) : (
               <button

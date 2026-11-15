@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Minus, Plus, Users, X } from 'lucide-react';
+import { DriveUsers, DriveX } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { cn } from '@/lib/utils';
 
 /** Pop-up « Combien de places libres dans ton véhicule ? » (v2.19).
@@ -66,7 +67,7 @@ export function SeatsPopup({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-black text-lg flex items-center gap-2">
-              <Users size={20} className="text-sarcelle" />
+              <DriveUsers size={20} className="text-sarcelle" />
               Combien de places libres dans ton véhicule ?
             </p>
             <p className="text-sm text-slate-300 mt-1">
@@ -80,7 +81,7 @@ export function SeatsPopup({
             className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 shrink-0"
             aria-label="Fermer"
           >
-            <X size={16} />
+            <DriveX size={16} />
           </button>
         </div>
 
@@ -92,7 +93,7 @@ export function SeatsPopup({
             className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white disabled:opacity-30"
             aria-label="Une place de moins"
           >
-            <Minus size={20} />
+            −
           </button>
           <div className="text-center min-w-[7rem]">
             <p className="text-5xl font-black text-sarcelle">{value}</p>
@@ -107,7 +108,7 @@ export function SeatsPopup({
             className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white disabled:opacity-30"
             aria-label="Une place de plus"
           >
-            <Plus size={20} />
+            +
           </button>
         </div>
 
@@ -170,7 +171,7 @@ export function SeatsPopup({
             disabled={saving}
             className="flex-1 py-3.5 rounded-full bg-sarcelle text-night-950 text-sm font-black hover:bg-sarcelle/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {saving && <Loader2 size={16} className="animate-spin" />}
+            {saving && <LogoLoader size={18} />}
             {saving ? 'Enregistrement…' : 'Valider mes places'}
           </button>
           <button

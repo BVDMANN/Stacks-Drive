@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, ShieldAlert } from 'lucide-react';
+import { DriveKey, DriveShieldAlert } from '@/components/icons/DriveUi';
 
 /** Saisie du code PIN à 4 chiffres (v2.2) : le passager donne son code
  *  au chauffeur, qui le tape pour démarrer le trajet. 5 codes faux =
@@ -53,7 +53,7 @@ export function PinEntry({
     return (
       <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-2">
         <p className="font-black text-red-800 flex items-center gap-1.5">
-          <ShieldAlert size={16} /> Course verrouillée
+          <DriveShieldAlert size={16} /> Course verrouillée
         </p>
         <p className="text-sm text-red-700">
           5 codes faux ont été saisis. Contacte Stacks Drive pour débloquer
@@ -66,7 +66,7 @@ export function PinEntry({
   return (
     <form onSubmit={submit} className="bg-night-900 border border-white/10 rounded-2xl p-4 space-y-3 text-slate-100">
       <p className="font-black flex items-center gap-1.5">
-        <KeyRound size={16} className="text-corail" />
+        <DriveKey size={16} className="text-corail" />
         Code du passager
       </p>
       <p className="text-sm text-slate-400">

@@ -1,5 +1,6 @@
+import Image from 'next/image';
 import Link from 'next/link';
-import { Car, ShieldCheck } from 'lucide-react';
+import { DriveShield } from '@/components/icons/DriveUi';
 import { COMMISSION_RATE } from '@/lib/commission';
 
 /** Pied de page discret : les infos (commission, comment ça marche,
@@ -10,12 +11,15 @@ export function Footer() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500 flex items-center justify-center text-night-900 shadow-md shadow-rose-500/40">
-                <Car size={22} />
-              </div>
-              <span className="text-xl font-black text-white tracking-tight">Stacks Drive</span>
-            </div>
+            {/* v2.52 — le logo officiel complet (le S, la voiture,
+                « StacksDrive® — VTC • GABON »). */}
+            <Image
+              src="/logo-stacks-drive.png"
+              alt="Stacks Drive — VTC • Gabon"
+              width={128}
+              height={128}
+              className="rounded-2xl"
+            />
             <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
               La solution du peuple pour se déplacer à Libreville : estimation
               indicative, prix figé une fois accepté, chauffeurs vérifiés,
@@ -66,7 +70,7 @@ export function Footer() {
             <p className="text-xs font-black uppercase tracking-widest text-sarcelle">Le projet</p>
             <ul className="space-y-2 text-sm">
               <li className="text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck size={15} className="text-sarcelle shrink-0" />
+                <DriveShield size={15} className="text-sarcelle shrink-0" />
                 Prix garanti — même la nuit
               </li>
               <li className="text-slate-400">

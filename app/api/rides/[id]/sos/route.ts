@@ -102,7 +102,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
         sender_id: user.id,
         sender_role: role,
         body:
-          `🚨 SOS déclenché par ${role === 'passager' ? 'le passager' : 'le chauffeur'} — ${ride.pickup} → ${ride.destination}` +
+          `[SOS] Déclenché par ${role === 'passager' ? 'le passager' : 'le chauffeur'} — ${ride.pickup} → ${ride.destination}` +
           (mapsUrl ? ` — Position : ${mapsUrl}` : ' — Position non partagée') +
           ` — Chauffeur : ${driverName ?? '—'}${plate ? ` (plaque ${plate})` : ''} — Prix : ${priceLabel}.`,
       });

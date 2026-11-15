@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, RefreshCw, Search, X } from 'lucide-react';
+import { DriveRefresh, DriveSearch, DriveX } from '@/components/icons/DriveUi';
 import { cn } from '@/lib/utils';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { formatFcfa } from '@/lib/commission';
 import { formatDepartureTime, timeAgo } from '@/lib/dates';
 import { pollingIntervalMs, useRealtimeSubscription } from '@/lib/realtime';
@@ -215,7 +216,7 @@ function ErrorAlert({ message }: { message: string }) {
 function Spinner({ label = 'Chargement…' }: { label?: string }) {
   return (
     <p className="text-sm text-slate-500 inline-flex items-center gap-2">
-      <Loader2 size={16} className="animate-spin" /> {label}
+      <LogoLoader size={18} /> {label}
     </p>
   );
 }
@@ -491,7 +492,7 @@ export function LiveAdmin() {
           disabled={refreshing}
           className="ml-auto inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-stacks-green disabled:opacity-50"
         >
-          <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+          <DriveRefresh size={15} className={refreshing ? 'animate-spin' : ''} />
           Actualiser
         </button>
       </div>
@@ -693,7 +694,7 @@ export function LiveAdmin() {
             disabled={eventsLoadingMore}
             className="inline-flex items-center gap-2 text-sm font-bold text-stacks-green hover:underline disabled:opacity-50"
           >
-            {eventsLoadingMore && <Loader2 size={15} className="animate-spin" />}
+            {eventsLoadingMore && <LogoLoader size={18} />}
             Charger plus
           </button>
         )}
@@ -703,7 +704,7 @@ export function LiveAdmin() {
       {/* Les gens */}
       <Section title="Les gens" count={peopleTotal}>
         <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <DriveSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
             value={q}
@@ -812,7 +813,7 @@ export function LiveAdmin() {
             disabled={peopleLoadingMore}
             className="inline-flex items-center gap-2 text-sm font-bold text-stacks-green hover:underline disabled:opacity-50"
           >
-            {peopleLoadingMore && <Loader2 size={15} className="animate-spin" />}
+            {peopleLoadingMore && <LogoLoader size={18} />}
             Afficher plus ({people.length} / {peopleTotal})
           </button>
         )}
@@ -865,7 +866,7 @@ export function LiveAdmin() {
               onClick={closeDrawer}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-black"
             >
-              <X size={16} /> Fermer
+              <DriveX size={16} /> Fermer
             </button>
           </div>
           <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto space-y-6">

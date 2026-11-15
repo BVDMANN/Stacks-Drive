@@ -20,17 +20,51 @@ export type VehiclePreference = 'voiture' | 'moto' | 'tous';
 export interface FareEstimate {
   /** Estimation indicative, en FCFA — jamais un prix à payer. */
   price: number;
-  /** Distance à vol d'oiseau entre les deux quartiers, en km. */
+  /** Distance ROUTIÈRE (OSRM) entre les deux points, en km — sauf
+   *  repli (voir `approximate`) où c'est la distance à vol d'oiseau. */
   distanceKm: number;
   /** Durée estimée du trajet, en minutes (affichée, jamais facturée). */
   durationMin: number;
   rideType: RideType;
   vehiclePreference: VehiclePreference;
   /** Décomposition lisible affichée sous l'estimation
-   *  (« 500 FCFA prise en charge + 4,8 km × 210 FCFA/km »). */
+   *  (« 500 FCFA prise en charge + 6,6 km × 210 FCFA/km »). */
   breakdown: string;
   /** Supplément route non bitumée inclus dans l'estimation (0 sinon). */
   unpavedSupplement: number;
+  /** Vrai si OSRM était indisponible et que l'estimation repose sur
+   *  la distance à vol d'oiseau (repli) : l'interface l'affiche
+   *  (« Estimation approximative »), le serveur le journalise. */
+  approximate: boolean;
+  /** Origine de la distance : 'osrm' (route réelle) ou 'haversine'
+   *  (repli vol d'oiseau). */
+  distanceSource: 'osrm' | 'haversine';
+}
+
+/** Ancre tarifaire (v2.16, FIGÉE — décision du propriétaire) :
+ *  Centre-ville ↔ Nzeng-Ayong = Solo 1 500 FCFA / Groupe 950 FCFA,
+ *  dans les deux sens. C'est une valeur FIXE, pas un calcul : la
+ *  distance routière réelle (6,6 km, OSRM) donnerait 1 900 / 1 200
+ *  avec le modèle au km — l'ancre ne bouge pas (v2.50, ADR 0025).
+ *  Historique : l'ancre tenait par les coordonnées des deux
+ *  quartiers (distance haversine 4,76 km) ; depuis la v2.50, c'est
+ *  un dépassement explicite dans le calcul, pas une coïncidence de
+ *  coordonnées — les deux centres restent figés (voir
+ *  `lib/neighborhoods.ts`). */
+export const ANCHOR_FROM = 'Centre-ville';
+export const ANCHOR_TO = 'Nzeng-Ayong';
+export const ANCHOR_SOLO = 1500;
+export const ANCHOR_GROUPE = 950;
+
+/** Le trajet est-il l'ancre tarifaire (dans un sens ou l'autre) ? */
+export function isAnchorTrip(
+  pickupNeighborhood: Neighborhood,
+  destinationNeighborhood: Neighborhood
+): boolean {
+  return (
+    (pickupNeighborhood === ANCHOR_FROM && destinationNeighborhood === ANCHOR_TO) ||
+    (pickupNeighborhood === ANCHOR_TO && destinationNeighborhood === ANCHOR_FROM)
+  );
 }
 
 /** Supplément route non bitumée (v2.6) : forfait fixe ajouté au tarif
@@ -85,9 +119,11 @@ export function distanceBetween(a: Neighborhood, b: Neighborhood): number {
  *  d'argent (vue course, tableau de bord chauffeur, pop-up de
  *  proposition).
  *  Distance = vol d'oiseau (haversine) entre les centres des quartiers
- *  — DÉLIBÉRÉ (ADR 0010) : le prix ne doit jamais dépendre d'OSRM
- *  (service démo non garanti) ni varier selon l'itinéraire choisi.
- *  La distance routière sert à l'affichage et au guidage uniquement. */
+ *  — AFFICHAGE UNIQUEMENT depuis la v2.50 (ADR 0025) : le prix, lui,
+ *  est calculé sur la distance routière OSRM (voir
+ *  `lib/estimate-server.ts`). L'ADR 0010 est remplacée : la distance
+ *  à vol d'oiseau ne sert plus que de repli (OSRM indisponible) et
+ *  d'affichage quand aucune route n'a encore été calculée. */
 export function estimateTrip(
   pickup: Neighborhood,
   destination: Neighborhood
@@ -97,25 +133,68 @@ export function estimateTrip(
   return { distanceKm, durationMin };
 }
 
+/** Trajet estimé entre deux points GPS quelconques (v2.47 — pickup
+ *  précis) : même formule que `estimateTrip`, mais sur les coordonnées
+ *  exactes du départ et de la destination (épingle déplacée, lieu
+ *  choisi) au lieu des centres de quartiers. AFFICHAGE UNIQUEMENT
+ *  depuis la v2.50 (ADR 0025) : le prix est calculé sur la distance
+ *  routière OSRM (voir `lib/estimate-server.ts`) ; la distance à vol
+ *  d'oiseau ne sert plus que de repli (OSRM indisponible). */
+export function estimateTripFromCoords(
+  pickup: { lat: number; lng: number },
+  destination: { lat: number; lng: number }
+): { distanceKm: number; durationMin: number } {
+  const distanceKm = haversineKm(pickup.lat, pickup.lng, destination.lat, destination.lng);
+  const durationMin = Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
+  return { distanceKm, durationMin };
+}
+
 /** Estimation indicative du prix d'un trajet à partir d'une distance
- *  en km (v2.13) — même modèle que `estimateFare`, mais pour deux
- *  points GPS quelconques (pas forcément des quartiers) : c'est ce
- *  qu'utilise la mini-carte d'info d'un lieu (POI). Le prix final
- *  reste négocié entre le passager et le chauffeur et figé à
- *  l'acceptation — jamais de surge. */
+ *  ROUTIÈRE en km (v2.50, ADR 0025) — pour deux points GPS quelconques
+ *  (pas forcément des quartiers) : c'est ce qu'utilise la mini-carte
+ *  d'info d'un lieu (POI). Le prix final reste négocié entre le
+ *  passager et le chauffeur et figé à l'acceptation — jamais de surge.
+ *  `distanceKm` DOIT être la distance routière OSRM ; quand OSRM est
+ *  indisponible, l'appelant passe la distance à vol d'oiseau avec
+ *  `approximate: true` (repli, voir `lib/estimate-server.ts`).
+ *  `anchor: true` force le prix figé Centre-ville ↔ Nzeng-Ayong
+ *  (Solo 1 500 / Groupe 950), dans les deux sens. */
 export function estimateFareForDistance(
   distanceKm: number,
   rideType: RideType,
   vehiclePreference: VehiclePreference = 'tous',
-  options: { isAirport?: boolean; unpavedRoad?: boolean } = {}
+  options: {
+    isAirport?: boolean;
+    unpavedRoad?: boolean;
+    /** Durée routière OSRM en minutes (sinon estimée à 25 km/h). */
+    durationMin?: number;
+    /** Vrai si la distance est le repli vol d'oiseau (OSRM
+     *  indisponible) — l'estimation est marquée approximative. */
+    approximate?: boolean;
+    /** Vrai pour l'ancre Centre-ville ↔ Nzeng-Ayong : prix figé. */
+    anchor?: boolean;
+  } = {}
 ): FareEstimate {
-  const durationMin = Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
+  const durationMin =
+    options.durationMin ?? Math.max(5, Math.round((distanceKm / 25) * 60) + 2);
   const pref: VehiclePreference =
     rideType === 'groupe' && vehiclePreference === 'moto' ? 'voiture' : vehiclePreference;
   const kmFr = distanceKm.toFixed(1).replace('.', ',');
   let price: number;
   let breakdown: string;
-  if (rideType === 'solo') {
+  if (options.anchor) {
+    // Ancre FIGÉE (v2.16, ADR 0025) : Centre-ville ↔ Nzeng-Ayong,
+    // Solo 1 500 / Groupe 950 — valeur fixe, pas un calcul. La
+    // distance routière réelle (6,6 km) donnerait 1 900 / 1 200
+    // avec le modèle au km : l'ancre prime, dans les deux sens.
+    // La moto (Solo uniquement) garde sa remise ×0,6.
+    const base = rideType === 'solo' ? ANCHOR_SOLO : ANCHOR_GROUPE;
+    price = rideType === 'solo' && pref === 'moto' ? round50(base * 0.6) : base;
+    price = Math.max(price, rideType === 'solo' ? MIN_FARE_SOLO : MIN_FARE_GROUPE);
+    breakdown =
+      `Trajet de référence · ${kmFr} km par la route · prix figé ${price.toLocaleString('fr-FR')} FCFA` +
+      (pref === 'moto' ? ' · Moto ×0,6' : '');
+  } else if (rideType === 'solo') {
     price = round50(
       BASE_FARE_SOLO + PER_KM_SOLO * distanceKm + (options.isAirport ? AIRPORT_SUPPLEMENT_SOLO : 0)
     );
@@ -145,33 +224,18 @@ export function estimateFareForDistance(
 
   breakdown += ` · ~${durationMin} min` + (pref === 'moto' ? ' · Moto' : '');
   if (unpavedSupplement > 0) breakdown += ` · +${unpavedSupplement} FCFA route non bitumée`;
-  return { price, distanceKm, durationMin, rideType, vehiclePreference: pref, breakdown, unpavedSupplement };
-}
-
-/** Estimation indicative du prix d'un trajet. Calculée côté serveur à
- *  la création de la demande (jamais depuis le client) et affichée au
- *  passager comme un repère — ce n'est PAS le prix de la course. Le
- *  prix final est proposé par le chauffeur (le passager peut aussi
- *  proposer le sien) et figé à l'acceptation de la proposition.
- *  Modèle au km (v2.11) : prise en charge + taux/km × distance (+
- *  supplément aéroport), arrondi aux 50 FCFA, plancher 550 FCFA en
- *  Solo et 400 FCFA en Groupe. Moto = Solo × 0,6 (plancher 550
- *  appliqué après la remise). Route non bitumée (v2.6) : si
- *  `unpavedRoad` est vrai, le supplément forfaitaire
- *  UNPAVED_ROAD_SUPPLEMENT s'ajoute APRÈS tout le reste (remise moto
- *  comprise) : c'est un forfait par course, jamais remisé. */
-export function estimateFare(
-  pickup: Neighborhood,
-  destination: Neighborhood,
-  rideType: RideType,
-  vehiclePreference: VehiclePreference = 'tous',
-  options: { unpavedRoad?: boolean } = {}
-): FareEstimate {
-  const { distanceKm } = estimateTrip(pickup, destination);
-  return estimateFareForDistance(distanceKm, rideType, vehiclePreference, {
-    isAirport: pickup === AIRPORT || destination === AIRPORT,
-    unpavedRoad: options.unpavedRoad,
-  });
+  const approximate = options.approximate ?? false;
+  return {
+    price,
+    distanceKm,
+    durationMin,
+    rideType,
+    vehiclePreference: pref,
+    breakdown,
+    unpavedSupplement,
+    approximate,
+    distanceSource: approximate ? 'haversine' : 'osrm',
+  };
 }
 
 /** Temps d'arrivée estimé du chauffeur le plus proche, en minutes,

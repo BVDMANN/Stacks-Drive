@@ -1,6 +1,6 @@
 # ADR 0021 — Fond Plan CARTO dark_all : la carte prend la palette « Nuit violette »
 
-- **Statut :** acceptée (15/11/2026, demande du propriétaire ~07h44).
+- **Statut :** acceptée (15/11/2026, demande du propriétaire ~07h44). **Note v2.50 ([ADR 0026](0026-carte-unique-pas-de-bascule-plan-satellite.md)) : le « fond Plan » est désormais LE fond — la bascule Plan/Satellite est retirée, il n'y a plus de second fond. Le correctif de l'accumulation de l'attribution à la bascule (décrit dans cette ADR) est devenu sans objet : l'attribution CARTO est posée une seule fois à la création de la couche.**
 - **Contexte :** le 14/11 ~21h58, le propriétaire avait demandé de retirer le thème sombre de la carte (« Retire le thème sombre là-dessus ») parce que l'ancien fond sombre — tuiles Esri + filtre CSS sombre `.map-tiles-dark` (inversion + rotation de teinte) — lavait les détails et rendait la carte illisible ; le fond Plan était alors passé à OpenStreetMap clair (v2.41, ADR 0016). Le 15/11 ~07h44, il demande : « La carte à mes palettes de couleur demandées » — la CARTE ELLE-MÊME doit prendre sa palette « Nuit violette » (fond violet-nuit #191432, accents roses, palette v2.44). Cette nouvelle demande ne change pas l'exigence de lisibilité : elle exige un VRAI fond sombre détaillé, pas le filtre qui lavait tout. Le choix initial du lot (« CARTO light_nolabels ») est remplacé par cette décision.
 
 ## Décision

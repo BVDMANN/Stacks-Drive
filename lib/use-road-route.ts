@@ -20,9 +20,10 @@ import { fetchRoadRouteViaApi, type RoadRoute, type RoutePoint } from './routing
  *
  *  En cas d'échec (`null` : route API injoignable), l'appelant garde
  *  son estimation à vol d'oiseau — jamais d'erreur visible.
- *  Le PRIX n'utilise jamais cette route (modèle au km sur la distance
- *  à vol d'oiseau, `lib/pricing.ts`) : durée et distance affichées
- *  seulement.
+ *  Le PRIX n'est jamais calculé à partir de cette route côté client :
+ *  depuis la v2.50, le prix est routier lui aussi, mais il est
+ *  calculé CÔTÉ SERVEUR (`POST /api/estimate`, `lib/estimate-server.ts`)
+ *  — ce hook ne sert qu'à l'affichage (durée, distance, tracé).
  */
 
 const CLIENT_CACHE_TTL_MS = 5 * 60 * 1000;

@@ -23,13 +23,12 @@
  *  libellés se chevaucheraient (voir `POI_DENSE_CATEGORIES`).
  *
  *  RÈGLE v2.42 APPLIQUÉE AUX LIEUX (v2.43, recalibrée en v2.46 pour
- *  CARTO dark_all) : quand le fond Plan imprime déjà le nom d'un
- *  lieu sur ses tuiles, le libellé Drive ne doit pas se poser
- *  par-dessus — `cartoLabelMinZoom` = premier zoom où CARTO affiche
- *  le nom. En Plan, le libellé Drive est masqué à partir de ce zoom
- *  (le nom reste visible une fois, via la tuile) ; en Satellite
- *  (tuiles Esri sans aucun libellé), il s'affiche toujours. Sans ce
- *  champ, le libellé Drive s'affiche à tous les zooms de son tier.
+ *  CARTO dark_all) : quand le fond imprime déjà le nom d'un lieu
+ *  sur ses tuiles, le libellé Drive ne doit pas se poser par-dessus
+ *  — `cartoLabelMinZoom` = premier zoom où CARTO affiche le nom.
+ *  Le libellé Drive est masqué à partir de ce zoom (le nom reste
+ *  visible une fois, via la tuile). Sans ce champ, le libellé Drive
+ *  s'affiche à tous les zooms de son tier.
  *  RÈGLE CARTO (style dark matter, `labels.mss`, section « poi
  *  labels ») : seuls les parcs, stades (rang ≤ 3), cimetières
  *  (rang ≤ 3) et attractions (rang ≤ 3) sont labellisés — à partir
@@ -42,6 +41,8 @@
  *  à confirmer en live après push (voir ADR 0021). */
 
 import type { Neighborhood } from './neighborhoods';
+import { nearestNeighborhood } from './geo';
+import { EPICERIES } from './epiceries';
 
 export type PoiCategory =
   | 'supermarche'
@@ -58,7 +59,8 @@ export type PoiCategory =
   | 'plage'
   | 'gare'
   | 'bar'
-  | 'restaurant';
+  | 'restaurant'
+  | 'epicerie';
 
 export const POI_CATEGORY_LABELS: Record<PoiCategory, string> = {
   supermarche: 'Supermarché',
@@ -76,6 +78,7 @@ export const POI_CATEGORY_LABELS: Record<PoiCategory, string> = {
   gare: 'Gare',
   bar: 'Bar',
   restaurant: 'Restaurant',
+  epicerie: 'Épicerie',
 };
 
 /** Couleur d'accent par catégorie (v2.7, « Nuit violette »)
@@ -97,30 +100,44 @@ export const POI_CATEGORY_COLORS: Record<PoiCategory, string> = {
   gare: '#a5b4fc',
   bar: '#FF7EB0',
   restaurant: '#FF5F6D',
+  epicerie: '#A3E635',
 };
 
 export interface Poi {
+  /** Identifiant stable (défaut = nom, unique pour les 59 lieux
+   *  historiques — les 31 épiceries OSM ont un id propre, total
+   *  90 lieux). Les épiceries OSM ont un id `epicerie-…` : deux
+   *  lieux au même nom (ex. deux « Épicerie » sans nom, deux
+   *  « Carrefour Market ») ne se confondent jamais — clés React,
+   *  marqueurs carte et sélection l'utilisent. */
+  id?: string;
   name: string;
   category: PoiCategory;
   /** Quartier le plus proche (affiché dans l'infobulle). */
   neighborhood: Neighborhood;
   lat: number;
   lng: number;
+  /** Rue connue du lieu (épiceries OSM : `addr:street`) — affichée
+   *  dans la fiche et la recherche pour lever l'ambiguïté entre
+   *  deux lieux au même nom. */
+  detail?: string;
   /** Premier zoom où CARTO dark_all imprime déjà ce nom sur la tuile
-   *  (Plan) — approximation dérivée du style CARTO (v2.46, voir
-   *  l'en-tête du fichier). En Plan, le libellé Drive est masqué à
-   *  partir de ce zoom (le nom reste visible une fois, via la tuile) ;
-   *  en Satellite, il s'affiche toujours. Absent = CARTO ne labellise
-   *  jamais ce lieu : le libellé Drive s'affiche à tous les zooms de
-   *  son tier. */
+   *  — approximation dérivée du style CARTO (v2.46, voir l'en-tête
+   *  du fichier). Le libellé Drive est masqué à partir de ce zoom
+   *  (le nom reste visible une fois, via la tuile). Absent = CARTO
+   *  ne labellise jamais ce lieu : le libellé Drive s'affiche à
+   *  tous les zooms de son tier. */
   cartoLabelMinZoom?: number;
 }
 
 /** Catégories denses (v2.43) : pictogramme un zoom plus tard (15 au
  *  lieu de 14), libellé un zoom plus tard (16 au lieu de 15) — sinon
  *  leurs marqueurs se touchent dans les quartiers denses (Louis,
- *  Corniche). Les autres catégories gardent les seuils v2.6/v2.14. */
-export const POI_DENSE_CATEGORIES: PoiCategory[] = ['bar', 'restaurant'];
+ *  Corniche). Les autres catégories gardent les seuils v2.6/v2.14.
+ *  v2.51 : les épiceries sont denses aussi (31 points OSM, dont 9
+ *  Cecado / 7 Carrefour Market — pictogrammes dès z15, libellés
+ *  dès z16, pour ne pas encombrer le zoom ville). */
+export const POI_DENSE_CATEGORIES: PoiCategory[] = ['bar', 'restaurant', 'epicerie'];
 
 /** Zoom minimum du pictogramme d'un lieu (14 par défaut, 15 pour les
  *  catégories denses). */
@@ -227,16 +244,37 @@ export const POIS: Poi[] = [
   // Repères de Libreville, vérifiés (recherche de lieux, Wikipédia,
   // Nominatim — voir ADR 0018). En v2.43, OSM imprimait déjà leur nom
   // (vérifié tuile par tuile : z15, z16, z17) et le libellé Drive
-  // était masqué en Plan à partir du zoom indiqué. En v2.46, CARTO
+  // était masqué à partir du zoom indiqué. En v2.46, CARTO
   // ne labellise que les stades (parmi ces quatre lieux) : seul le
   // Palais des Sports garde un champ (16, approximation — rang ≤ 2
   // plausible pour la plus grande salle de la ville, à confirmer en
   // live) ; les trois autres n'ont plus de champ — le libellé Drive
-  // est le seul nom, en Plan comme en Satellite.
+  // est le seul nom.
   { name: 'Palais des Sports', category: 'stade', neighborhood: 'Petit Paris', lat: 0.3948925, lng: 9.4530049, cartoLabelMinZoom: 16 },
   { name: 'Rond-Point de la Démocratie', category: 'lieu', neighborhood: 'Sotega', lat: 0.4249165, lng: 9.4553274 },
   { name: 'Institut Français du Gabon', category: 'lieu', neighborhood: 'Sainte-Marie', lat: 0.4074526, lng: 9.4387226 },
   { name: 'Lycée National Léon Mba', category: 'lieu', neighborhood: 'Trois Quartiers', lat: 0.4279831, lng: 9.422459 },
+
+  // --- Épiceries (v2.51) ---
+  // Commerces OSM (`shop=supermarket / convenience / grocery`),
+  // générés par `scripts/fetch-epiceries.mjs` → `lib/epiceries.ts`
+  // (31 points, repli Photon partiel — Overpass injoignable depuis
+  // la VM de dev ; relancer le script avec accès Overpass pour la
+  // couverture complète). Chaque point a ses vraies coordonnées et
+  // son vrai nom OSM ; sans nom → « Épicerie » + rue si connue.
+  // Dédupliqués avec les lieux ci-dessus (même lieu = une seule
+  // fois, par le script). Quartier de rattachement = le plus proche
+  // (haversine) ; catégorie dense : pictogramme dès z15, libellé
+  // dès z16 — comme bars et restaurants.
+  ...EPICERIES.map((e) => ({
+    id: e.id,
+    name: e.name,
+    category: 'epicerie' as const,
+    neighborhood: nearestNeighborhood(e.lat, e.lng).neighborhood,
+    lat: e.lat,
+    lng: e.lng,
+    ...(e.street ? { detail: e.street } : {}),
+  })),
 ];
 
 

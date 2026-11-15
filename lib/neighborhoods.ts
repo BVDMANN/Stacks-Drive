@@ -84,6 +84,15 @@ export const NEIGHBORHOODS = [
   'Nkoltang',
   // Sud / Owendo — ajoutés v2.8.
   'Nomba',
+  // Centre / est — ajoutés v2.51 (recoupement Photon 15/11 :
+  // `place=suburb` vérifiés, coordonnées Photon — voir le rapport
+  // du lot ; les variantes quasi-coïncidentes — Cité Damas,
+  // Akémindjogoni, Vallée Sainte-Marie — ne sont PAS ajoutées).
+  'Cité de la Caisse',
+  'Lalala-Droite',
+  'Plaine Niger',
+  'Baie des Rois',
+  'Ancien Sobraga',
   'Autre',
 ] as const;
 
@@ -187,6 +196,13 @@ export const NEIGHBORHOOD_COORDS: Record<Neighborhood, { lat: number; lng: numbe
   Nkoltang: { lat: 0.364, lng: 9.674 },
   // Sud / Owendo (v2.8).
   Nomba: { lat: 0.341, lng: 9.478 },
+  // Centre / est (v2.51 — recoupement Photon 15/11 : `place=suburb`
+  // vérifiés, coordonnées Photon exactes — voir ci-dessus).
+  'Cité de la Caisse': { lat: 0.4169779, lng: 9.4713306 },
+  'Lalala-Droite': { lat: 0.3672726, lng: 9.4640819 },
+  'Plaine Niger': { lat: 0.3762539, lng: 9.4612786 },
+  'Baie des Rois': { lat: 0.4051184, lng: 9.4314192 },
+  'Ancien Sobraga': { lat: 0.4205696, lng: 9.4502334 },
   Autre: { lat: 0.3901, lng: 9.4544 },
 };
 
@@ -198,24 +214,30 @@ export const NEIGHBORHOOD_COORDS: Record<Neighborhood, { lat: number; lng: numbe
  *  Owendo, Akanda, Louis, Charbonnages, Lalala, Sotega, Ambowe,
  *  Angondjé — bien espacés, jamais deux libellés collés.
  *  Tier 2 (15) = quartiers moyens, visibles seulement à partir du
- *  zoom 13 (27 libellés au total) ; tier 3 (44 entrées, dont Autre
- *  sans libellé et Likouala masqué → 42 visibles) = quartiers petits
- *  ou éloignés, visibles seulement à partir du zoom 14 (69 libellés
- *  au total). La vue d'ouverture est le zoom 14 (v2.31) : les 69
+ *  zoom 13 (27 libellés au total) ; tier 3 (49 entrées, dont Autre
+ *  sans libellé et Likouala masqué → 47 visibles) = quartiers petits
+ *  ou éloignés, visibles seulement à partir du zoom 14 (74 libellés
+ *  au total). La vue d'ouverture est le zoom 14 (v2.31) : les 74
  *  libellés sont visibles dès l'arrivée — les tiers ne changent pas,
  *  c'est le zoom d'ouverture qui a changé (avant : zoom 12).
  *  'Autre' n'a pas de libellé (ce n'est pas un lieu).
- *  v2.42 : ces chiffres sont ceux du fond Satellite (et du fond Plan
- *  à partir du zoom 17) — en Plan, aux zooms 12 à 16, le fond
- *  CARTO dark_all affiche déjà la plupart des noms, donc le libellé
- *  Drive des quartiers listés dans NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM
- *  est masqué sur la plage où CARTO le montre (Plan : 6 libellés
- *  Drive au zoom 12, 11 au zoom 13, 17 au zoom 14, 14 aux zooms
- *  15-16 — chaque nom n'apparaît qu'une seule fois à l'écran).
+ *  v2.42 : ces chiffres sont ceux du fond CARTO dark_all (une seule
+ *  carte depuis la v2.50 — la bascule Plan/Satellite est retirée) :
+ *  aux zooms 12 à 16, le fond CARTO affiche déjà la plupart des
+ *  noms, donc le libellé Drive des quartiers listés dans
+ *  NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM est masqué sur la plage où
+ *  CARTO le montre (6 libellés Drive au zoom 12, 11 au zoom 13, 17
+ *  au zoom 14, 14 aux zooms 15-16 — chaque nom n'apparaît qu'une
+ *  seule fois à l'écran).
  *  v2.46 : PK5 n'est plus masqué (`place=quarter`, CARTO ne
  *  labellise pas les `quarter`) — d'où 17 libellés Drive au zoom
  *  14 en Plan au lieu de 16 ; Akanda réapparaît dès le zoom 15
- *  (borne haute 14, règle `city`). */
+ *  (borne haute 14, règle `city`).
+ *  v2.51 : 5 quartiers ajoutés (tier 3, `place=suburb` vérifiés
+ *  Photon) — masqués z12–16 comme les autres suburbs : leur libellé
+ *  Drive n'apparaît qu'à partir du zoom 17 (le nom reste visible
+ *  avant, via la tuile CARTO) ; les chiffres z12/13/14 ne bougent
+ *  pas (6 / 11 / 17), le total passe à 74 dès le zoom 17. */
 export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
   'Centre-ville': 1,
   Glass: 1,
@@ -291,6 +313,12 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
   Nkoltang: 3,
   // Sud / Owendo (v2.8).
   Nomba: 2,
+  // Centre / est (v2.51).
+  'Cité de la Caisse': 3,
+  'Lalala-Droite': 3,
+  'Plaine Niger': 3,
+  'Baie des Rois': 3,
+  'Ancien Sobraga': 3,
   Autre: 3,
 };
 
@@ -303,9 +331,7 @@ export const NEIGHBORHOOD_LABEL_TIER: Record<Neighborhood, 1 | 2 | 3> = {
  *  place le nom au centre de la zone, les coordonnées Drive sont des
  *  centres vérifiés). Règle appliquée dans
  *  `components/map/LibrevilleMap.tsx` (`updateLabels`) : libellé
- *  Drive visible si z < min, ou z > borne haute, ou fond Satellite
- *  (les tuiles Esri World Imagery ne portent aucun libellé — les 69
- *  libellés Drive restent affichés comme avant).
+ *  Drive visible si z < min, ou z > borne haute.
  *  Un quartier ABSENT de cette table n'est jamais masqué : le fond
  *  ne labellise pas son nom (vérifié : aucun objet `place` du même
  *  nom dans les données OSM, et aucun libellé vu sur les tuiles) —
@@ -410,6 +436,13 @@ export const NEIGHBORHOOD_CARTO_LABEL_MIN_ZOOM: Partial<Record<Neighborhood, num
   Essassa: 12,
   Nkok: 12,
   Nkoltang: 12,
+  // Ajoutés v2.51 (`place=suburb` vérifiés Photon) : CARTO labellise
+  // les suburbs dès z12 (règle du style, comme les autres suburbs).
+  'Cité de la Caisse': 12,
+  'Lalala-Droite': 12,
+  'Plaine Niger': 12,
+  'Baie des Rois': 12,
+  'Ancien Sobraga': 12,
   // Premiers vus à z13 (quartiers moyens, centre dense).
   Sotega: 13,
   'Plaine-Orety': 13,
@@ -590,6 +623,12 @@ export const ROAD_ACCESS: Record<Neighborhood, RoadAccess> = {
   Nkoltang: 'difficile',
   // Sud / Owendo (v2.8) : bitume.
   Nomba: 'bitume',
+  // Centre / est (v2.51) : quartiers urbains du centre — bitume.
+  'Cité de la Caisse': 'bitume',
+  'Lalala-Droite': 'bitume',
+  'Plaine Niger': 'bitume',
+  'Baie des Rois': 'bitume',
+  'Ancien Sobraga': 'bitume',
   Autre: 'bitume',
 };
 

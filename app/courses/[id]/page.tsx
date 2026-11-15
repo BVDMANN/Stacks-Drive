@@ -1,7 +1,8 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, BadgeCheck, Car, MapPin, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { DriveCheck, DriveCheckBadge, DriveChevronLeft, DrivePin, DriveShield, DriveStar, DriveUsers, DriveWallet } from '@/components/icons/DriveUi';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import { AmountToPay } from '@/components/rides/AmountToPay';
 import { RideReceiptCard } from '@/components/rides/RideReceipt';
 import { AutoPrintOnParam } from '@/components/rides/AutoPrintOnParam';
@@ -14,6 +15,7 @@ import { RideCheckPanel } from '@/components/rides/RideCheckPanel';
 import { RideChat } from '@/components/rides/RideChat';
 import { DriverCard } from '@/components/home/DriverCard';
 import { RideActions } from '@/components/rides/RideActions';
+import { PassengerPhotoBadge } from '@/components/rides/PassengerPhotoBadge';
 import { PinEntry } from '@/components/driver/PinEntry';
 import { FeedbackForm } from '@/components/rides/FeedbackForm';
 import { DisputeForm } from '@/components/rides/DisputeForm';
@@ -22,7 +24,7 @@ import { getRideRequestById } from '@/lib/rides';
 import { mapDriverProfile, stripDriverPhone } from '@/lib/db-types';
 import { getSessionUser, createClient, hasDriverAccount } from '@/lib/supabase/server';
 import { formatFcfa } from '@/lib/commission';
-import { estimateTrip } from '@/lib/pricing';
+import { estimateTrip, estimateTripFromCoords } from '@/lib/pricing';
 import { fetchRoadRoute } from '@/lib/routing';
 import { PAYMENT_LABELS, NEIGHBORHOOD_COORDS, type Neighborhood } from '@/lib/neighborhoods';
 import { formatDepartureTime, timeAgo } from '@/lib/dates';
@@ -107,23 +109,36 @@ export default async function CoursePage({ params }: Ctx) {
     }
   }
 
-  const pickupCoords = NEIGHBORHOOD_COORDS[ride.pickup as Neighborhood];
-  const destCoords = NEIGHBORHOOD_COORDS[ride.destination as Neighborhood];
+  // Points exacts (v2.47) : coordonnées du départ et de la
+  // destination — l'épingle / le lieu choisi, pas les centres de
+  // quartiers. La navigation OSRM du chauffeur (ETA + guidage) et
+  // la carte utilisent ces coordonnées ; sans elles (ancien client),
+  // on retombe sur les centres de quartiers.
+  const pickupCoords = ride.pickupPoint ?? NEIGHBORHOOD_COORDS[ride.pickup as Neighborhood];
+  const destCoords = ride.destinationPoint ?? NEIGHBORHOOD_COORDS[ride.destination as Neighborhood];
   const currentStep =
     ride.status === 'annulee'
       ? -1
       : STEPS.findIndex((s) => s.key === ride.status);
 
-  // Trajet estimé (distance / durée figées à l'acceptation, sinon recalcul).
-  const tripEstimate =
-    ride.distanceKm !== null && ride.durationMin !== null
-      ? { distanceKm: ride.distanceKm, durationMin: ride.durationMin }
-      : estimateTrip(ride.pickup as Neighborhood, ride.destination as Neighborhood);
   // Itinéraire routier (v2.27) : durée et distance par la route
-  // (OSRM) — affichées en complément, le prix ne change pas. En cas
-  // d'indisponibilité d'OSRM, la route retombe sur la ligne droite :
-  // on n'affiche la ligne « Par la route » que si OSRM a répondu.
+  // (OSRM). En cas d'indisponibilité d'OSRM, la route retombe sur la
+  // ligne droite : on n'affiche les chiffres de la route que si OSRM
+  // a répondu.
   const roadRoute = await fetchRoadRoute(pickupCoords, destCoords);
+  // Trajet affiché (v2.50, ADR 0025) : la route routière OSRM quand
+  // elle est disponible — c'est elle qui sert de base au prix.
+  // Sinon, la distance et la durée figées à l'acceptation (elles
+  // étaient routières si la migration v2.50 est appliquée), sinon le
+  // recalcul à vol d'oiseau (affichage seulement).
+  const tripEstimate =
+    roadRoute.source === 'osrm'
+      ? { distanceKm: roadRoute.distanceKm, durationMin: roadRoute.durationMin }
+      : ride.distanceKm !== null && ride.durationMin !== null
+        ? { distanceKm: ride.distanceKm, durationMin: ride.durationMin }
+        : ride.pickupPoint && ride.destinationPoint
+          ? estimateTripFromCoords(ride.pickupPoint, ride.destinationPoint)
+          : estimateTrip(ride.pickup as Neighborhood, ride.destination as Neighborhood);
   const passenger = row.passenger ?? null;
 
   return (
@@ -134,7 +149,7 @@ export default async function CoursePage({ params }: Ctx) {
       <Header user={user} />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-stacks-green">
-          <ArrowLeft size={16} /> Retour à la carte
+          <DriveChevronLeft size={16} /> Retour à la carte
         </Link>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -160,7 +175,7 @@ export default async function CoursePage({ params }: Ctx) {
                     i <= currentStep ? 'bg-stacks-green text-white' : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  {i <= currentStep ? '✓' : i + 1} {s.label}
+                  {i <= currentStep ? <DriveCheck size={12} /> : i + 1} {s.label}
                 </span>
                 {i < STEPS.length - 1 && <span className="text-slate-300">›</span>}
               </li>
@@ -237,15 +252,53 @@ export default async function CoursePage({ params }: Ctx) {
         {isDriver && (
           <div className="bg-white border-2 border-stacks-green rounded-3xl p-6 shadow-sm space-y-3">
             <h2 className="font-black text-lg text-slate-900">Ta course</h2>
-            <p className="text-sm text-slate-600">
-              Passager : <strong className="text-slate-900">{passenger?.full_name ?? 'Passager'}</strong>
-              {passenger?.phone ? ` · ${passenger.phone}` : ''}
-              {/* Note du passager (v2.30) : moyenne des notes données
-                  par les chauffeurs après ses courses terminées. */}
-              {ride.passengerRating
-                ? ` · ★ ${ride.passengerRating.average}/5 (${ride.passengerRating.count} course${ride.passengerRating.count > 1 ? 's' : ''} notée${ride.passengerRating.count > 1 ? 's' : ''})`
-                : ' · nouveau passager'}
-            </p>
+            <div className="flex items-center gap-3">
+              {/* Photo du passager (v2.49) : visible par le chauffeur
+                  assigné UNIQUEMENT pendant la course (règle v2.20) —
+                  l'API refuse tout le reste, le badge n'affiche rien. */}
+              <PassengerPhotoBadge rideId={ride.id} />
+              <p className="text-sm text-slate-600">
+                Passager : <strong className="text-slate-900">{passenger?.full_name ?? 'Passager'}</strong>
+                {passenger?.phone ? ` · ${passenger.phone}` : ''}
+                {/* Note du passager (v2.30) : moyenne des notes données
+                    par les chauffeurs après ses courses terminées. */}
+                {ride.passengerRating ? (
+                  <>
+                    {' · '}
+                    <DriveStar size={12} className="inline-block" />{' '}
+                    {ride.passengerRating.average}/5 ({ride.passengerRating.count} course{ride.passengerRating.count > 1 ? 's' : ''} notée{ride.passengerRating.count > 1 ? 's' : ''})
+                  </>
+                ) : (
+                  ' · nouveau passager'
+                )}
+              </p>
+            </div>
+            {/* Point de départ exact (v2.47) : l'adresse précise
+                réglée par le passager (épingle / lieu) — c'est là
+                qu'il faut aller, pas au centre du quartier. La
+                navigation OSRM part de ces coordonnées. */}
+            {ride.pickupPoint?.address && (
+              <p className="text-sm text-slate-600 flex items-start gap-1.5">
+                <DrivePin size={15} className="text-stacks-green shrink-0 mt-0.5" />
+                <span>
+                  Point de départ exact :{' '}
+                  <strong className="text-slate-900">{ride.pickupPoint.address}</strong>
+                  {' · '}
+                  {ride.pickup}
+                </span>
+              </p>
+            )}
+            {ride.destinationPoint?.address && (
+              <p className="text-sm text-slate-600 flex items-start gap-1.5">
+                <DrivePin size={15} className="text-stacks-green shrink-0 mt-0.5" />
+                <span>
+                  Destination exacte :{' '}
+                  <strong className="text-slate-900">{ride.destinationPoint.address}</strong>
+                  {' · '}
+                  {ride.destination}
+                </span>
+              </p>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
               <div className="bg-slate-50 rounded-2xl p-3">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400">Temps estimé</p>
@@ -274,14 +327,6 @@ export default async function CoursePage({ params }: Ctx) {
                 <p className="text-xs text-slate-400">directement par le passager</p>
               </div>
             </div>
-            {/* Itinéraire routier (v2.27) : durée et distance par la
-                route (OSRM) — le prix, lui, ne change pas. */}
-            {roadRoute.source === 'osrm' && (
-              <p className="text-sm font-bold text-slate-600">
-                Par la route : ~{roadRoute.durationMin} min ·{' '}
-                {roadRoute.distanceKm.toFixed(1).replace('.', ',')} km
-              </p>
-            )}
             {ride.status === 'acceptee' && <PinEntry rideId={ride.id} refreshOnStart />}
           </div>
         )}
@@ -296,8 +341,8 @@ export default async function CoursePage({ params }: Ctx) {
               rideId={ride.id}
               role={isPassenger ? 'passager' : 'chauffeur'}
               status={ride.status}
-              pickup={pickupCoords ? { ...pickupCoords, label: ride.pickup } : null}
-              destination={destCoords ? { ...destCoords, label: ride.destination } : null}
+              pickup={pickupCoords ? { ...pickupCoords, label: ride.pickupPoint?.address ?? ride.pickup } : null}
+              destination={destCoords ? { ...destCoords, label: ride.destinationPoint?.address ?? ride.destination } : null}
               driver={
                 driver && driver.lat !== null && driver.lng !== null
                   ? {
@@ -341,21 +386,21 @@ export default async function CoursePage({ params }: Ctx) {
                 <div className="bg-slate-50 rounded-2xl p-3">
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">Paiement</p>
                   <p className="font-black text-stacks-navy mt-1 flex items-center gap-1">
-                    <Wallet size={16} /> {PAYMENT_LABELS[ride.paymentMethod]}
+                    <DriveWallet size={16} /> {PAYMENT_LABELS[ride.paymentMethod]}
                   </p>
                   <p className="text-xs text-slate-400">directement au chauffeur</p>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-3">
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">Véhicule</p>
                   <p className="font-black text-stacks-navy mt-1 flex items-center gap-1">
-                    <Car size={16} /> {driver?.vehicleType ?? '—'}
+                    <DriveCarMini variant="sedan" size={16} tone="dark" /> {driver?.vehicleType ?? '—'}
                   </p>
                   <p className="text-xs text-slate-400 truncate">{driver?.vehicleLabel || '—'}</p>
                 </div>
                 <div className="bg-slate-50 rounded-2xl p-3">
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">Passagers</p>
                   <p className="font-black text-stacks-navy mt-1 flex items-center gap-1">
-                    <Users size={16} /> {ride.rideType === 'groupe' ? '1 place' : 'Véhicule entier'}
+                    <DriveUsers size={16} /> {ride.rideType === 'groupe' ? '1 place' : 'Véhicule entier'}
                   </p>
                   <p className="text-xs text-slate-400">
                     {ride.rideType === 'groupe' ? 'course partagée' : 'course privée'}
@@ -366,7 +411,7 @@ export default async function CoursePage({ params }: Ctx) {
               {ride.rideType === 'groupe' && ride.firstStop && (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
                   <p className="font-black text-green-800 text-sm flex items-center gap-1.5">
-                    <MapPin size={15} /> Ordre des arrêts
+                    <DrivePin size={15} /> Ordre des arrêts
                   </p>
                   <p className="text-sm text-green-700 mt-1">
                     1er arrêt : <strong>{ride.firstStop}</strong>
@@ -380,7 +425,7 @@ export default async function CoursePage({ params }: Ctx) {
               {ride.dropOffPoint && ride.unpavedAccepted === false && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
                   <p className="font-black text-amber-800 text-sm flex items-center gap-1.5">
-                    <MapPin size={15} /> Point de dépôt
+                    <DrivePin size={15} /> Point de dépôt
                   </p>
                   <p className="text-sm text-amber-700 mt-1">
                     La course s’arrête à <strong>{ride.dropOffPoint}</strong> — la route non
@@ -391,7 +436,7 @@ export default async function CoursePage({ params }: Ctx) {
               {ride.dropOffPoint && ride.unpavedAccepted === true && (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
                   <p className="font-black text-green-800 text-sm flex items-center gap-1.5">
-                    <MapPin size={15} /> Route non bitumée acceptée
+                    <DrivePin size={15} /> Route non bitumée acceptée
                   </p>
                   <p className="text-sm text-green-700 mt-1">
                     Le chauffeur continue jusqu’à <strong>{ride.destination}</strong> — supplément
@@ -401,7 +446,7 @@ export default async function CoursePage({ params }: Ctx) {
               )}
 
               <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck size={14} className="text-stacks-green" />
+                <DriveShield size={14} className="text-stacks-green" />
                 Prix figé une fois accepté · Commission Stacks Drive 5 % au lancement
                 (8 % ensuite, 10 % maximum) — le chauffeur garde le reste.
               </p>
@@ -510,7 +555,7 @@ export default async function CoursePage({ params }: Ctx) {
 
             {/* Avis après course (v2.2) : note, plainte ou recommandation. */}
             {ride.status === 'terminee' && (
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <div id="avis" className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 scroll-mt-24">
                 <h2 className="font-black text-slate-900">Ton avis sur cette course</h2>
                 <FeedbackForm rideId={ride.id} isPassenger={isPassenger} />
               </div>
@@ -532,7 +577,7 @@ export default async function CoursePage({ params }: Ctx) {
             {ride.status === 'terminee' && (
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-2">
                 <h2 className="font-black text-slate-900 flex items-center gap-1.5">
-                  <BadgeCheck size={18} className="text-stacks-green" /> Course terminée
+                  <DriveCheckBadge size={18} className="text-stacks-green" /> Course terminée
                 </h2>
                 <p className="text-sm text-slate-500">
                   Merci d’avoir roulé avec Stacks Drive. Ta note aide les autres

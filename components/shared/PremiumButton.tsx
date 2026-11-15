@@ -1,5 +1,6 @@
 "use client";
 import { motion, type HTMLMotionProps } from 'framer-motion';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { cn } from '@/lib/utils';
 
 interface ButtonProps extends HTMLMotionProps<'button'> {
@@ -16,12 +17,18 @@ export const PremiumButton = ({
   className,
   ...props
 }: ButtonProps) => {
+  // v2.52 — palette « Nuit violette » + violet du logo officiel
+  //  (#A134F5, couleur de marque principale) : le bouton principal
+  //  est violet verni (dégradé + liseré clair en haut), le rose
+  //  #FF4D8D reste l'accent secondaire (prix, itinéraire). Le
+  //  secondaire est sarcelle, le contour verre nuit. Le chargement
+  //  du bouton est le S qui se remplit (LogoLoader).
   const variants = {
-    primary: 'bg-stacks-green text-white shadow-lg shadow-stacks-green/20',
-    rose: 'bg-rose-500 text-night-900 shadow-lg shadow-rose-500/30',
-    secondary: 'bg-stacks-yellow text-stacks-blue shadow-lg shadow-stacks-yellow/20',
-    outline: 'bg-white text-stacks-blue border border-gray-200',
-    ghost: 'bg-transparent text-gray-500 hover:bg-gray-100',
+    primary: 'bg-gradient-to-br from-brand-300 via-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/40 ring-1 ring-inset ring-white/40',
+    rose: 'bg-gradient-to-br from-brand-300 via-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/40 ring-1 ring-inset ring-white/40',
+    secondary: 'bg-gradient-to-br from-sarcelle-light via-sarcelle to-sarcelle-dark text-night-950 shadow-lg shadow-sarcelle/30 ring-1 ring-inset ring-white/40',
+    outline: 'bg-white/5 text-slate-100 border border-white/20 shadow-lg shadow-black/30',
+    ghost: 'bg-transparent text-slate-300 hover:bg-white/10',
   };
 
   const sizes = {
@@ -38,7 +45,7 @@ export const PremiumButton = ({
       transition={{ type: 'spring', stiffness: 420, damping: 28 }}
       className={cn(
         'rounded-full font-semibold transition-all duration-300 flex items-center justify-center gap-2',
-        'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-stacks-yellow/30',
+        'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/40',
         'disabled:pointer-events-none disabled:opacity-60',
         variants[variant],
         sizes[size],
@@ -48,7 +55,7 @@ export const PremiumButton = ({
       type={props.type ?? 'button'}
     >
       {isLoading ? (
-        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        <LogoLoader size={20} />
       ) : (
         children
       )}

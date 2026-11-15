@@ -1,1 +1,16 @@
-{"background_color":"#070B16","display":"standalone","icons":[{"sizes":"512x512","src":"https://cdn-icons-png.flaticon.com/512/1063/1063376.png","type":"image/png"}],"name":"Stacks Drive","short_name":"Stacks Drive","start_url":"/","theme_color":"#070B16"}
+{
+  "background_color": "#191432",
+  "display": "standalone",
+  "icons": [
+    {
+      "sizes": "1035x1035",
+      "src": "/logo-stacks-drive.png",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "name": "Stacks Drive",
+  "short_name": "Stacks Drive",
+  "start_url": "/",
+  "theme_color": "#191432"
+}

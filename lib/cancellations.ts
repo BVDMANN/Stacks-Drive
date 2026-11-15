@@ -177,8 +177,8 @@ export async function recordCancellation(
   // « Motif : Sans motif » qui sonne comme un formulaire.
   const body =
     input.reasonCode === 'sans_motif'
-      ? `❌ Course annulée par ${who === 'Le passager' ? 'le passager' : 'le chauffeur'}, sans motif précisé.`
-      : `❌ Course annulée par ${who === 'Le passager' ? 'le passager' : 'le chauffeur'} — ${label}${detail ? ` : ${detail.slice(0, 200)}` : ''}.`;
+      ? `Course annulée par ${who === 'Le passager' ? 'le passager' : 'le chauffeur'}, sans motif précisé.`
+      : `Course annulée par ${who === 'Le passager' ? 'le passager' : 'le chauffeur'} — ${label}${detail ? ` : ${detail.slice(0, 200)}` : ''}.`;
   try {
     await supabase.from('ride_messages').insert({
       ride_id: input.rideId,

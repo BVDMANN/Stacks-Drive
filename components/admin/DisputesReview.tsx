@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { KeyRound, MapPin } from 'lucide-react';
+import { DriveKey, DrivePin } from '@/components/icons/DriveUi';
 import type { Dispute, DisputeDossier } from '@/lib/dispute-types';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import {
   DISPUTE_REASON_LABELS,
   DISPUTE_STATUS_LABELS,
@@ -144,7 +145,7 @@ export function DisputesReview({ disputes }: { disputes: Dispute[] }) {
               {isOpen && (
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4">
                   {loadingDossier && (
-                    <p className="text-sm text-slate-500">Chargement du dossier…</p>
+                    <LogoLoader size={32} label="Chargement du dossier…" />
                   )}
                   {dossier && (
                     <>
@@ -170,7 +171,7 @@ export function DisputesReview({ disputes }: { disputes: Dispute[] }) {
                         </p>
                         <p className="text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
                           <span className="inline-flex items-center gap-1">
-                            <KeyRound size={14} />
+                            <DriveKey size={14} />
                             {dossier.pinLocked
                               ? `Code PIN verrouillé (${dossier.pinAttempts} codes faux)`
                               : dossier.pinCode
@@ -179,7 +180,7 @@ export function DisputesReview({ disputes }: { disputes: Dispute[] }) {
                           </span>
                           {dossier.lastLocation && (
                             <span className="inline-flex items-center gap-1">
-                              <MapPin size={14} />
+                              <DrivePin size={14} />
                               Dernière position connue : {dossier.lastLocation.lat.toFixed(4)}, {dossier.lastLocation.lng.toFixed(4)}
                               {' '}({timeAgo(dossier.lastLocation.updatedAt)})
                             </span>

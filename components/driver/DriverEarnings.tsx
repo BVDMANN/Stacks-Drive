@@ -1,19 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Award,
-  CalendarDays,
-  Crown,
-  Flame,
-  Gift,
-  Loader2,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  Wallet,
-} from 'lucide-react';
+import { DriveCalendar, DriveCrown, DriveFlame, DriveGift, DriveRefresh, DriveShield, DriveSparkles, DriveTrendingUp, DriveTrophy, DriveWallet } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import type { DriverEarningsSummary } from '@/lib/earnings';
 import { WeeklySettlementCard } from '@/components/driver/WeeklySettlementCard';
 import {
@@ -134,7 +123,7 @@ export function DriverEarnings() {
   if (loading && !summary) {
     return (
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm">
-        <p className="text-sm text-slate-500">Chargement de tes gains…</p>
+        <LogoLoader size={32} label="Chargement de tes gains…" />
       </section>
     );
   }
@@ -150,7 +139,7 @@ export function DriverEarnings() {
           onClick={fetchSummary}
           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-stacks-navy text-white hover:bg-slate-800 transition-colors"
         >
-          <RefreshCw size={15} /> Réessayer
+          <DriveRefresh size={15} /> Réessayer
         </button>
       </section>
     );
@@ -177,7 +166,7 @@ export function DriverEarnings() {
       {/* Gains : 24 h / semaine / mois */}
       <section className="space-y-3">
         <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-          <TrendingUp size={20} className="text-stacks-green" /> Tes gains
+          <DriveTrendingUp size={20} className="text-stacks-green" /> Tes gains
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <PeriodCard
@@ -205,7 +194,7 @@ export function DriverEarnings() {
       {/* Points (v2.3) : solde, progression vers 10 000, échange */}
       <section className="bg-night-900 border border-white/10 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 text-slate-100">
         <h2 className="font-black text-lg flex items-center gap-2">
-          <Gift size={20} className="text-corail" /> Tes points
+          <DriveGift size={20} className="text-corail" /> Tes points
         </h2>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -246,11 +235,11 @@ export function DriverEarnings() {
         >
           {redeeming ? (
             <>
-              <Loader2 size={16} className="animate-spin" /> Échange en cours…
+              <LogoLoader size={18} /> Échange en cours…
             </>
           ) : (
             <>
-              <Gift size={16} /> Échanger {POINTS_REDEEM_TARGET.toLocaleString('fr-FR')} points contre {POINTS_REDEEM_FREE_RIDES} courses sans commission
+              <DriveGift size={16} /> Échanger {POINTS_REDEEM_TARGET.toLocaleString('fr-FR')} points contre {POINTS_REDEEM_FREE_RIDES} courses sans commission
             </>
           )}
         </button>
@@ -269,7 +258,7 @@ export function DriverEarnings() {
       {/* Ce que tu dois + dépôt */}
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-          <Wallet size={20} className="text-stacks-green" /> Ce que tu dois
+          <DriveWallet size={20} className="text-stacks-green" /> Ce que tu dois
         </h2>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -347,7 +336,7 @@ export function DriverEarnings() {
       {/* Relevé hebdo + « J'ai payé » (v2.15) */}
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-          <Wallet size={20} className="text-stacks-green" /> Ton relevé de la semaine
+          <DriveWallet size={20} className="text-stacks-green" /> Ton relevé de la semaine
         </h2>
         <WeeklySettlementCard />
       </section>
@@ -355,7 +344,7 @@ export function DriverEarnings() {
       {/* Quête du jour + série */}
       <section className="bg-night-900 border border-white/10 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 text-slate-100">
         <h2 className="font-black text-lg flex items-center gap-2">
-          <Sparkles size={20} className="text-corail" /> Quête du jour
+          <DriveSparkles size={20} className="text-corail" /> Quête du jour
         </h2>
         <div className="flex items-center justify-between gap-3">
           <p className="font-black">
@@ -381,11 +370,11 @@ export function DriverEarnings() {
         <div className="flex flex-wrap items-center gap-4 text-sm">
           {summary.streakDays > 0 && (
             <span className="inline-flex items-center gap-1 font-bold">
-              <Flame size={16} className="text-rose-300" /> Série : {summary.streakDays} jour{summary.streakDays > 1 ? 's' : ''} d’affilée
+              <DriveFlame size={16} className="text-rose-300" /> Série : {summary.streakDays} jour{summary.streakDays > 1 ? 's' : ''} d’affilée
             </span>
           )}
           <span className="inline-flex items-center gap-1 font-bold">
-            <CalendarDays size={16} className="text-sarcelle" />
+            <DriveCalendar size={16} className="text-sarcelle" />
             Défi semaine : {summary.quest.week.done} / {summary.quest.week.target} → +{summary.quest.week.bonus.toLocaleString('fr-FR')} points
           </span>
         </div>
@@ -394,7 +383,7 @@ export function DriverEarnings() {
       {/* Niveau + badges */}
       <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-          <Award size={20} className="text-stacks-green" /> Ton niveau
+          <DriveTrophy size={20} className="text-stacks-green" /> Ton niveau
         </h2>
         <div className="flex flex-wrap items-center gap-3">
           <span className={cn('text-sm font-black px-4 py-2 rounded-full border', TIER_STYLES[summary.tier.current] ?? '')}>
@@ -428,7 +417,7 @@ export function DriverEarnings() {
                   title={def?.description ?? badgeId}
                   className="inline-flex items-center gap-1 text-xs font-black px-3 py-1.5 rounded-full bg-corail/15 text-amber-800 border border-corail/40"
                 >
-                  <ShieldCheck size={13} /> {def?.title ?? badgeId}
+                  <DriveShield size={13} /> {def?.title ?? badgeId}
                 </span>
               );
             })}
@@ -436,7 +425,7 @@ export function DriverEarnings() {
         )}
         {summary.driverOfWeek && (
           <p className="text-sm text-slate-600 flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-2xl p-3">
-            <Crown size={16} className="text-corail shrink-0" />
+            <DriveCrown size={16} className="text-corail shrink-0" />
             Chauffeur de la semaine : <strong>{summary.driverOfWeek.name ?? '—'}</strong> —{' '}
             {summary.driverOfWeek.rides} courses
             {summary.driverOfWeek.rating !== null ? ` · note ${summary.driverOfWeek.rating}/5` : ''}.

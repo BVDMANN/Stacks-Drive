@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { BadgeCheck, Car, KeyRound, MapPin, RefreshCw, ShieldCheck } from 'lucide-react';
+import { DriveCheckBadge, DriveKey, DrivePin, DriveRefresh, DriveShield } from '@/components/icons/DriveUi';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import { getRideByShareToken } from '@/lib/rides';
 import { formatFcfa } from '@/lib/commission';
 import { formatDepartureTime, timeAgo } from '@/lib/dates';
@@ -42,7 +43,7 @@ export default async function SuiviPage({ params }: Ctx) {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2.5">
           <Link href="/" className="flex items-center gap-2.5" aria-label="Retour à l'accueil Stacks Drive">
             <span className="w-9 h-9 rounded-xl bg-stacks-green flex items-center justify-center text-white shadow-md">
-              <Car size={20} />
+              <DriveCarMini variant="sedan" size={20} tone="dark" />
             </span>
             <span className="leading-none">
               <span className="block text-base font-black text-stacks-navy tracking-tight">Stacks Drive</span>
@@ -53,7 +54,7 @@ export default async function SuiviPage({ params }: Ctx) {
             href={`/suivi/${token}`}
             className="ml-auto inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-stacks-green"
           >
-            <RefreshCw size={15} /> Actualiser
+            <DriveRefresh size={15} /> Actualiser
           </Link>
         </div>
       </header>
@@ -97,7 +98,7 @@ export default async function SuiviPage({ params }: Ctx) {
           <div className="bg-night-900 border border-white/10 rounded-3xl p-6 shadow-sm text-slate-100 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="font-black text-lg flex items-center gap-2">
-                <KeyRound size={20} className="text-corail" />
+                <DriveKey size={20} className="text-corail" />
                 Code de démarrage
               </p>
               <p className="text-sm text-slate-300 mt-1">
@@ -120,12 +121,12 @@ export default async function SuiviPage({ params }: Ctx) {
                   {driver.name}
                   {driver.isVerified && (
                     <span className="inline-flex items-center gap-0.5 text-xs font-black text-stacks-green">
-                      <BadgeCheck size={14} /> Vérifié
+                      <DriveCheckBadge size={14} /> Vérifié
                     </span>
                   )}
                 </p>
                 <p className="text-sm text-slate-500 flex items-center gap-2">
-                  <Car size={16} className="text-slate-400" /> {driver.vehicleLabel}
+                  <DriveCarMini variant="sedan" size={16} tone="dark" /> {driver.vehicleLabel}
                 </p>
                 <p className="text-sm">
                   Plaque :{' '}
@@ -143,7 +144,7 @@ export default async function SuiviPage({ params }: Ctx) {
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">
             <h2 className="font-black text-lg text-slate-900">La course</h2>
             <p className="text-sm text-slate-600 flex items-center gap-2">
-              <MapPin size={16} className="text-stacks-green" />
+              <DrivePin size={16} className="text-stacks-green" />
               {ride.pickup} → {ride.destination}
             </p>
             <p className="text-sm text-slate-600">
@@ -154,7 +155,7 @@ export default async function SuiviPage({ params }: Ctx) {
               Prix : <strong className="text-slate-900">{ride.proposedPrice !== null ? formatFcfa(ride.proposedPrice) : `En attente des propositions (estimation : ${formatFcfa(ride.estimatedPrice)})`}</strong> · prix figé une fois accepté
             </p>
             <p className="text-xs text-slate-400 flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-stacks-green" />
+              <DriveShield size={14} className="text-stacks-green" />
               Suivi partagé par le passager — actualise la page pour voir l’avancée.
             </p>
           </div>

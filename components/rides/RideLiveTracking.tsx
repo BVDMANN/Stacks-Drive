@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Navigation } from 'lucide-react';
+import { DriveNavigation } from '@/components/icons/DriveUi';
 import { TrackingMap } from './TrackingMap';
 import { DriverNavigation } from './DriverNavigation';
 import type { MapDriver, MapPoint } from '@/components/map/LibrevilleMap';
@@ -175,7 +175,7 @@ export function RideLiveTracking({
   // Itinéraire routier chauffeur → cible (P0b) : recalculé quand le
   // chauffeur bouge d'environ 100 m ou toutes les 30 s (hook partagé,
   // cache 5 min — aucun sondage supplémentaire).
-  const { route: roadRoute } = useRoadRoute(driverPos, navTarget, {
+  const { route: roadRoute, loading: roadLoading } = useRoadRoute(driverPos, navTarget, {
     enabled: !!driverPos && !!navTarget && (role === 'chauffeur' ? isNavigating : isTracking),
     refreshMs: 30000,
   });
@@ -212,7 +212,7 @@ export function RideLiveTracking({
       {/* Bandeau ETA (passager, course acceptée). */}
       {role === 'passager' && isTracking && (
         <div className="bg-night-900 border border-white/10 rounded-2xl px-4 py-3 flex items-center gap-3 text-slate-100">
-          <Navigation size={18} className="text-corail shrink-0" />
+          <DriveNavigation size={18} className="text-corail shrink-0" />
           {arrived ? (
             <p className="text-sm font-black">Ton chauffeur est arrivé au point de départ !</p>
           ) : etaLabel !== null ? (
@@ -230,7 +230,7 @@ export function RideLiveTracking({
       {/* Bandeau partage + ETA (chauffeur, course acceptée). */}
       {role === 'chauffeur' && isTracking && (
         <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex items-center gap-3">
-          <Navigation size={18} className="text-stacks-green shrink-0" />
+          <DriveNavigation size={18} className="text-stacks-green shrink-0" />
           {sharing === 'active' ? (
             <p className="text-sm text-green-800">
               <strong className="font-black">Partage de position actif</strong> — ton passager te voit arriver
@@ -254,7 +254,7 @@ export function RideLiveTracking({
       {/* Bandeau ETA destination (chauffeur, course en cours). */}
       {role === 'chauffeur' && status === 'en_cours' && (
         <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex items-center gap-3">
-          <Navigation size={18} className="text-stacks-green shrink-0" />
+          <DriveNavigation size={18} className="text-stacks-green shrink-0" />
           <p className="text-sm text-green-800">
             <strong className="font-black">Course en cours</strong>
             {etaLabel !== null ? ` — arrivée à destination dans ${etaLabel}.` : ' — itinéraire ci-dessous.'}
@@ -279,6 +279,7 @@ export function RideLiveTracking({
           from={driverPos}
           to={navTarget}
           toLabel={navTarget.label}
+          loading={roadLoading}
         />
       )}
     </div>

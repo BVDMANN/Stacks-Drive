@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BadgeCheck, XCircle } from 'lucide-react';
+import { DriveCheckBadge, DriveXCircle } from '@/components/icons/DriveUi';
 
 export interface PendingDriver {
   id: string;
@@ -137,7 +137,7 @@ export function VerificationReview({ drivers }: { drivers: PendingDriver[] }) {
                 onClick={() => decide(d.id, 'verifie')}
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-stacks-green text-white shadow-md hover:bg-stacks-greenLight transition-colors disabled:opacity-50"
               >
-                <BadgeCheck size={16} /> Valider — chauffeur vérifié
+                <DriveCheckBadge size={16} /> Valider — chauffeur vérifié
               </button>
               <button
                 type="button"
@@ -145,7 +145,7 @@ export function VerificationReview({ drivers }: { drivers: PendingDriver[] }) {
                 onClick={() => setRefusingId(d.id)}
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
               >
-                <XCircle size={16} /> Refuser
+                <DriveXCircle size={16} /> Refuser
               </button>
             </div>
           )}

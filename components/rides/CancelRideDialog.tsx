@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { DriveX } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { cancelReasonsFor, type CancelReasonCode, type CancelRole } from '@/lib/cancellations';
 
 /** Annulation propre (v2.23, motif rendu optionnel en v2.38) :
@@ -76,7 +77,7 @@ export function CancelRideDialog({
             className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 shrink-0"
             aria-label="Fermer"
           >
-            <X size={16} />
+            <DriveX size={16} />
           </button>
         </div>
 
@@ -143,7 +144,7 @@ export function CancelRideDialog({
             disabled={busy}
             className="flex-1 inline-flex items-center justify-center gap-2 py-3.5 rounded-full text-sm font-black bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
           >
-            {busy && <Loader2 size={16} className="animate-spin" />}
+            {busy && <LogoLoader size={18} />}
             {busy ? 'Annulation…' : 'Confirmer l’annulation'}
           </button>
         </div>

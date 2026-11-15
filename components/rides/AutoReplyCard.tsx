@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Check, HelpCircle, Zap } from 'lucide-react';
+import { DriveCheck, DriveHelp, DriveZap } from '@/components/icons/DriveUi';
 import type { AutoReply } from '@/lib/auto-replies';
 import { FAQ_ITEMS } from '@/lib/faq';
 
@@ -26,7 +26,7 @@ export function AutoReplyCard({
     <div className="space-y-4">
       <div className="bg-green-50 border border-green-200 rounded-2xl p-4 space-y-3">
         <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-green-800">
-          <Zap size={14} /> Réponse automatique — traitée tout de suite
+          <DriveZap size={14} /> Réponse automatique — traitée tout de suite
         </p>
         <p className="font-black text-green-900">{reply.title}</p>
         <p className="text-sm text-green-800 leading-relaxed">{reply.apology}</p>
@@ -53,7 +53,7 @@ export function AutoReplyCard({
               href={`/aide#${faq.id}`}
               className="inline-flex items-center gap-1 font-bold text-green-800 hover:underline"
             >
-              <HelpCircle size={15} /> Voir l’aide : « {faq.question} »
+              <DriveHelp size={15} /> Voir l’aide : « {faq.question} »
             </Link>
           </p>
         )}
@@ -72,7 +72,7 @@ export function AutoReplyCard({
           onClick={onResolved}
           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-stacks-green text-white hover:bg-stacks-greenLight transition-colors"
         >
-          <Check size={15} /> Ça résout mon problème
+          <DriveCheck size={15} /> Ça résout mon problème
         </button>
         <button
           type="button"

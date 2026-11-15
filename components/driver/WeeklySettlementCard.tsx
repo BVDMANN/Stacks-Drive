@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Wallet } from 'lucide-react';
+import { DriveWallet } from '@/components/icons/DriveUi';
 import { formatFcfa } from '@/lib/commission';
 import { formatWeekLabel } from '@/lib/settlement-types';
 import type { SettlementDeclaration, WeeklySettlement } from '@/lib/settlement-types';
@@ -159,7 +159,7 @@ export function WeeklySettlementCard() {
                 'bg-stacks-green text-white hover:bg-stacks-greenLight transition-colors disabled:opacity-50'
               )}
             >
-              <Wallet size={15} />
+              <DriveWallet size={15} />
               {busy ? 'Envoi…' : 'J’ai payé'}
             </button>
           </div>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, Car, Gift, MapPin, ShieldCheck, Wallet } from 'lucide-react';
+import { DriveCheckBadge, DriveChevronRight, DriveGift, DrivePin, DriveShield, DriveWallet } from '@/components/icons/DriveUi';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import { Header } from '@/components/shared/Header';
 import { Footer } from '@/components/shared/Footer';
 import { COMMISSION_RATE, COMMISSION_RATE_PERMANENT, COMMISSION_CAP } from '@/lib/commission';
@@ -54,7 +55,7 @@ export default async function DevenirChauffeurPage() {
               e-mail, puis fais-le vérifier (selfie + pièce d’identité).
             </p>
             <Link href="/admin" className="inline-block font-black text-sarcelle hover:underline">
-              Voir l’administration →
+              Voir l’administration <DriveChevronRight size={14} className="inline-block" />
             </Link>
           </div>
         )}
@@ -80,13 +81,13 @@ export default async function DevenirChauffeurPage() {
                 : 'Ton compte n’est pas encore vérifié : envoie ton selfie et ta pièce d’identité depuis ton tableau de bord, puis tu pourras te mettre en ligne.'}
             </p>
             <Link href="/tableau-de-bord" className="inline-block font-black text-sarcelle hover:underline">
-              Voir mon tableau de bord →
+              Voir mon tableau de bord <DriveChevronRight size={14} className="inline-block" />
             </Link>
           </div>
         )}
         <header className="space-y-4">
           <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-sarcelle bg-sarcelle/10 border border-sarcelle/30 rounded-full px-4 py-2">
-            <Car size={14} /> Libreville — pour les chauffeurs
+            <DriveCarMini variant="sedan" size={14} tone="light" /> Libreville — pour les chauffeurs
           </p>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-tight">
             Opter pour la liberté financière, à votre rythme.
@@ -102,11 +103,11 @@ export default async function DevenirChauffeurPage() {
                 href="/inscription?role=chauffeur"
                 className="inline-flex items-center gap-2 bg-rose-500 text-night-900 font-black px-7 py-4 rounded-full shadow-lg shadow-rose-500/40 hover:bg-rose-300 active:scale-[0.98] transition-all"
               >
-                S’inscrire en chauffeur <ArrowRight size={18} />
+                S’inscrire en chauffeur <DriveChevronRight size={18} />
               </Link>
             )}
             <Link href="/" className="text-sm font-bold text-slate-400 hover:text-sarcelle transition-colors">
-              Tu cherches une course ? Retour à l’accueil →
+              Tu cherches une course ? Retour à l’accueil <DriveChevronRight size={14} className="inline-block" />
             </Link>
           </div>
         </header>
@@ -118,19 +119,19 @@ export default async function DevenirChauffeurPage() {
             {[
               {
                 step: '1',
-                icon: BadgeCheck,
+                icon: DriveCheckBadge,
                 title: 'Tu te fais vérifier',
                 desc: 'Selfie + pièce d’identité (ou permis) contrôlés par notre équipe. Sans vérification, pas de mise en ligne : les passagers voyagent sereins.',
               },
               {
                 step: '2',
-                icon: MapPin,
+                icon: DrivePin,
                 title: 'Tu te mets en ligne',
                 desc: 'Un interrupteur, ton quartier, et tu apparais sur la carte des passagers. Les demandes autour de toi arrivent en pop-up.',
               },
               {
                 step: '3',
-                icon: Wallet,
+                icon: DriveWallet,
                 title: 'Tu proposes, tu gagnes',
                 desc: `Tu fixes ton prix par course. Commission de ${Math.round(COMMISSION_RATE * 100)} % au lancement, puis ${Math.round(COMMISSION_RATE_PERMANENT * 100)} % — plafonnée à ${Math.round(COMMISSION_CAP * 100)} % pour toujours. Les concurrents prennent 15 à 30 %.`,
               },
@@ -168,7 +169,7 @@ export default async function DevenirChauffeurPage() {
           </div>
           <div className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 space-y-3">
             <h2 className="text-2xl font-black text-white flex items-center gap-2">
-              <ShieldCheck size={24} className="text-sarcelle" /> Un dépôt, et c’est tout
+              <DriveShield size={24} className="text-sarcelle" /> Un dépôt, et c’est tout
             </h2>
             <p className="text-slate-400 leading-relaxed">
               À l’inscription, un dépôt de garantie remboursable de 5 000 FCFA.
@@ -186,7 +187,7 @@ export default async function DevenirChauffeurPage() {
         {/* Les petits plus */}
         <section className="bg-night-800/80 border border-white/10 rounded-3xl p-6 sm:p-8 space-y-3">
           <h2 className="text-2xl font-black text-white flex items-center gap-2">
-            <Gift size={24} className="text-corail" /> Des petits plus pour te motiver
+            <DriveGift size={24} className="text-corail" /> Des petits plus pour te motiver
           </h2>
           <p className="text-slate-400 leading-relaxed max-w-2xl">
             Une quête chaque jour, un défi chaque semaine, des niveaux Bronze,
@@ -212,7 +213,7 @@ export default async function DevenirChauffeurPage() {
               href="/inscription?role=chauffeur"
               className="inline-flex items-center gap-2 bg-rose-500 text-night-900 font-black px-7 py-4 rounded-full shadow-lg shadow-rose-500/40 hover:bg-rose-300 active:scale-[0.98] transition-all"
             >
-              S’inscrire en chauffeur <ArrowRight size={18} />
+              S’inscrire en chauffeur <DriveChevronRight size={18} />
             </Link>
           )}
         </section>

@@ -9,12 +9,25 @@ import {
   isDifficultAccess,
   type Neighborhood,
 } from '@/lib/neighborhoods';
-import { estimateFare } from '@/lib/pricing';
+import { estimateTripServer, neighborhoodPoint } from '@/lib/estimate-server';
+import { isInServiceArea } from '@/lib/geo';
 import { getDriverOwed } from '@/lib/earnings';
 import { DEBT_CAP_FCFA } from '@/lib/gamification';
 import { logAudit } from '@/lib/audit';
 import { getIncomingRequests, getPassengerRatings } from '@/lib/rides';
 import { mapRideRow, type ProfileRow } from '@/lib/db-types';
+
+/** Point exact (v2.47 — épingle / lieu / GPS) : coordonnées +
+ *  adresse résolue + quartier de rattachement. Le quartier doit être
+ *  celui du trajet (vérifié par un refine ci-dessous) : le point
+ *  affine le départ/l'arrivée à l'intérieur du quartier, il ne
+ *  change pas de quartier. */
+const TripPointSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  address: z.string().trim().max(200).nullable(),
+  neighborhood: z.enum(NEIGHBORHOODS as unknown as [Neighborhood, ...Neighborhood[]]),
+});
 
 const RequestSchema = z
   .object({
@@ -50,6 +63,11 @@ const RequestSchema = z
      *  Au moins 30 min dans le futur, au plus 7 jours. Sans elle, la
      *  demande part tout de suite comme avant. */
     scheduledAt: z.string().datetime({ offset: true }).optional().nullable(),
+    /** Points exacts (v2.47, optionnels) : départ et destination
+     *  précis (épingle / lieu / GPS). Sans eux, l'estimation et la
+     *  course utilisent les centres de quartiers (ancien client). */
+    pickupPoint: TripPointSchema.optional().nullable(),
+    destinationPoint: TripPointSchema.optional().nullable(),
   })
   .refine((v) => v.pickup !== v.destination, {
     message: 'Le départ et la destination doivent être différents.',
@@ -68,6 +86,12 @@ const RequestSchema = z
   })
   .refine((v) => !(v.comfort && v.vehiclePreference === 'moto'), {
     message: 'Confort exige une voiture climatisée : la moto n’est pas éligible.',
+  })
+  .refine((v) => !v.pickupPoint || v.pickupPoint.neighborhood === v.pickup, {
+    message: 'Le point de départ ne correspond pas au quartier choisi.',
+  })
+  .refine((v) => !v.destinationPoint || v.destinationPoint.neighborhood === v.destination, {
+    message: 'Le point de destination ne correspond pas au quartier choisi.',
   });
 
 async function requireUser() {
@@ -154,13 +178,44 @@ export async function POST(request: NextRequest) {
       );
     }
   }
+  // Points exacts (v2.47) : le point doit être dans la zone de
+  // service — sinon, message clair + pas de demande créée (le client
+  // revient au dernier point valide, sans bloquer).
+  for (const [point, label] of [
+    [v.pickupPoint, 'départ'],
+    [v.destinationPoint, 'destination'],
+  ] as const) {
+    if (point && !isInServiceArea(point.lat, point.lng)) {
+      return NextResponse.json(
+        {
+          error: `Le point de ${label} est hors zone — Stacks Drive est à Libreville pour l’instant. Choisis un point dans la zone, ou un quartier dans la liste.`,
+        },
+        { status: 400 }
+      );
+    }
+  }
   // Estimation indicative (v2.11) : un repère pour le passager et les
   // chauffeurs, jamais un prix. Le prix final se décide entre eux.
   // Confort (v2.34) : même estimation que Solo — aucune différence
   // de prix décidée.
-  const estimate = estimateFare(v.pickup, v.destination, v.rideType, v.vehiclePreference, {
+  // v2.50 (ADR 0025) : distance ROUTIÈRE OSRM entre les points exacts
+  // (ou les centres de quartiers si pas d'épingle) — calculée côté
+  // serveur par le même estimateur que `/api/estimate`, donc le même
+  // trajet donne le même prix côté client et côté serveur. Repli
+  // OSRM indisponible : vol d'oiseau, estimation marquée approximative.
+  const serverEstimate = await estimateTripServer({
+    from: v.pickupPoint
+      ? { lat: v.pickupPoint.lat, lng: v.pickupPoint.lng }
+      : neighborhoodPoint(v.pickup),
+    to: v.destinationPoint
+      ? { lat: v.destinationPoint.lat, lng: v.destinationPoint.lng }
+      : neighborhoodPoint(v.destination),
+    fromNeighborhood: v.pickup,
+    toNeighborhood: v.destination,
     unpavedRoad: v.unpavedRoad,
+    vehiclePreference: v.vehiclePreference,
   });
+  const estimate = v.rideType === 'solo' ? serverEstimate.solo : serverEstimate.groupe;
   // Chauffeur favori (v2.34) : il doit vraiment être un favori du
   // passager, sinon la priorité est ignorée (jamais d'erreur bloquante).
   let preferredDriverId: string | null = null;
@@ -190,6 +245,11 @@ export async function POST(request: NextRequest) {
     vehicle_preference: v.vehiclePreference,
     seats: v.seats,
     estimated_price: estimate.price,
+    // Distance et durée routières du trajet (v2.50) : celles de
+    // l'estimation serveur (OSRM, ou repli vol d'oiseau) — le
+    // chauffeur et le suivi affichent les mêmes chiffres.
+    distance_km: serverEstimate.route.distanceKm,
+    duration_min: serverEstimate.route.durationMin,
     passenger_offered_price: v.offeredPrice ?? null,
     payment_method: v.paymentMethod,
     message: '',
@@ -200,6 +260,15 @@ export async function POST(request: NextRequest) {
     comfort: v.comfort,
     preferred_driver_id: preferredDriverId,
     preferred_until: preferredUntil,
+    // Points exacts (v2.47) : persistés pour le chauffeur (adresse
+    // précise sur sa fiche course + navigation OSRM dessus) et pour
+    // le suivi. Nulls = centre de quartier.
+    pickup_lat: v.pickupPoint?.lat ?? null,
+    pickup_lng: v.pickupPoint?.lng ?? null,
+    pickup_address: v.pickupPoint?.address ?? null,
+    destination_lat: v.destinationPoint?.lat ?? null,
+    destination_lng: v.destinationPoint?.lng ?? null,
+    destination_address: v.destinationPoint?.address ?? null,
   };
   let { data: ride, error } = await supabase
     .from('rides')
@@ -242,6 +311,20 @@ export async function POST(request: NextRequest) {
     delete insertPayload.comfort;
     delete insertPayload.preferred_driver_id;
     delete insertPayload.preferred_until;
+    // Migration v2.47 pas encore appliquée : la demande part sans les
+    // points exacts (centres de quartiers) — l'estimation affichée
+    // reste celle calculée sur les points, le trajet reste valable.
+    delete insertPayload.pickup_lat;
+    delete insertPayload.pickup_lng;
+    delete insertPayload.pickup_address;
+    delete insertPayload.destination_lat;
+    delete insertPayload.destination_lng;
+    delete insertPayload.destination_address;
+    // Migration v2.50 pas encore appliquée : la demande part sans la
+    // distance et la durée routières (l'estimation affichée reste
+    // celle calculée sur la route, le trajet reste valable).
+    delete insertPayload.distance_km;
+    delete insertPayload.duration_min;
     ({ data: ride, error } = await supabase
       .from('rides')
       .insert(insertPayload)
@@ -263,6 +346,10 @@ export async function POST(request: NextRequest) {
     destination: v.destination,
     rideType: v.rideType,
     estimatedPrice: estimate.price,
+    distanceKm: serverEstimate.route.distanceKm,
+    durationMin: serverEstimate.route.durationMin,
+    approximate: serverEstimate.approximate,
+    distanceSource: serverEstimate.route.source,
     offeredPrice: v.offeredPrice ?? null,
     unpavedRequested: v.unpavedRoad,
     dropOffPoint: dropOff,
@@ -272,6 +359,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       rideId: ride.id,
       estimatedPrice: estimate.price,
+      approximate: serverEstimate.approximate,
       scheduled: scheduledAt !== null,
       comfort: v.comfort,
       preferredDriverId,

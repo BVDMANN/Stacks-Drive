@@ -2,22 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import {
-  BadgeCheck,
-  Car,
-  Check,
-  Clock,
-  Copy,
-  KeyRound,
-  Link2,
-  MapPin,
-  MessageCircle,
-  Phone,
-  Share2,
-  ShieldAlert,
-  Star,
-  X,
-} from 'lucide-react';
+import { DriveCheck, DriveCheckBadge, DriveClock, DriveCopy, DriveGift, DriveKey, DriveLink, DriveMessage, DrivePhone, DrivePin, DriveShare, DriveShieldAlert, DriveStar, DriveX } from '@/components/icons/DriveUi';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import type { DriverProfile, Ride } from '@/types';
 import { formatFcfa } from '@/lib/commission';
 import type { TrustedContact } from '@/lib/trusted-contacts';
@@ -172,18 +158,18 @@ export function DriverCard({
             <span className="truncate">{driver.name}</span>
             {driver.isVerified && (
               <span className="inline-flex items-center gap-0.5 text-xs font-black text-sarcelle shrink-0">
-                <BadgeCheck size={15} /> Vérifié
+                <DriveCheckBadge size={15} /> Vérifié
               </span>
             )}
           </p>
           <p className="text-sm text-slate-400 flex flex-wrap items-center gap-x-2">
             <span className="inline-flex items-center gap-1">
-              <Star size={14} className="text-corail fill-corail" />
+              <DriveStar size={14} className="text-corail fill-corail" />
               {driver.rating ? driver.rating.toFixed(1) : 'Nouveau'} · {driver.trips} courses
             </span>
             {etaMin !== null && (
               <span className="inline-flex items-center gap-1">
-                <Clock size={14} /> arrive dans ~{etaMin} min
+                <DriveClock size={14} /> arrive dans ~{etaMin} min
               </span>
             )}
           </p>
@@ -197,14 +183,14 @@ export function DriverCard({
           aria-label={`Écrire à ${driver.name} par messagerie`}
           title="Écrire à ton chauffeur (messagerie in-app)"
         >
-          <MessageCircle size={20} />
+          <DriveMessage size={20} />
         </Link>
       </div>
 
       {/* Véhicule + plaque : à vérifier AVANT de monter. */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-bold text-slate-200 flex items-center gap-2">
-          <Car size={16} className="text-slate-400" />
+          <DriveCarMini variant="sedan" size={16} tone="light" />
           {driver.vehicleLabel} · {driver.vehicleType ?? ''}
         </p>
         <p className="font-black text-white tracking-widest bg-night-900 border border-white/15 rounded-lg px-3 py-1.5">
@@ -215,7 +201,7 @@ export function DriverCard({
         Vérifie la plaque avant de monter. Prix :{' '}
         <strong className="text-slate-200">
           {ride.loyaltyFree
-            ? '0 FCFA — 10e course offerte 🎁'
+            ? (<>0 FCFA — 10e course offerte <DriveGift size={12} className="inline-block" /></>)
             : ride.proposedPrice !== null
               ? formatFcfa(ride.proposedPrice)
               : `En attente des propositions (estimation : ${formatFcfa(ride.estimatedPrice)})`}
@@ -230,7 +216,7 @@ export function DriverCard({
         <div className="bg-night-900 border border-corail/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-black text-white flex items-center gap-2">
-              <KeyRound size={18} className="text-corail" />
+              <DriveKey size={18} className="text-corail" />
               Ton code de démarrage
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -249,20 +235,20 @@ export function DriverCard({
           onClick={openSos}
           className="sos-pulse inline-flex items-center justify-center gap-1.5 bg-red-600 text-white text-sm font-black py-3 rounded-full hover:bg-red-700 transition-colors"
         >
-          <ShieldAlert size={16} /> SOS
+          <DriveShieldAlert size={16} /> SOS
         </button>
         <button
           type="button"
           onClick={copyShareLink}
           className="inline-flex items-center justify-center gap-1.5 bg-white/10 text-slate-200 text-sm font-black py-3 rounded-full hover:bg-white/15 transition-colors"
         >
-          <Share2 size={16} /> {copied ? 'Lien copié !' : 'Partager'}
+          <DriveShare size={16} /> {copied ? 'Lien copié !' : 'Partager'}
         </button>
         <Link
           href={detailUrl}
           className="inline-flex items-center justify-center gap-1.5 bg-rose-500 text-night-900 text-sm font-black py-3 rounded-full hover:bg-rose-300 transition-colors"
         >
-          <Link2 size={16} /> Suivi
+          <DriveLink size={16} /> Suivi
         </Link>
       </div>
 
@@ -304,7 +290,7 @@ export function DriverCard({
                 className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 shrink-0"
                 aria-label="Fermer"
               >
-                <X size={16} />
+                <DriveX size={16} />
               </button>
             </div>
             {/* Infos SOS préparées (v2.23) : position + course, copiées
@@ -312,7 +298,7 @@ export function DriverCard({
                 déjà alertée. */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-2">
               <p className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                <MapPin size={13} /> Infos transmises avec ton appel
+                <DrivePin size={13} /> Infos transmises avec ton appel
               </p>
               {sosSending ? (
                 <p className="text-sm text-slate-300">Récupération de ta position…</p>
@@ -348,7 +334,7 @@ export function DriverCard({
                 disabled={!sosSummary}
                 className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-200 bg-white/10 px-3 py-2 rounded-full hover:bg-white/15 transition-colors disabled:opacity-50"
               >
-                {sosCopied ? <Check size={15} /> : <Copy size={15} />}
+                {sosCopied ? <DriveCheck size={15} /> : <DriveCopy size={15} />}
                 {sosCopied ? 'Infos copiées !' : 'Copier les infos SOS'}
               </button>
             </div>
@@ -361,12 +347,12 @@ export function DriverCard({
                   {sosContacts.map((c) => (
                     <a
                       key={c.id}
-                      href={`https://wa.me/${c.phone.replace(/[^0-9]/g, '').replace(/^0/, '241')}?text=${encodeURIComponent(`🚨 SOS Stacks Drive — ${sosSummary}`)}`}
+                      href={`https://wa.me/${c.phone.replace(/[^0-9]/g, '').replace(/^0/, '241')}?text=${encodeURIComponent(`[URGENCE] SOS Stacks Drive — ${sosSummary}`)}`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 text-sm font-bold text-white bg-green-600 px-3 py-2 rounded-full hover:bg-green-700 transition-colors"
                     >
-                      <MessageCircle size={15} /> {c.name}
+                      <DriveMessage size={15} /> {c.name}
                     </a>
                   ))}
                 </div>
@@ -376,7 +362,7 @@ export function DriverCard({
               href="tel:112"
               className="flex items-center justify-center gap-2 bg-red-600 text-white font-black py-4 rounded-full hover:bg-red-700 transition-colors"
             >
-              <Phone size={18} /> Appeler les urgences — 112
+              <DrivePhone size={18} /> Appeler les urgences — 112
             </a>
             <button
               type="button"

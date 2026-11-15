@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Camera, Loader2, ShieldAlert } from 'lucide-react';
+import { DriveCamera, DriveShieldAlert } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { detectSelfieFace } from '@/lib/verification-client';
 
 /** Re-vérification selfie ponctuelle (v2.30) : le chauffeur refait
@@ -60,7 +61,7 @@ export function SelfieRecheckCard({ required }: { required: boolean }) {
   return (
     <div className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-5 shadow-sm space-y-3">
       <h2 className="font-black text-amber-900 flex items-center gap-2">
-        <ShieldAlert size={18} /> Vérification selfie à refaire
+        <DriveShieldAlert size={18} /> Vérification selfie à refaire
       </h2>
       <p className="text-sm text-amber-800 leading-relaxed">
         Contrôle ponctuel : refais un selfie avant de te mettre en ligne. On vérifie juste
@@ -95,7 +96,7 @@ export function SelfieRecheckCard({ required }: { required: boolean }) {
           onClick={() => inputRef.current?.click()}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-black bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors"
         >
-          <Camera size={16} /> {selfie ? 'Changer le selfie' : 'Prendre un selfie'}
+          <DriveCamera size={16} /> {selfie ? 'Changer le selfie' : 'Prendre un selfie'}
         </button>
         {preview && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -109,7 +110,7 @@ export function SelfieRecheckCard({ required }: { required: boolean }) {
         >
           {checking ? (
             <>
-              <Loader2 size={16} className="animate-spin" /> Vérification…
+              <LogoLoader size={18} /> Vérification…
             </>
           ) : (
             'Envoyer mon selfie'

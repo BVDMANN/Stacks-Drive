@@ -1,16 +1,24 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Ban, Car, Check, Construction, Loader2, Megaphone } from 'lucide-react';
+import { DriveAlert, DriveBan, DriveCheck, DriveConstruction, DriveMegaphone } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
+import { DriveCarMini } from '@/components/icons/DriveCar';
+import type { ComponentType } from 'react';
 import { TRAFFIC_LABELS, type TrafficReport, type TrafficType } from '@/lib/traffic';
 import { nearestNeighborhood } from '@/lib/geo';
 import { cn } from '@/lib/utils';
 
-const TYPE_ICONS: Record<TrafficType, typeof Car> = {
-  embouteillage: Car,
-  accident: AlertTriangle,
-  travaux: Construction,
-  route_fermee: Ban,
+/** Mini-voiture Drive pour « embouteillage » (fond clair → tone dark). */
+const DriveCarMiniIcon = ({ size, className }: { size?: number; className?: string }) => (
+  <DriveCarMini variant="sedan" size={size ?? 14} tone="dark" className={className} />
+);
+
+const TYPE_ICONS: Record<TrafficType, ComponentType<{ size?: number; className?: string }>> = {
+  embouteillage: DriveCarMiniIcon,
+  accident: DriveAlert,
+  travaux: DriveConstruction,
+  route_fermee: DriveBan,
 };
 
 const TYPE_ORDER: TrafficType[] = ['embouteillage', 'accident', 'travaux', 'route_fermee'];
@@ -147,7 +155,7 @@ export function TrafficReport({
   return (
     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
       <p className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-        <Megaphone size={15} className="text-stacks-green" />
+        <DriveMegaphone size={15} className="text-stacks-green" />
         Signaler un problème sur la route
       </p>
       <div className="flex flex-wrap gap-2">
@@ -162,7 +170,7 @@ export function TrafficReport({
               onClick={() => report(type)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white border border-slate-300 text-sm font-black text-slate-700 hover:border-stacks-green hover:text-stacks-green transition-colors disabled:opacity-50"
             >
-              {busy ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />}
+              {busy ? <LogoLoader size={18} /> : <Icon size={14} />}
               {TRAFFIC_LABELS[type]}
             </button>
           );
@@ -215,9 +223,9 @@ export function TrafficReport({
                       )}
                     >
                       {confirming === r.id ? (
-                        <Loader2 size={12} className="animate-spin" />
+                        <LogoLoader size={16} />
                       ) : (
-                        <Check size={12} />
+                        <DriveCheck size={12} />
                       )}
                       Je confirme
                     </button>

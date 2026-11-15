@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Search, X } from 'lucide-react';
+import { DriveCheck, DriveChevronDown, DriveSearch, DriveX } from '@/components/icons/DriveUi';
 import {
   SELECTABLE_NEIGHBORHOODS,
   matchesNeighborhoodQuery,
@@ -169,10 +169,10 @@ export function NeighborhoodSelect({
                 aria-label={`Effacer ${label.toLowerCase()}`}
                 className="absolute right-0 flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
               >
-                <X size={14} />
+                <DriveX size={14} />
               </button>
             ) : (
-              <ChevronDown
+              <DriveChevronDown
                 size={15}
                 className={cn(
                   'absolute right-0 text-slate-400 pointer-events-none transition-transform',
@@ -188,7 +188,7 @@ export function NeighborhoodSelect({
       {open && (
         <div className="mt-1.5 border-t border-white/10 pt-1.5">
           <p className="flex items-center gap-1.5 px-1 pb-1 text-[11px] font-bold text-slate-400">
-            <Search size={12} className="shrink-0" />
+            <DriveSearch size={12} className="shrink-0" />
             {query.trim() === ''
               ? `${filtered.length} quartiers — touche pour choisir, ou tape un nom`
               : `${filtered.length} quartier${filtered.length > 1 ? 's' : ''} pour « ${query.trim()} »`}
@@ -218,7 +218,7 @@ export function NeighborhoodSelect({
                     )}
                   >
                     {n}
-                    {n === value && <Check size={15} className="shrink-0" />}
+                    {n === value && <DriveCheck size={15} className="shrink-0" />}
                   </button>
                 </li>
               ))}

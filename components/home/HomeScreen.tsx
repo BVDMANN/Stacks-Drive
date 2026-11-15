@@ -4,25 +4,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { DriveCarMini, SedanIllustration } from '@/components/icons/DriveCar';
+import { LogoLoader } from '@/components/icons/DriveLogo';
+import { NeonSearchLoader } from '@/components/icons/NeonSearchLoader';
 import {
-  Bike,
-  Car,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  Crosshair,
-  Loader2,
-  LocateFixed,
-  Map as MapIcon,
-  MapPin,
-  Navigation,
-  Satellite as SatelliteIcon,
-  ShieldCheck,
-  Snowflake,
-  User,
-  Users,
-  X,
-} from 'lucide-react';
+  DriveAlert,
+  DriveCalendar,
+  DriveCheck,
+  DriveChevronDown,
+  DriveChevronRight,
+  DriveChevronUp,
+  DriveClock,
+  DriveLocate,
+  DriveMove,
+  DriveNavigation,
+  DrivePin,
+  DriveShield,
+  DriveX,
+} from '@/components/icons/DriveUi';
 import type { HeaderUser } from '@/components/shared/Header';
 import type { DriverProfile, Ride, RideProposal } from '@/types';
 import type { AnonymousMapDriver } from '@/lib/db-types';
@@ -32,7 +31,22 @@ import { DriverCard } from './DriverCard';
 import { CancelRideDialog } from '@/components/rides/CancelRideDialog';
 import type { CancelReasonCode } from '@/lib/cancellations';
 import { NeighborhoodSelect } from '@/components/shared/NeighborhoodSelect';
+import { DestinationSearch, type SelectedPlace } from './DestinationSearch';
+import { AnimatedPrice, PriceSkeleton } from './PriceDisplay';
+import { FavoritePlaceRow, type FavoritePlace } from './FavoritePlaceRow';
+import { RecentDestinationRow } from './RecentDestinationRow';
+import type { RecentDestination } from '@/lib/rides';
+import { RideClassCards } from './RideClassCards';
 import { OutOfZoneScreen } from './OutOfZoneScreen';
+
+/** Puces de filtre véhicule (v2.52) : mini-voitures dessinées Drive
+ *  (ton clair sur fond nuit) — pas le trait Lucide plat. */
+const FilterCarIcon = ({ size = 14 }: { size?: number }) => (
+  <DriveCarMini variant="sedan" size={size} tone="light" />
+);
+const FilterMotoIcon = ({ size = 14 }: { size?: number }) => (
+  <DriveCarMini variant="moto" size={size} tone="light" />
+);
 import { OUT_OF_ZONE_DISMISSED_KEY } from '@/lib/area-waitlist';
 import { DriverHome } from '@/components/driver/DriverHome';
 import { PassengerTutorial } from '@/components/tuto/PassengerTutorial';
@@ -48,21 +62,26 @@ import {
   type Neighborhood,
   type PaymentMethod,
 } from '@/lib/neighborhoods';
-import { UNPAVED_ROAD_SUPPLEMENT, estimateFare, etaMinutes, type RideType, type VehiclePreference } from '@/lib/pricing';
+import { UNPAVED_ROAD_SUPPLEMENT, etaMinutes, type RideType, type VehiclePreference } from '@/lib/pricing';
 import { DISPATCH_WIDENED_RADIUS_KM, DRIVERS_AROUND_RADIUS_KM, MAP_INITIAL_ZOOM, haversineKm, isInServiceArea, nearestNeighborhood } from '@/lib/geo';
 import {
   geoErrorMessage,
   getUserPosition,
   reverseGeocodeCityCountry,
-  reverseGeocodeNominatim,
   type GeoErrorKind,
 } from '@/lib/geolocation';
+import {
+  GPS_ACCURACY_WARN_M,
+  formatPointFallback,
+  reverseGeocodeViaApi,
+  useReverseGeocode,
+} from '@/lib/pickup-point';
 import { formatFcfa } from '@/lib/commission';
 import type { Poi } from '@/lib/pois';
 import { PoiInfoCard, type PoiOrigin } from './PoiInfoCard';
 import { cn } from '@/lib/utils';
 import type { FocusPoint, TrafficMapMarker } from '@/components/map/LibrevilleMap';
-import { fetchRoadRouteViaApi, type RoadRoute } from '@/lib/routing';
+import { fetchEstimateViaApi, type EstimateApiResponse } from '@/lib/routing';
 import { useRoadRoute } from '@/lib/use-road-route';
 import type { TrafficReport } from '@/lib/traffic';
 
@@ -71,8 +90,8 @@ const LibrevilleMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-full w-full bg-night-900 animate-pulse flex items-center justify-center">
-        <p className="text-sm font-bold text-slate-400">Chargement de la carte de Libreville…</p>
+      <div className="h-full w-full bg-night-950 flex items-center justify-center">
+        <LogoLoader size={72} label="Chargement de la carte de Libreville…" />
       </div>
     ),
   }
@@ -128,63 +147,6 @@ function readDraft(): Draft | null {
   }
 }
 
-/** Prix animé : le chiffre glisse vers la nouvelle valeur (~450 ms) et
- *  fait un petit « pop » à chaque changement d'estimation. */
-function AnimatedPrice({
-  value,
-  className,
-  suffix,
-}: {
-  value: number | null;
-  className?: string;
-  suffix?: React.ReactNode;
-}) {
-  const [display, setDisplay] = useState(value ?? 0);
-  const prevRef = useRef(value ?? 0);
-  const [popKey, setPopKey] = useState(0);
-  useEffect(() => {
-    if (value === null) return;
-    const from = prevRef.current;
-    const to = value;
-    prevRef.current = value;
-    if (from === to) {
-      setDisplay(to);
-      return;
-    }
-    setPopKey((k) => k + 1);
-    const start = performance.now();
-    const dur = 450;
-    let raf = 0;
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setDisplay(Math.round(from + (to - from) * eased));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [value]);
-  if (value === null) return <span className={className}>—</span>;
-  return (
-    <span key={popKey} className={cn('price-pop', className)}>
-      {formatFcfa(display)}
-      {suffix}
-    </span>
-  );
-}
-
-/** Petite barre de chargement du prix (v2.11) : shimmer rose/sarcelle qui
- *  remplace le chiffre pendant le (re)calcul de l'estimation. */
-function PriceSkeleton({ className }: { className?: string }) {
-  return (
-    <span
-      aria-label="Calcul du prix…"
-      role="status"
-      className={cn('price-skeleton block rounded-lg', className ?? 'h-7 w-28')}
-    />
-  );
-}
-
 /** Écran d'accueil map-first « Libreville la nuit » : carte sombre plein
  *  écran + feuille de demande draggable en bas (départ géolocalisable,
  *  destination, type de course, estimation indicative, commander). */
@@ -193,6 +155,8 @@ export function HomeScreen({
   profile,
   realDrivers,
   demoDrivers,
+  scheduledCount,
+  recentDestinations,
 }: {
   user: HeaderUser | null;
   /** Profil complet du compte connecté (v2.3) : l'accueil chauffeur
@@ -205,6 +169,14 @@ export function HomeScreen({
    *  le passager avant une proposition. */
   realDrivers: AnonymousMapDriver[];
   demoDrivers: AnonymousMapDriver[];
+  /** Nombre RÉEL de courses planifiées (statuts `planifiee` /
+   *  `expiree`, v2.30 — compté dans `app/page.tsx`). Null =
+   *  déconnecté : aucun chiffre inventé, la carte n'affiche pas de
+   *  nombre. */
+  scheduledCount?: number | null;
+  /** Adresses récentes (historique RÉEL, `lib/rides.ts`) — vide ou
+   *  absent = section masquée. */
+  recentDestinations?: RecentDestination[];
 }) {
   const router = useRouter();
   const [pickup, setPickup] = useState<Neighborhood | ''>('');
@@ -217,6 +189,19 @@ export function HomeScreen({
   // chauffeur choisi (30 s d'exclusivité), puis aux autres.
   const [favorites, setFavorites] = useState<{ driverId: string; driverName: string | null }[]>([]);
   const [favoriteDriverId, setFavoriteDriverId] = useState<string | null>(null);
+  // Photo de profil (v2.49) : null = inconnue (non connecté, ou base
+  // pas encore à jour) — la ligne « Compléter ton profil » est alors
+  // masquée, jamais affichée avec un chiffre inventé.
+  const [hasPhoto, setHasPhoto] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!user || user.role !== 'passager') return;
+    fetch('/api/profile/photo')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.ok && !d?.baseOutdated) setHasPhoto(d.hasPhoto === true);
+      })
+      .catch(() => undefined);
+  }, [user]);
   useEffect(() => {
     if (!user || user.role !== 'passager') return;
     fetch('/api/favorites')
@@ -254,23 +239,6 @@ export function HomeScreen({
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   // Lieu sélectionné sur la carte (v2.13) : sa mini-carte d'info.
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null);
-  // Fond de carte (v2.13) : Plan ou Satellite — choix mémorisé.
-  const [basemap, setBasemap] = useState<'plan' | 'satellite'>('plan');
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem('stacks-drive-basemap') === 'satellite') setBasemap('satellite');
-    } catch {
-      // Stockage indisponible : on reste en Plan.
-    }
-  }, []);
-  function handleBasemap(value: 'plan' | 'satellite') {
-    setBasemap(value);
-    try {
-      window.localStorage.setItem('stacks-drive-basemap', value);
-    } catch {
-      // Stockage indisponible : le choix ne sera pas mémorisé.
-    }
-  }
 
   // Notifications pop-up de négociation (v2.12) : le passager est
   // alerté quand une proposition arrive, quand le chauffeur change son
@@ -284,6 +252,44 @@ export function HomeScreen({
   const [geoLabel, setGeoLabel] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [pickupExact, setPickupExact] = useState<{ lat: number; lng: number } | null>(null);
+  // v2.47 — point précis (épingle) : d'où vient le point, et son
+  // adresse résolue. Le quartier reste la référence du trajet
+  // (dispatch, suppléments) ; le point exact affine le départ et
+  // l'arrivée à l'intérieur du quartier.
+  const [pickupPointSource, setPickupPointSource] = useState<'gps' | 'neighborhood' | 'pin' | 'place'>('neighborhood');
+  const [destExact, setDestExact] = useState<{ lat: number; lng: number } | null>(null);
+  const [destPointSource, setDestPointSource] = useState<'gps' | 'neighborhood' | 'pin' | 'place'>('neighborhood');
+  const [destAddress, setDestAddress] = useState<string | null>(null);
+  // v2.47 — ajustement à l'épingle : quel point on règle, et le point
+  // de départ de l'ajustement (pour « Annuler » et pour revenir au
+  // dernier point valide si l'épingle sort de la zone).
+  const [adjusting, setAdjusting] = useState<'pickup' | 'destination' | null>(null);
+  const adjustStartRef = useRef<{ kind: 'pickup' | 'destination'; lat: number; lng: number } | null>(null);
+  const [lastValidPoint, setLastValidPoint] = useState<{ lat: number; lng: number } | null>(null);
+  // v2.47 — l'épingle « se pose » : la clé rejoue sa chute + son
+  // rebond à chaque ouverture et après chaque glisser (la surcouche
+  // de la carte est remontée avec cette clé).
+  const [pinBounceKey, setPinBounceKey] = useState(0);
+  // v2.47 — la carte glisse sous l'épingle : l'adresse affichée est
+  // momentanément périmée (squelette) jusqu'au `moveend`.
+  const [mapMoving, setMapMoving] = useState(false);
+  // v2.47 — précision GPS : au-delà de 50 m, la position est
+  // « approximative » — on le dit et on ouvre l'épingle.
+  const [gpsAccuracyM, setGpsAccuracyM] = useState<number | null>(null);
+  const [gpsFailed, setGpsFailed] = useState(false);
+  // v2.47 — barre flottante « Vers où ? » : nonce qui fait reprendre
+  // le focus au champ de recherche de destination.
+  const [focusDestinationNonce, setFocusDestinationNonce] = useState(0);
+  // v2.47 — réessai du géocodage quand l'adresse est introuvable.
+  const [geoRetryKey, setGeoRetryKey] = useState(0);
+  // Référence du champ date/heure de planification (v2.30) : l'état
+  // vide « aucun chauffeur » y renvoie directement.
+  const scheduledAtRef = useRef<HTMLInputElement | null>(null);
+  // v2.47 — « Planifier pour plus tard » depuis l'état vide de
+  // recherche : on ouvre l'annulation, et si elle est confirmée, la
+  // feuille revient en idle avec la planification activée (le drapeau
+  // est effacé si la boîte d'annulation est fermée sans confirmer).
+  const planAfterCancelRef = useRef(false);
   // Écran hors zone (v2.32) : position GPS connue mais hors de la
   // zone de service — l'écran plein écran s'affiche (jamais pour une
   // position dans la zone, jamais sans GPS). Une fois fermé, il ne
@@ -354,12 +360,13 @@ export function HomeScreen({
   }, [phase]);
   const isMini = phase === 'idle' && sheetH <= 20;
   // v2.39 : les pastilles du haut de la carte (compteur chauffeurs,
-  // Recentrer, Plan/Satellite) ne s'effacent PLUS quand la feuille
-  // se déplie — l'ancien fondu les rendait invisibles et
+  // Recentrer, barre « Vers où ? ») ne s'effacent PLUS quand la
+  // feuille se déplie — l'ancien fondu les rendait invisibles et
   // incliquables alors qu'elles sont dans le haut de l'écran, jamais
   // recouvertes par la feuille (58 dvh max, par le bas). Sur mobile,
   // la feuille est dépliée pendant presque toute la commande : c'est
-  // là que l'utilisateur en a le plus besoin.
+  // là que l'utilisateur en a le plus besoin. (La bascule
+  // Plan/Satellite a été retirée en v2.50 : une seule carte.)
   // Feuille à pleine hauteur : le chevron de la poignée pointe vers le
   // bas (replier), sinon vers le haut (déplier).
   const atFull = sheetH >= 58;
@@ -425,6 +432,7 @@ export function HomeScreen({
     getUserPosition(5000)
       .then((pos) => {
         if (cancelled) return;
+        setGpsAccuracyM(pos.accuracyM);
         if (!isInServiceArea(pos.lat, pos.lng)) {
           // Hors zone : repli (b) puis (c), sans message d'erreur
           // dans la feuille — l'écran hors zone (v2.32) prend le
@@ -441,14 +449,29 @@ export function HomeScreen({
         if (!manualPickupRef.current) {
           setPickup(nearest.neighborhood);
           setPickupExact({ lat: pos.lat, lng: pos.lng });
+          setPickupPointSource('gps');
+          setLastValidPoint({ lat: pos.lat, lng: pos.lng });
           focusOn(pos.lat, pos.lng);
+          // v2.47 — GPS imprécis (> 50 m) : la position est
+          // approximative, on ouvre directement l'épingle pour que
+          // le passager précise son point au lieu de commander sur
+          // une position fausse.
+          if (pos.accuracyM !== null && pos.accuracyM > GPS_ACCURACY_WARN_M) {
+            adjustStartRef.current = { kind: 'pickup', lat: pos.lat, lng: pos.lng };
+            setPinBounceKey((k) => k + 1);
+            setAdjusting('pickup');
+            setSheetH(30);
+          }
         }
-        reverseGeocodeNominatim(pos.lat, pos.lng).then((label) => {
-          if (!cancelled && label) setGeoLabel(label);
+        // Nom de rue en complément (best-effort, jamais bloquant) —
+        // par le proxy serveur (v2.47), pas en direct.
+        reverseGeocodeViaApi(pos.lat, pos.lng).then((r) => {
+          if (!cancelled && r?.address) setGeoLabel(r.address);
         });
       })
       .catch(() => {
         if (cancelled) return;
+        setGpsFailed(true);
         // Permission refusée / hors délai / indisponible : repli (b)
         // puis (c), silencieusement — aucun message d'erreur.
         if (d && d.pickup) {
@@ -486,50 +509,183 @@ export function HomeScreen({
   const destDifficult = destination !== '' && isDifficultAccess(destination as Neighborhood);
   const destDropOff =
     destination !== '' ? dropOffPointFor(destination as Neighborhood) : null;
-  const estimate = useMemo(
-    () =>
-      validTrip
-        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, rideType, vehiclePref, {
-            unpavedRoad,
-          })
-        : null,
-    [pickup, destination, rideType, vehiclePref, unpavedRoad, validTrip]
-  );
-  const estimateSolo = useMemo(
-    () =>
-      validTrip
-        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, 'solo', vehiclePref, {
-            unpavedRoad,
-          })
-        : null,
-    [pickup, destination, vehiclePref, unpavedRoad, validTrip]
-  );
-  const estimateGroupe = useMemo(
-    () =>
-      validTrip
-        ? estimateFare(pickup as Neighborhood, destination as Neighborhood, 'groupe', 'tous', {
-            unpavedRoad,
-          })
-        : null,
-    [pickup, destination, unpavedRoad, validTrip]
-  );
-
-  // Barre de chargement du prix (v2.11) : quand le départ, la
-  // destination, le type ou le véhicule change, le prix « se calcule »
-  // 300 ms — une petite barre shimmer remplace le chiffre, puis le
-  // prix apparaît avec sa décomposition. Le calcul lui-même est
-  // instantané (local) ; le délai rend le changement lisible et
-  // évite le chiffre qui saute à chaque frappe.
-  const [estimating, setEstimating] = useState(false);
+  // Coordonnées du départ : position exacte si géolocalisée ou placée
+  // à l'épingle, sinon centre du quartier. Destination : point exact
+  // (épingle / lieu choisi) si défini, sinon centre du quartier.
+  // Déclarées avant les estimations (v2.47) : le prix est calculé
+  // sur ces coordonnées exactes.
+  const pickupCoords = pickup !== ''
+    ? (pickupExact ?? NEIGHBORHOOD_COORDS[pickup as Neighborhood])
+    : null;
+  const destCoords = destination !== ''
+    ? (destExact ?? NEIGHBORHOOD_COORDS[destination as Neighborhood])
+    : null;
+  // Estimation indicative — calculée CÔTÉ SERVEUR sur la distance
+  // ROUTIÈRE OSRM entre les coordonnées EXACTES du départ et de la
+  // destination (v2.50, ADR 0025 ; v2.47 : épingle déplacée, lieu
+  // choisi). Le client ne calcule PLUS jamais un prix seul : il
+  // appelle `POST /api/estimate` (debounce 400 ms, annulation de
+  // l'appel précédent) et affiche ce que le serveur renvoie — le
+  // même estimateur sert à la création de la demande, donc le même
+  // trajet donne le même prix des deux côtés. Le prix final reste
+  // négocié et figé à l'acceptation — jamais de surge.
+  // Repli : si OSRM est indisponible, le serveur répond avec la
+  // distance à vol d'oiseau et `approximate: true` (l'interface
+  // l'affiche) ; si la route API est injoignable, on garde la
+  // dernière estimation affichée — jamais de prix calculé en local.
+  const [serverEstimate, setServerEstimate] = useState<EstimateApiResponse | null>(null);
+  const serverEstimateRef = useRef<EstimateApiResponse | null>(null);
   useEffect(() => {
-    if (!validTrip) {
+    serverEstimateRef.current = serverEstimate;
+  }, [serverEstimate]);
+  // Barre de chargement du prix (règle 1, v2.17) : pendant le calcul
+  // serveur, une petite barre shimmer remplace le chiffre — le prix
+  // apparaît ensuite avec sa décomposition.
+  const [estimating, setEstimating] = useState(false);
+  const [estimateUnavailable, setEstimateUnavailable] = useState(false);
+  useEffect(() => {
+    if (!validTrip || !pickupCoords || !destCoords) {
+      setServerEstimate(null);
       setEstimating(false);
+      setEstimateUnavailable(false);
       return;
     }
     setEstimating(true);
-    const t = window.setTimeout(() => setEstimating(false), 300);
-    return () => window.clearTimeout(t);
-  }, [pickup, destination, rideType, vehiclePref, unpavedRoad, validTrip]);
+    setEstimateUnavailable(false);
+    const controller = new AbortController();
+    const t = window.setTimeout(() => {
+      fetchEstimateViaApi(
+        {
+          fromLat: pickupCoords.lat,
+          fromLng: pickupCoords.lng,
+          toLat: destCoords.lat,
+          toLng: destCoords.lng,
+          fromNeighborhood: pickup,
+          toNeighborhood: destination,
+          unpavedRoad,
+          vehiclePreference: vehiclePref,
+        },
+        controller.signal
+      ).then((res) => {
+        if (controller.signal.aborted) return;
+        setEstimating(false);
+        if (res) {
+          setServerEstimate(res);
+          setEstimateUnavailable(false);
+        } else if (!serverEstimateRef.current) {
+          // Route API injoignable et aucune estimation précédente :
+          // on le dit, on n'invente rien.
+          setEstimateUnavailable(true);
+        }
+      });
+    }, 400);
+    return () => {
+      controller.abort();
+      window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickup, destination, pickupCoords, destCoords, rideType, vehiclePref, unpavedRoad, validTrip]);
+
+  // L'estimation affichée pour le type de course choisi, et les deux
+  // estimations des cartes de classe (Solo / Groupe).
+  const estimate = serverEstimate
+    ? rideType === 'solo'
+      ? serverEstimate.solo
+      : serverEstimate.groupe
+    : null;
+  const estimateSolo = serverEstimate?.solo ?? null;
+  const estimateGroupe = serverEstimate?.groupe ?? null;
+
+  // v2.47 — adresse résolue du départ et de la destination (géocodage
+  // inverse serveur, Nominatim puis Photon, debounce 400 ms). Résolue
+  // seulement pour un point EXACT (GPS, épingle, lieu) : pour un
+  // centre de quartier, l'adresse est le nom du quartier (le
+  // géocodage d'un centre de quartier n'apporterait rien).
+  const pickupResolvePoint =
+    pickup !== '' && pickupPointSource !== 'neighborhood' ? pickupCoords : null;
+  const pickupResolved = useReverseGeocode(pickupResolvePoint, geoRetryKey);
+  const destResolvePoint =
+    destination !== '' && destPointSource !== 'neighborhood' ? destCoords : null;
+  const destResolved = useReverseGeocode(destResolvePoint, geoRetryKey);
+
+  /** Adresse affichée du départ : rue résolue (ou nom du quartier
+   *  pour un centre), jamais une adresse inventée — en dernier
+   *  recours, coordonnées + quartier le plus proche. */
+  const pickupAddressLabel =
+    pickup === '' || !pickupCoords
+      ? null
+      : pickupPointSource === 'neighborhood'
+        ? geoLabel
+          ? `${geoLabel} · ${pickup}`
+          : pickup
+        : (pickupResolved.address ??
+          geoLabel ??
+          formatPointFallback(pickupCoords.lat, pickupCoords.lng, pickup as Neighborhood));
+  /** Adresse affichée de la destination (même règle). */
+  const destAddressLabel =
+    destination === '' || !destCoords
+      ? null
+      : destPointSource === 'place' && destAddress
+        ? destAddress
+        : destPointSource === 'neighborhood'
+          ? destination
+          : (destResolved.address ??
+            formatPointFallback(destCoords.lat, destCoords.lng, destination as Neighborhood));
+  /** Points passés à la carte : mémoïsés (v2.51) — des objets
+   *  recréés à chaque rendu faisaient redéclencher l'effet
+   *  d'épingles de la carte (`fitBounds` à chaque rendu) et
+   *  interdisaient tout zoom / déplacement manuel tant qu'un trajet
+   *  était défini : la vue revenait sans cesse sur le trajet. */
+  const pickupPoint = useMemo(
+    () => (pickupCoords && pickup ? { ...pickupCoords, label: pickupAddressLabel ?? pickup } : null),
+    [pickupCoords, pickup, pickupAddressLabel],
+  );
+  const destinationPoint = useMemo(
+    () => (destCoords && destination ? { ...destCoords, label: destAddressLabel ?? destination } : null),
+    [destCoords, destination, destAddressLabel],
+  );
+  const radarCenterPoint = useMemo(
+    () => (pickupCoords && pickup ? { ...pickupCoords, label: pickup } : null),
+    [pickupCoords, pickup],
+  );
+  /** Le point ajusté est-il dans la zone ? (vérification en direct
+   *  pendant le glisser — le bouton de confirmation ne valide pas
+   *  un point hors zone sans prévenir.) */
+  const adjustingPointOutOfZone = adjusting
+    ? (() => {
+        const p = adjusting === 'pickup' ? pickupCoords : destCoords;
+        return p ? !isInServiceArea(p.lat, p.lng) : false;
+      })()
+    : false;
+  /** GPS imprécis : la position est approximative, on le dit et on
+   *  propose l'épingle. */
+  const gpsImprecise =
+    pickupPointSource === 'gps' && gpsAccuracyM !== null && gpsAccuracyM > GPS_ACCURACY_WARN_M;
+  /** Lieux enregistrés du passager (v2.30) — pour la recherche de
+   *  destination et « Mes lieux » (avec ETA réelle, v2.48). */
+  const favoritePlaces: FavoritePlace[] = useMemo(() => {
+    if (!profile) return [];
+    const out: FavoritePlace[] = [];
+    if (profile.home_neighborhood) {
+      out.push({
+        key: 'home',
+        label: 'Maison',
+        icon: 'home',
+        neighborhood: profile.home_neighborhood as Neighborhood,
+        detail: profile.home_detail ?? null,
+      });
+    }
+    if (profile.work_neighborhood) {
+      out.push({
+        key: 'work',
+        label: 'Travail',
+        icon: 'work',
+        neighborhood: profile.work_neighborhood as Neighborhood,
+        detail: profile.work_detail ?? null,
+      });
+    }
+    return out;
+  }, [profile]);
 
   // Signalements trafic actifs (v2.27) : marqueurs sur la carte,
   // rafraîchis toutes les 60 s.
@@ -581,36 +737,15 @@ export function HomeScreen({
     });
   }, [allDrivers, rideType, vehiclePref]);
 
-  // Coordonnées du départ : position exacte si géolocalisée, sinon centre du quartier.
-  const pickupCoords = pickup !== ''
-    ? (pickupExact ?? NEIGHBORHOOD_COORDS[pickup as Neighborhood])
-    : null;
-  const destCoords = destination !== '' ? NEIGHBORHOOD_COORDS[destination as Neighborhood] : null;
-
   // Itinéraire routier (v2.27) : géométrie OSRM + durée/distance
   // routières pour le trajet choisi — affichées dans la feuille et
-  // sur la carte (la polyligne droite est remplacée). Le PRIX ne
-  // change pas : l'estimation reste calculée sur la distance à vol
-  // d'oiseau (`estimateFare`) — seule la durée affichée devient la
-  // durée routière réelle. OSRM indisponible → on garde la ligne
-  // droite et la durée estimée (repli silencieux).
-  const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
-  useEffect(() => {
-    if (!pickupCoords || !destCoords || !validTrip) {
-      setRoadRoute(null);
-      return;
-    }
-    let cancelled = false;
-    const t = window.setTimeout(() => {
-      fetchRoadRouteViaApi(pickupCoords, destCoords).then((r) => {
-        if (!cancelled) setRoadRoute(r);
-      });
-    }, 400);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [pickupCoords, destCoords, validTrip]);
+  // sur la carte (la polyligne droite est remplacée). Depuis la
+  // v2.50, la route vient de la MÊME réponse serveur que
+  // l'estimation (`POST /api/estimate`) : un seul appel, et le
+  // prix et la carte disent la même chose. OSRM indisponible → la
+  // route est le repli ligne droite (source 'fallback') et
+  // l'estimation est marquée approximative.
+  const roadRoute = serverEstimate?.route ?? null;
 
   // Périmètre « chauffeurs autour de toi » (v2.18) : seuls les chauffeurs
   // en ligne situés dans un rayon de DRIVERS_AROUND_RADIUS_KM autour du
@@ -887,15 +1022,32 @@ export function HomeScreen({
       manualPickupRef.current = false;
       setPickup(nearest.neighborhood);
       setPickupExact({ lat: pos.lat, lng: pos.lng });
+      setPickupPointSource('gps');
+      setLastValidPoint({ lat: pos.lat, lng: pos.lng });
+      setGpsAccuracyM(pos.accuracyM);
+      setGpsFailed(false);
       setUserLocation({ lat: pos.lat, lng: pos.lng, label: nearest.neighborhood });
       setGeoLabel(null);
       focusNonceRef.current += 1;
       setFocusPoint({ lat: pos.lat, lng: pos.lng, zoom: MAP_INITIAL_ZOOM, nonce: focusNonceRef.current });
-      // Nom de rue en complément (best-effort, jamais bloquant).
-      reverseGeocodeNominatim(pos.lat, pos.lng).then((label) => {
-        if (label) setGeoLabel(label);
+      // v2.47 — GPS imprécis (> 50 m) : on ouvre directement
+      // l'épingle pour préciser le point (même règle qu'au
+      // chargement — on ne commande pas sur une position fausse).
+      if (pos.accuracyM !== null && pos.accuracyM > GPS_ACCURACY_WARN_M) {
+        adjustStartRef.current = { kind: 'pickup', lat: pos.lat, lng: pos.lng };
+        setPinBounceKey((k) => k + 1);
+        setAdjusting('pickup');
+        setSheetH(30);
+      }
+      // Nom de rue en complément (best-effort, jamais bloquant) —
+      // par le proxy serveur (v2.47), pas en direct.
+      reverseGeocodeViaApi(pos.lat, pos.lng).then((r) => {
+        if (r?.address) setGeoLabel(r.address);
       });
     } catch (err) {
+      // GPS coupé ou refusé : on le dit et on propose la liste des
+      // quartiers (le départ ne reste pas vide sans explication).
+      setGpsFailed(true);
       setGeoError(geoErrorMessage(err as GeoErrorKind));
     } finally {
       setLocating(false);
@@ -907,6 +1059,7 @@ export function HomeScreen({
   function handlePickupChange(value: Neighborhood | '') {
     setPickup(value);
     setPickupExact(null);
+    setPickupPointSource('neighborhood');
     setGeoLabel(null);
     if (value !== '') manualPickupRef.current = true;
   }
@@ -915,14 +1068,173 @@ export function HomeScreen({
   // de zéro (elle ne vaut que pour le quartier choisi).
   function handleDestinationChange(value: Neighborhood | '') {
     setDestination(value);
+    setDestExact(null);
+    setDestPointSource('neighborhood');
+    setDestAddress(null);
     setUnpavedRoad(false);
+  }
+
+  // --- Point précis à l'épingle (v2.47) ---
+
+  /** Ouvrir l'ajustement à l'épingle (départ ou destination) : la
+   *  carte se centre sur le point courant, l'épingle « se pose »
+   *  (chute + rebond), la feuille se replie pour laisser voir la
+   *  carte. Le point de départ de l'ajustement est mémorisé pour
+   *  « Annuler » et pour le repli hors zone. */
+  function openAdjust(kind: 'pickup' | 'destination') {
+    const point = kind === 'pickup' ? pickupCoords : destCoords;
+    if (!point) return;
+    adjustStartRef.current = { kind, lat: point.lat, lng: point.lng };
+    focusNonceRef.current += 1;
+    setFocusPoint({ lat: point.lat, lng: point.lng, zoom: 17, nonce: focusNonceRef.current });
+    setPinBounceKey((k) => k + 1);
+    setAdjusting(kind);
+    setSheetH(30);
+  }
+
+  /** La carte a bougé sous l'épingle (`moveend`) : le point devient
+   *  le centre de la carte, et son quartier de rattachement le
+   *  quartier le plus proche (le quartier reste la référence du
+   *  trajet — dispatch, suppléments). Le point en zone devient le
+   *  dernier point valide (repli si l'épingle sort de la zone). */
+  function handleMapCenterChange(center: { lat: number; lng: number }) {
+    setMapMoving(false);
+    if (!adjusting) return;
+    const nearest = nearestNeighborhood(center.lat, center.lng);
+    if (adjusting === 'pickup') {
+      setPickup(nearest.neighborhood);
+      setPickupExact({ lat: center.lat, lng: center.lng });
+      setPickupPointSource('pin');
+      manualPickupRef.current = true;
+    } else {
+      setDestination(nearest.neighborhood);
+      setDestExact({ lat: center.lat, lng: center.lng });
+      setDestPointSource('pin');
+      setDestAddress(null);
+      setUnpavedRoad(false);
+    }
+    if (isInServiceArea(center.lat, center.lng)) {
+      setLastValidPoint({ lat: center.lat, lng: center.lng });
+    }
+  }
+
+  /** L'épingle a été glissée du doigt puis relâchée : la carte se
+   *  recentre dessus (le point est mis à jour par le `moveend` du
+   *  recentrage — une seule source de vérité : le centre de la
+   *  carte), et l'épingle « se pose » (rebond rejoué). */
+  function handleCenterPinDragEnd(lat: number, lng: number) {
+    focusNonceRef.current += 1;
+    setFocusPoint({ lat, lng, zoom: 17, nonce: focusNonceRef.current });
+    setPinBounceKey((k) => k + 1);
+  }
+
+  /** Confirmer le point : on sort de l'ajustement. Si le point est
+   *  hors zone, on revient au dernier point valide (sans bloquer —
+   *  l'appli ne laisse jamais le passager coincé sur un point
+   *  impossible) et on dit quoi faire. */
+  function confirmAdjust() {
+    if (!adjusting) return;
+    const point = adjusting === 'pickup' ? pickupCoords : destCoords;
+    if (point && !isInServiceArea(point.lat, point.lng)) {
+      const start = adjustStartRef.current;
+      if (start && start.kind === adjusting) {
+        if (adjusting === 'pickup') {
+          setPickupExact({ lat: start.lat, lng: start.lng });
+          setPickupPointSource('pin');
+        } else {
+          setDestExact({ lat: start.lat, lng: start.lng });
+          setDestPointSource('pin');
+        }
+        focusNonceRef.current += 1;
+        setFocusPoint({ lat: start.lat, lng: start.lng, zoom: 17, nonce: focusNonceRef.current });
+      }
+      setError('Ce point est hors zone — Stacks Drive est à Libreville pour l’instant. On t’a remis sur ton dernier point valide : déplace l’épingle dans la zone, ou choisis un quartier dans la liste.');
+      setAdjusting(null);
+      setSheetH(58);
+      return;
+    }
+    setAdjusting(null);
+    setSheetH(58);
+  }
+
+  /** Annuler l'ajustement : retour au point d'avant (sans rien
+   *  valider), la feuille reprend sa hauteur. */
+  function cancelAdjust() {
+    const start = adjustStartRef.current;
+    if (start) {
+      if (start.kind === 'pickup') {
+        setPickupExact({ lat: start.lat, lng: start.lng });
+        setPickupPointSource('pin');
+      } else {
+        setDestExact({ lat: start.lat, lng: start.lng });
+        setDestPointSource('pin');
+      }
+      focusNonceRef.current += 1;
+      setFocusPoint({ lat: start.lat, lng: start.lng, zoom: 17, nonce: focusNonceRef.current });
+    }
+    setAdjusting(null);
+    setSheetH(58);
+  }
+
+  /** Choisir un lieu dans la recherche de destination (v2.47, B) :
+   *  l'épingle se déplace sur le lieu exact, la destination est
+   *  remplie (quartier + adresse réelle du lieu), la carte se
+   *  centre dessus. */
+  function selectDestinationPlace(place: SelectedPlace) {
+    setDestination(place.neighborhood);
+    setDestExact({ lat: place.lat, lng: place.lng });
+    setDestPointSource('place');
+    setDestAddress(place.address);
+    setUnpavedRoad(false);
+    focusNonceRef.current += 1;
+    setFocusPoint({ lat: place.lat, lng: place.lng, zoom: 16, nonce: focusNonceRef.current });
+  }
+
+  /** Adresse récente (v2.51) : même geste qu'un lieu choisi — le
+   *  point exact devient la destination (quartier de rattachement
+   *  + adresse réelle de l'historique), la carte se centre dessus. */
+  function selectRecentDestination(recent: RecentDestination) {
+    setDestination(recent.neighborhood);
+    setDestExact({ lat: recent.lat, lng: recent.lng });
+    setDestPointSource('place');
+    setDestAddress(recent.address ?? recent.label);
+    setUnpavedRoad(false);
+    focusNonceRef.current += 1;
+    setFocusPoint({ lat: recent.lat, lng: recent.lng, zoom: 16, nonce: focusNonceRef.current });
+  }
+
+  /** « Plus tard » / carte « Trajets planifiés » (v2.51) : active
+   *  le mode planification existant (v2.30) et met le focus sur le
+   *  champ date/heure — même pattern que `planLaterFromSearch`
+   *  (v2.47) : la feuille monte en pleine hauteur et le champ
+   *  prend le focus (clavier ouvert), puis défile jusqu'à lui. */
+  function activatePlanMode() {
+    setScheduleEnabled(true);
+    setSheetH(58);
+    window.setTimeout(() => {
+      scheduledAtRef.current?.focus();
+      scheduledAtRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  }
+
+  /** Barre flottante « Vers où ? » (v2.47, D) : la feuille monte au
+   *  cran le plus haut et le champ de recherche de destination
+   *  prend le focus (clavier ouvert, résultats visibles). */
+  function openDestinationSearch() {
+    setSheetH(58);
+    setFocusDestinationNonce((n) => n + 1);
   }
 
   // « Y aller » (v2.13) : le lieu devient la destination (son
   // quartier le plus proche), la carte se recentre dessus et la
-  // feuille s'ouvre pour commander.
+  // feuille s'ouvre pour commander. v2.47 : l'épingle se pose sur le
+  // lieu exact (pas sur le centre du quartier) et l'adresse du lieu
+  // est affichée.
   function goToPoi(poi: Poi) {
     handleDestinationChange(poi.neighborhood);
+    setDestExact({ lat: poi.lat, lng: poi.lng });
+    setDestPointSource('place');
+    setDestAddress(`${poi.name}, ${poi.neighborhood}`);
     setSelectedPoi(null);
     focusNonceRef.current += 1;
     setFocusPoint({ lat: poi.lat, lng: poi.lng, zoom: 14, nonce: focusNonceRef.current });
@@ -1055,6 +1367,29 @@ export function HomeScreen({
         unpavedRoad,
         offeredPrice: offered,
         scheduledAt: scheduledIso,
+        // v2.47 — points exacts (épingle / lieu / GPS) : coordonnées
+        // + adresse résolue + quartier de rattachement. Le serveur
+        // les valide (dans la zone) et calcule l'estimation dessus ;
+        // sans eux (ancien client), il retombe sur les centres de
+        // quartiers. `address` est null pour un centre de quartier.
+        pickupPoint:
+          pickupCoords && pickupPointSource !== 'neighborhood'
+            ? {
+                lat: pickupCoords.lat,
+                lng: pickupCoords.lng,
+                address: pickupResolved.address,
+                neighborhood: pickup,
+              }
+            : null,
+        destinationPoint:
+          destCoords && destPointSource !== 'neighborhood'
+            ? {
+                lat: destCoords.lat,
+                lng: destCoords.lng,
+                address: destPointSource === 'place' ? destAddress : destResolved.address,
+                neighborhood: destination,
+              }
+            : null,
       }),
     });
     const data = await res.json().catch(() => null);
@@ -1064,7 +1399,7 @@ export function HomeScreen({
       return;
     }
     // Course planifiée : pas de recherche immédiate — confirmation
-    // + renvoi vers « Mes courses » (annulable avant l'envoi).
+    // + renvoi vers Activité (annulable avant l'envoi).
     if (scheduledIso) {
       setScheduledDone(true);
       setScheduleEnabled(false);
@@ -1177,6 +1512,22 @@ export function HomeScreen({
     setAcceptedDriver(null);
     setSearchStartedAt(null);
     setError(null);
+    // v2.47 — retour depuis l'état vide « aucun chauffeur » : la
+    // planification s'active et le champ date/heure prend le focus.
+    if (planAfterCancelRef.current) {
+      planAfterCancelRef.current = false;
+      setScheduleEnabled(true);
+      window.setTimeout(() => scheduledAtRef.current?.focus(), 150);
+    }
+  }
+
+  /** v2.47 — état vide « aucun chauffeur » : planifier pour plus
+   *  tard au lieu de rester bloqué. On ouvre l'annulation (le
+   *  passager choisit le motif, ou « sans motif ») ; une fois
+   *  confirmée, `resetToIdle` active la planification. */
+  function planLaterFromSearch() {
+    planAfterCancelRef.current = true;
+    annulerCourse();
   }
 
   const isChauffeurMode = user?.role === 'chauffeur';
@@ -1206,16 +1557,20 @@ export function HomeScreen({
       <LibrevilleMap
         className="absolute inset-0 h-full w-full"
         drivers={isChauffeurMode ? [] : mapDrivers}
-        pickup={pickupCoords && pickup ? { ...pickupCoords, label: pickup } : null}
-        destination={destCoords && destination ? { ...destCoords, label: destination } : null}
+        pickup={pickupPoint}
+        destination={destinationPoint}
         radarActive={phase === 'searching' || phase === 'proposals'}
-        radarCenter={pickupCoords && pickup ? { ...pickupCoords, label: pickup } : null}
+        radarCenter={radarCenterPoint}
         selectedDriverId={selectedDriverId}
         assignedDriverId={acceptedDriver?.id ?? null}
         userLocation={userLocation}
         focusPoint={focusPoint}
         onDriverClick={(id) => setSelectedDriverId(id)}
-        basemap={basemap}
+        adjusting={adjusting}
+        centerPinKey={pinBounceKey}
+        onCenterChange={handleMapCenterChange}
+        onCenterMoveStart={() => setMapMoving(true)}
+        onCenterPinDragEnd={handleCenterPinDragEnd}
         onPoiClick={
           isChauffeurMode
             ? undefined
@@ -1282,39 +1637,33 @@ export function HomeScreen({
         className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 bg-night-900/90 backdrop-blur border border-white/15 text-white text-xs font-black px-3 py-2 rounded-full shadow-xl shadow-black/40 hover:border-sarcelle/60 active:scale-95 transition-all duration-500"
         aria-label={userLocation ? 'Recentrer sur ma position' : 'Recentrer sur Libreville'}
       >
-        <Crosshair size={15} className="text-sarcelle" />
+        <DriveLocate size={15} className="text-sarcelle" />
         {userLocation ? 'Moi' : 'Libreville'}
       </button>
 
-      {/* Sélecteur de fond de carte (v2.13) : Plan ou Satellite —
-          sous le bouton Recentrer, même style, toujours visible et
-          cliquable (v2.39). */}
-      {!isChauffeurMode && (
-        <div
-          className="absolute top-14 left-3 z-10 inline-flex rounded-full bg-night-900/90 backdrop-blur border border-white/15 shadow-xl shadow-black/40 p-1 transition-all duration-500"
-          role="group"
-          aria-label="Fond de carte"
+      {/* Barre flottante « Vers où ? » (v2.47, D) : l'entrée
+          principale vers la recherche de destination — un tap monte
+          la feuille et ouvre le clavier. Wording Drive : pas la
+          formule Yango mot pour mot. Visible en phase idle,
+          passager, carte seulement (pas en ajustement d'épingle,
+          pas en mode chauffeur). Sous le bouton Recentrer (la
+          bascule Plan/Satellite a été retirée en v2.50 : une seule
+          carte, fond CARTO — ADR 0026). */}
+      {phase === 'idle' && !isMini && !isChauffeurMode && !adjusting && (
+        <button
+          type="button"
+          onClick={openDestinationSearch}
+          className="absolute top-14 left-3 right-3 sm:left-4 sm:right-auto sm:w-[440px] z-10 inline-flex items-center gap-3 bg-night-900/95 backdrop-blur border border-white/15 shadow-xl shadow-black/40 rounded-full pl-4 pr-3 py-3 text-left hover:border-sarcelle/60 active:scale-[0.99] transition-all"
+          aria-label="Vers où ? Rechercher une destination"
         >
-          {(
-            [
-              { value: 'plan', label: 'Plan', icon: MapIcon },
-              { value: 'satellite', label: 'Satellite', icon: SatelliteIcon },
-            ] as const
-          ).map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              onClick={() => handleBasemap(m.value)}
-              aria-pressed={basemap === m.value}
-              className={cn(
-                'inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black transition-all active:scale-95',
-                basemap === m.value ? 'bg-corail text-night-900' : 'text-slate-300 hover:text-white'
-              )}
-            >
-              <m.icon size={13} /> {m.label}
-            </button>
-          ))}
-        </div>
+          <span className="shrink-0 w-8 h-8 rounded-full bg-corail/15 border border-corail/30 flex items-center justify-center">
+            <DriveCarMini variant="sedan" size={18} tone="light" />
+          </span>
+          <span className="flex-1 min-w-0 text-base font-black text-white truncate">
+            {destination ? `Vers ${destAddressLabel ?? destination}` : 'Vers où ?'}
+          </span>
+          <DriveChevronRight size={18} className="text-slate-400 shrink-0" />
+        </button>
       )}
 
       {/* Feuille du bas — draggable : glisse avec un ressort quand on
@@ -1326,7 +1675,10 @@ export function HomeScreen({
           transition: isDragging ? 'none' : 'height 0.5s cubic-bezier(0.32, 0.72, 0, 1)',
         }}
       >
-        <div className="sheet-glass sheet-up h-full overflow-y-auto overscroll-contain rounded-t-[28px] sm:rounded-[28px] shadow-2xl shadow-black/60">
+        <div className="sheet-glass sheet-up h-full overflow-y-auto overscroll-contain rounded-t-[28px] sm:rounded-[28px] shadow-2xl shadow-black/60 pb-[calc(84px+env(safe-area-inset-bottom))] sm:pb-0">
+          {/* v2.51 — bas réservé pour la navigation basse (mobile) :
+              le bouton Commander reste atteignable au-dessus de la
+              barre ; sur écran large (barre masquée), pas de marge. */}
           {/* Poignée draggable + bouton chevron (façon Uber) : la poignée
               se glisse au doigt, le chevron — toujours visible, à droite
               de la poignée — replie / déplie la feuille cran par cran.
@@ -1354,9 +1706,9 @@ export function HomeScreen({
               aria-label={atFull ? 'Replier la feuille' : 'Déplier la feuille'}
             >
               {atFull ? (
-                <ChevronDown size={18} className="text-sarcelle" />
+                <DriveChevronDown size={18} className="text-sarcelle" />
               ) : (
-                <ChevronUp size={18} className="text-sarcelle" />
+                <DriveChevronUp size={18} className="text-sarcelle" />
               )}
             </button>
             )}
@@ -1374,7 +1726,7 @@ export function HomeScreen({
               <span className="text-base font-black text-white">
                 {isChauffeurMode ? 'Mode Chauffeur' : 'Où allez-vous ?'}
               </span>
-              <ChevronUp size={20} className="text-sarcelle" />
+              <DriveChevronUp size={20} className="text-sarcelle" />
             </button>
           )}
 
@@ -1382,7 +1734,7 @@ export function HomeScreen({
             <div className="mx-4 mt-2 flex items-start gap-2 bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-bold rounded-2xl p-3">
               <span className="flex-1">{error}</span>
               <button type="button" onClick={() => setError(null)} aria-label="Fermer le message">
-                <X size={16} />
+                <DriveX size={16} />
               </button>
             </div>
           )}
@@ -1393,11 +1745,62 @@ export function HomeScreen({
             <DriverHome profile={profile} />
           )}
 
-          {phase === 'idle' && !isMini && (!isChauffeurMode || !profile) && (
-            <div className="p-4 sm:p-5 pt-1 space-y-4">
+          {phase === 'idle' && !isMini && (!isChauffeurMode || !profile) && !adjusting && (
+            <div className="sheet-phase-in p-4 sm:p-5 pt-1 space-y-4">
               <h1 className="text-xl font-black text-white leading-tight">
                 Où allez-vous ?
               </h1>
+
+              {/* Deux grandes cartes (v2.51, façon Bolt — en mieux :
+                  verre nuit à liseré avec voitures dessinées Drive
+                  et faisceau, langage v2.52). « Trajets » ouvre la
+                  recherche de destination ; « Trajets planifiés »
+                  est la vraie entrée vers les courses planifiées
+                  (v2.30) : elle active le mode planification et
+                  affiche le nombre RÉEL de courses planifiées quand
+                  l'utilisateur est connecté — sinon pas de chiffre
+                  inventé (le nombre vient de `app/page.tsx`). */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={openDestinationSearch}
+                  className="drive-card rounded-[2rem] border border-white/10 p-3 pt-4 flex flex-col items-center gap-1.5 hover:border-rose-500/50 active:scale-[0.98] transition-all"
+                  aria-label="Trajets — commander une course"
+                >
+                  <SedanIllustration className="w-20 h-auto" />
+                  <span className="text-sm font-black text-white">Trajets</span>
+                  <span className="text-xs font-bold text-slate-400">Allons-y</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={activatePlanMode}
+                  className="drive-card rounded-[2rem] border border-white/10 p-3 pt-4 flex flex-col items-center gap-1.5 hover:border-brand-500/60 active:scale-[0.98] transition-all"
+                  aria-label="Trajets planifiés — réserver à l'avance"
+                >
+                  <span className="relative inline-flex">
+                    <SedanIllustration className="w-20 h-auto" />
+                    <span className="absolute -top-1 -right-2 w-7 h-7 rounded-full bg-brand-500 border-2 border-night-900 flex items-center justify-center shadow-lg shadow-brand-500/40">
+                      <DriveCalendar size={14} className="text-white" />
+                    </span>
+                  </span>
+                  <span className="text-sm font-black text-white">Trajets planifiés</span>
+                  <span className="text-xs font-bold text-slate-400">
+                    {scheduledCount !== null && scheduledCount !== undefined
+                      ? scheduledCount > 0
+                        ? `${scheduledCount} planifiée${scheduledCount > 1 ? 's' : ''}`
+                        : 'Aucune pour le moment'
+                      : 'Réserver à l’avance'}
+                  </span>
+                </button>
+              </div>
+              {scheduledCount !== null && scheduledCount !== undefined && scheduledCount > 0 && (
+                <Link
+                  href="/activite"
+                  className="inline-flex items-center gap-1 text-xs font-black text-sarcelle hover:underline active:scale-95 transition-all"
+                >
+                  Voir mes courses planifiées →
+                </Link>
+              )}
 
               {/* Départ / Destination — listes triées par ordre
                   alphabétique, avec recherche par nom (v2.22). */}
@@ -1409,43 +1812,195 @@ export function HomeScreen({
                     value={pickup}
                     onChange={handlePickupChange}
                     placeholder="Ton point de départ…"
-                    icon={<Navigation size={18} className="text-sarcelle shrink-0" />}
+                    icon={<DriveNavigation size={18} className="text-sarcelle shrink-0" />}
                     action={
+                      <span className="inline-flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleLocate}
+                          disabled={locating}
+                          className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-sarcelle px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
+                        >
+                          {locating ? (
+                            <LogoLoader size={18} />
+                          ) : (
+                            <DriveLocate size={14} />
+                          )}
+                          {locating ? 'Localisation…' : 'Me localiser'}
+                        </button>
+                        {/* v2.47 — préciser le point sur la carte
+                            (épingle) : la géolocalisation est souvent
+                            imprécise, le point exact se règle à la
+                            main. */}
+                        {pickup !== '' && (
+                          <button
+                            type="button"
+                            onClick={() => openAdjust('pickup')}
+                            className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-white bg-white/10 border border-white/15 px-3 py-2 rounded-full hover:bg-white/20 active:scale-95 transition-all"
+                          >
+                            <DriveMove size={14} /> Préciser
+                          </button>
+                        )}
+                      </span>
+                    }
+                  />
+                </div>
+                {/* v2.47 — adresse du point de départ : rue résolue
+                    (serveur), sinon quartier, sinon coordonnées +
+                    quartier — jamais une adresse inventée. Squelette
+                    pendant la résolution (règle n°1), pas de spinner
+                    brut. */}
+                {pickup !== '' && pickupAddressLabel && (
+                  <div className="px-1 space-y-1">
+                    <p className="text-xs font-bold text-sarcelle flex items-center gap-1">
+                      <DrivePin size={12} className="shrink-0" />
+                      {pickupPointSource !== 'neighborhood' &&
+                      (pickupResolved.resolving || mapMoving) ? (
+                        <LogoLoader size={18} />
+                      ) : (
+                        <span className="min-w-0 truncate">{pickupAddressLabel}</span>
+                      )}
+                    </p>
+                    {/* Adresse introuvable : on dit quoi faire (le
+                        quartier reste affiché) + réessai réel. */}
+                    {pickupPointSource !== 'neighborhood' &&
+                      !pickupResolved.resolving &&
+                      pickupResolved.attempted &&
+                      pickupResolved.address === null && (
+                        <p className="text-xs text-slate-400">
+                          Adresse non trouvée pour ce point — le quartier reste affiché.{' '}
+                          <button
+                            type="button"
+                            onClick={() => setGeoRetryKey((k) => k + 1)}
+                            className="font-black text-sarcelle hover:underline active:scale-95 transition-all"
+                          >
+                            Réessayer
+                          </button>
+                        </p>
+                      )}
+                    {/* GPS imprécis : on le dit, et on propose
+                        l'épingle — pas de commande sur une position
+                        fausse. */}
+                    {gpsImprecise && (
+                      <p className="text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 flex items-center gap-2">
+                        <DriveAlert size={14} className="shrink-0" />
+                        <span className="flex-1">
+                          Position approximative (±{gpsAccuracyM} m) — déplace l’épingle pour
+                          préciser ton point.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openAdjust('pickup')}
+                          className="shrink-0 font-black underline hover:text-amber-200 active:scale-95 transition-all"
+                        >
+                          Préciser
+                        </button>
+                      </p>
+                    )}
+                  </div>
+                )}
+                {geoError && (
+                  <p className="text-xs font-bold text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
+                    {geoError}{' '}
+                    {gpsFailed && (
                       <button
                         type="button"
                         onClick={handleLocate}
                         disabled={locating}
-                        className="inline-flex items-center gap-1.5 shrink-0 text-xs font-black text-night-900 bg-sarcelle px-3 py-2 rounded-full hover:bg-emerald-300 active:scale-95 transition-all disabled:opacity-60"
+                        className="font-black underline hover:text-red-200 active:scale-95 transition-all disabled:opacity-60"
                       >
-                        {locating ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <LocateFixed size={14} />
-                        )}
-                        {locating ? 'Localisation…' : 'Me localiser'}
+                        Réessayer
                       </button>
-                    }
-                  />
-                </div>
-                {geoLabel && pickup !== '' && (
-                  <p className="text-xs font-bold text-sarcelle flex items-center gap-1 px-1">
-                    <MapPin size={12} /> {geoLabel} · {pickup}
+                    )}
                   </p>
                 )}
-                {geoError && (
-                  <p className="text-xs font-bold text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
-                    {geoError}
-                  </p>
-                )}
-                <div className="bg-white/5 border border-white/10 rounded-2xl px-3.5 py-1.5">
-                  <NeighborhoodSelect
-                    id="destination"
-                    label="Destination"
-                    value={destination}
-                    onChange={handleDestinationChange}
-                    placeholder="Où vas-tu ?"
-                    icon={<MapPin size={18} className="text-corail shrink-0" />}
+                {/* Destination (v2.47, B) : recherche par lieu — nom ou
+                    catégorie (« pharmacie », « L'Emir », « Glass ») —
+                    sur les lieux de la carte + les quartiers, avec
+                    distance et temps depuis le départ. Choisir un
+                    résultat déplace l'épingle dessus. La liste
+                    complète des quartiers reste disponible sans
+                    requête. */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl px-3.5 py-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Destination
+                    </p>
+                    {/* « Plus tard » (v2.51, façon Bolt) : active le
+                        mode planification existant (v2.30) et met le
+                        focus sur le champ date/heure. */}
+                    <button
+                      type="button"
+                      onClick={activatePlanMode}
+                      className="inline-flex items-center gap-1.5 text-xs font-black text-night-900 bg-white px-3 py-1.5 rounded-full hover:bg-slate-200 active:scale-95 transition-all"
+                    >
+                      <DriveCalendar size={13} /> Plus tard
+                    </button>
+                  </div>
+                  <DestinationSearch
+                    origin={pickupCoords ?? (userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null)}
+                    favorites={favoritePlaces}
+                    currentDestinationLabel={destAddressLabel}
+                    currentDestinationNeighborhood={destination}
+                    onSelectPlace={selectDestinationPlace}
+                    onSelectNeighborhood={(n) => {
+                      handleDestinationChange(n);
+                      const c = NEIGHBORHOOD_COORDS[n];
+                      focusNonceRef.current += 1;
+                      setFocusPoint({ lat: c.lat, lng: c.lng, zoom: 14, nonce: focusNonceRef.current });
+                    }}
+                    onClearDestination={() => {
+                      setDestination('');
+                      setDestExact(null);
+                      setDestPointSource('neighborhood');
+                      setDestAddress(null);
+                    }}
+                    onFocusInput={() => setSheetH(58)}
+                    focusKey={focusDestinationNonce}
+                    onSetPickup={handlePickupChange}
+                    onSetDestination={handleDestinationChange}
                   />
+                  {/* v2.47 — préciser la destination sur la carte
+                      (épingle), comme le départ. */}
+                  {destination !== '' && (
+                    <button
+                      type="button"
+                      onClick={() => openAdjust('destination')}
+                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-white bg-white/10 border border-white/15 px-3 py-2 rounded-full hover:bg-white/20 active:scale-95 transition-all"
+                    >
+                      <DriveMove size={14} /> Préciser sur la carte
+                    </button>
+                  )}
+                  {/* Adresse de la destination résolue : squelette
+                      pendant la résolution, repli coordonnées +
+                      quartier si introuvable. */}
+                  {destination !== '' && destPointSource !== 'neighborhood' && (
+                    <p className="mt-2 text-xs font-bold text-sarcelle flex items-center gap-1">
+                      <DrivePin size={12} className="shrink-0" />
+                      {destResolved.resolving || mapMoving ? (
+                        <LogoLoader size={18} />
+                      ) : (
+                        <span className="min-w-0 truncate">{destAddressLabel}</span>
+                      )}
+                    </p>
+                  )}
+                  {destination !== '' &&
+                    destPointSource !== 'neighborhood' &&
+                    !destResolved.resolving &&
+                    destResolved.attempted &&
+                    destResolved.address === null &&
+                    destPointSource !== 'place' && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        Adresse non trouvée pour ce point — le quartier reste affiché.{' '}
+                        <button
+                          type="button"
+                          onClick={() => setGeoRetryKey((k) => k + 1)}
+                          className="font-black text-sarcelle hover:underline active:scale-95 transition-all"
+                        >
+                          Réessayer
+                        </button>
+                      </p>
+                    )}
                 </div>
                 {/* Accès difficile (v2.6) : la route bitumée s'arrête au
                     point de dépôt — le passager choisit d'y descendre ou
@@ -1454,7 +2009,7 @@ export function HomeScreen({
                 {destDifficult && destDropOff && (
                   <div className="bg-corail/10 border border-corail/40 rounded-2xl p-3.5 space-y-2.5">
                     <p className="text-sm font-bold text-corail flex items-start gap-1.5">
-                      <MapPin size={15} className="shrink-0 mt-0.5" />
+                      <DrivePin size={15} className="shrink-0 mt-0.5" />
                       Accès difficile : la route bitumée s’arrête à {destDropOff}. La course
                       s’y termine par défaut.
                     </p>
@@ -1486,68 +2041,67 @@ export function HomeScreen({
 
               {/* Lieux favoris (v2.30) : Maison / Travail enregistrés
                   dans « Mon compte » — 1 tap pour définir le départ
-                  ou la destination. */}
-              {profile &&
-                ((profile.home_neighborhood ?? null) !== null ||
-                  (profile.work_neighborhood ?? null) !== null) && (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      Mes lieux
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {(
-                        [
-                          {
-                            key: 'home',
-                            label: 'Maison',
-                            icon: '🏠',
-                            neighborhood: profile.home_neighborhood,
-                            detail: profile.home_detail,
-                          },
-                          {
-                            key: 'work',
-                            label: 'Travail',
-                            icon: '💼',
-                            neighborhood: profile.work_neighborhood,
-                            detail: profile.work_detail,
-                          },
-                        ] as const
-                      )
-                        .filter((f) => f.neighborhood)
-                        .map((f) => (
-                          <span
-                            key={f.key}
-                            className="inline-flex items-center gap-1 bg-white/5 border border-white/10 rounded-full pl-3 pr-1 py-1 text-xs font-bold text-white"
-                            title={`${f.label} : ${f.neighborhood}${f.detail ? ` — ${f.detail}` : ''}`}
-                          >
-                            {f.icon} {f.label} · {f.neighborhood}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handlePickupChange(f.neighborhood as Neighborhood);
-                              }}
-                              className="ml-1 px-2 py-1 rounded-full bg-sarcelle/20 text-sarcelle hover:bg-sarcelle/30 transition-colors"
-                            >
-                              Départ
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDestination(f.neighborhood as Neighborhood)}
-                              className="px-2 py-1 rounded-full bg-corail/20 text-corail hover:bg-corail/30 transition-colors"
-                            >
-                              Destination
-                            </button>
-                          </span>
-                        ))}
-                    </div>
+                  ou la destination. v2.48 : chaque lieu affiche son
+                  temps de trajet estimé (OSRM, vrai calcul depuis le
+                  point de départ courant — repli à vol d'oiseau si
+                  OSRM ne répond pas ; sans départ connu, pas de
+                  chiffre inventé). */}
+              {profile && favoritePlaces.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Mes lieux
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {favoritePlaces.map((f) => (
+                      <FavoritePlaceRow
+                        key={f.key}
+                        place={f}
+                        origin={
+                          pickupCoords ??
+                          (userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null)
+                        }
+                        onSetPickup={handlePickupChange}
+                        onSetDestination={handleDestinationChange}
+                      />
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
+
+              {/* Adresses récentes (v2.51, façon Bolt — historique
+                  RÉEL, `lib/rides.ts`) : sous les lieux enregistrés,
+                  avec ETA routière réelle depuis le départ courant
+                  (même pattern que les lieux favoris — OSRM, repli
+                  à vol d'oiseau, rien sans départ connu). 1 tap =
+                  définir comme destination. Déconnecté ou sans
+                  historique : section masquée, jamais inventée. */}
+              {recentDestinations && recentDestinations.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Récentes
+                  </p>
+                  <ul className="divide-y divide-white/5">
+                    {recentDestinations.map((r) => (
+                      <li key={r.address ?? `quartier:${r.neighborhood}`}>
+                        <RecentDestinationRow
+                          destination={r}
+                          origin={
+                            pickupCoords ??
+                            (userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null)
+                          }
+                          onSelect={selectRecentDestination}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Trajets fréquents — raccourcis d'itinéraire, SANS prix :
                   la plateforme ne définit aucun tarif fixe (v2.11). */}
               <div className="space-y-1.5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                  <ShieldCheck size={13} className="text-sarcelle" /> Trajets fréquents — estimation indicative, prix figé une fois accepté
+                  <DriveShield size={13} className="text-sarcelle" /> Trajets fréquents — estimation indicative, prix figé une fois accepté
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {ROUTE_SHORTCUTS.map((f) => (
@@ -1566,40 +2120,6 @@ export function HomeScreen({
                     </button>
                   ))}
                 </div>
-
-                {/* Classe Confort (v2.34) : Solo uniquement — clim
-                    garantie, chauffeurs 4,5★ et plus. Même estimation
-                    que Solo : aucune différence de prix. */}
-                {rideType === 'solo' && (
-                  <button
-                    type="button"
-                    onClick={() => setComfort((c) => !c)}
-                    aria-pressed={comfort}
-                    className={cn(
-                      'w-full text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
-                      comfort
-                        ? 'border-sarcelle bg-sarcelle/10 shadow-lg shadow-sarcelle/20'
-                        : 'border-white/10 bg-white/5 hover:border-white/25'
-                    )}
-                  >
-                    <span className="flex items-center gap-1.5 font-black text-white">
-                      <Snowflake size={17} /> Confort
-                      <span className="ml-auto font-black text-base text-white">
-                        {estimating ? (
-                          <PriceSkeleton />
-                        ) : (
-                          <AnimatedPrice
-                            value={validTrip ? estimateSolo?.price ?? null : null}
-                            suffix={<span className="text-xs font-bold text-slate-400"> la course</span>}
-                          />
-                        )}
-                      </span>
-                    </span>
-                    <span className="block text-xs text-slate-400 mt-1 leading-snug">
-                      Climatisation garantie · Chauffeurs notés 4,5★ et plus · Même prix que Solo.
-                    </span>
-                  </button>
-                )}
 
                 {/* Chauffeur favori (v2.34) : reprendre avec un
                     chauffeur déjà rencontré — la demande lui part en
@@ -1626,85 +2146,23 @@ export function HomeScreen({
                 )}
               </div>
 
-              {/* Types de course — les montants affichés sont des
-                  estimations indicatives, pas des prix (v2.11). */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Type de course · estimation indicative
-                </p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRideType('groupe');
-                      setComfort(false);
-                    }}
-                    aria-pressed={rideType === 'groupe'}
-                    className={cn(
-                      'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
-                      rideType === 'groupe'
-                        ? 'border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/20'
-                        : 'border-white/10 bg-white/5 hover:border-white/25'
-                    )}
-                  >
-                    <span className="absolute -top-2.5 left-3 bg-corail text-night-900 text-[10px] font-black px-2 py-0.5 rounded-full">
-                      LE MOINS CHER
-                    </span>
-                    <span className="flex items-center gap-1.5 font-black text-white">
-                      <Users size={17} /> Groupe
-                    </span>
-                    <span className="block text-xs text-slate-400 mt-1 leading-snug">
-                      Partagée, comme le taxi — 1 place, prix par passager, arrêts dans l’ordre.
-                    </span>
-                    <span className="block font-black text-lg text-white mt-2">
-                      {estimating ? (
-                        <PriceSkeleton />
-                      ) : (
-                        <AnimatedPrice
-                          value={validTrip ? estimateGroupe?.price ?? null : null}
-                          suffix={<span className="text-xs font-bold text-slate-400"> / passager</span>}
-                        />
-                      )}
-                    </span>
-                    <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
-                      <Clock size={12} />
-                      {nearestEta !== null ? `chauffeur dans ~${nearestEta} min` : 'chauffeurs autour'}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRideType('solo')}
-                    aria-pressed={rideType === 'solo'}
-                    className={cn(
-                      'relative text-left rounded-3xl border-2 p-3.5 transition-all active:scale-[0.98]',
-                      rideType === 'solo'
-                        ? 'border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/20'
-                        : 'border-white/10 bg-white/5 hover:border-white/25'
-                    )}
-                  >
-                    <span className="flex items-center gap-1.5 font-black text-white">
-                      <User size={17} /> Solo
-                    </span>
-                    <span className="block text-xs text-slate-400 mt-1 leading-snug">
-                      Privée et directe, sans arrêt — le véhicule est entièrement à toi.
-                    </span>
-                    <span className="block font-black text-lg text-white mt-2">
-                      {estimating ? (
-                        <PriceSkeleton />
-                      ) : (
-                        <AnimatedPrice
-                          value={validTrip ? estimateSolo?.price ?? null : null}
-                          suffix={<span className="text-xs font-bold text-slate-400"> la course</span>}
-                        />
-                      )}
-                    </span>
-                    <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
-                      <Clock size={12} />
-                      {nearestEta !== null ? `chauffeur dans ~${nearestEta} min` : 'chauffeurs autour'}
-                    </span>
-                  </button>
-                </div>
-              </div>
+              {/* Classes de course (v2.48) : grandes cartes visuelles
+                  Solo / Groupe / Confort, illustrations Drive (SVG) —
+                  les montants affichés sont des estimations
+                  indicatives, pas des prix (v2.11). */}
+              <RideClassCards
+                rideType={rideType}
+                comfort={comfort}
+                onSelect={(t, c) => {
+                  setRideType(t);
+                  setComfort(c);
+                }}
+                estimateGroupePrice={validTrip ? estimateGroupe?.price ?? null : null}
+                estimateSoloPrice={validTrip ? estimateSolo?.price ?? null : null}
+                estimating={estimating}
+                validTrip={validTrip}
+                nearestEta={nearestEta}
+              />
 
               {/* Véhicule + places + paiement */}
               <div className="flex flex-wrap items-center gap-2">
@@ -1713,9 +2171,9 @@ export function HomeScreen({
                 </span>
                 {(
                   [
-                    { value: 'tous', label: 'Tous', icon: Car },
-                    { value: 'voiture', label: 'Voiture', icon: Car },
-                    { value: 'moto', label: 'Moto', icon: Bike },
+                    { value: 'tous', label: 'Tous', icon: FilterCarIcon },
+                    { value: 'voiture', label: 'Voiture', icon: FilterCarIcon },
+                    { value: 'moto', label: 'Moto', icon: FilterMotoIcon },
                   ] as const
                 ).map((v) => {
                   const disabled = v.value === 'moto' && rideType === 'groupe';
@@ -1807,13 +2265,19 @@ export function HomeScreen({
                     </p>
                     <p className="text-xs text-slate-400">{estimate.breakdown}</p>
                     {/* Itinéraire routier (v2.27) : durée et distance
-                        par la route (OSRM) — le prix, lui, ne change
-                        pas (modèle au km sur la distance à vol
-                        d'oiseau). Sans OSRM : durée estimée classique. */}
+                        par la route (OSRM) — la MÊME route que le
+                        prix depuis la v2.50. Repli OSRM indisponible
+                        (v2.50) : distance à vol d'oiseau, estimation
+                        marquée approximative. */}
                     {roadRoute && roadRoute.source === 'osrm' && (
                       <p className="text-xs font-bold text-sarcelle mt-0.5">
                         Par la route : ~{roadRoute.durationMin} min ·{' '}
                         {roadRoute.distanceKm.toFixed(1).replace('.', ',')} km
+                      </p>
+                    )}
+                    {serverEstimate?.approximate && (
+                      <p className="text-xs font-bold text-sunset mt-0.5">
+                        Estimation approximative — itinéraire routier indisponible pour le moment.
                       </p>
                     )}
                     <p className="text-xs text-slate-500 mt-0.5">
@@ -1828,15 +2292,58 @@ export function HomeScreen({
                 </div>
               )}
 
+              {/* Estimation indisponible (v2.50) : la route API est
+                  injoignable et aucune estimation précédente à
+                  garder — on le dit, on n'invente pas de prix, et
+                  le bouton Commander reste désactivé. */}
+              {validTrip && !estimate && !estimating && estimateUnavailable && (
+                <div className="bg-white/5 border border-sunset/40 rounded-2xl p-3.5 rise-in">
+                  <p className="text-sm font-bold text-white">Estimation indisponible pour le moment</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Le calcul du prix n’a pas répondu — vérifie ta connexion et réessaie dans un instant.
+                  </p>
+                </div>
+              )}
+
+              {/* Feuille récapitulative (v2.47, E) : le trajet tel qu'il
+                  partira — départ et destination exacts (adresses
+                  résolues, pas les centres de quartiers), durée
+                  routière, classe choisie, estimation indicative.
+                  Des vraies données, pas un résumé décoratif. */}
+              {validTrip && estimate && (
+                <div className="bg-white/5 border border-white/10 rounded-2xl px-3.5 py-3 flex items-center gap-3">
+                  <span className="shrink-0 w-9 h-9 rounded-full bg-corail/15 border border-corail/30 flex items-center justify-center">
+                    <DrivePin size={16} className="text-corail" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white truncate">
+                      {pickupAddressLabel ?? pickup} → {destAddressLabel ?? destination}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      ~{roadRoute?.durationMin ?? estimate.durationMin} min ·{' '}
+                      {rideType === 'groupe'
+                        ? 'Groupe · 1 place'
+                        : comfort
+                          ? 'Solo · Confort'
+                          : 'Solo · véhicule entier'}
+                      {vehiclePref === 'moto' ? ' · Moto' : ''}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-black text-white">
+                    {formatFcfa(estimate.price)}
+                  </span>
+                </div>
+              )}
+
               {/* Course planifiée (v2.30) : la demande part aux
                   chauffeurs ~15 min avant l'heure prévue ; annulable
-                  avant l'envoi dans « Mes courses ». */}
+                  avant l'envoi dans Activité. */}
               {scheduledDone && (
                 <p role="status" className="text-sm font-bold text-green-300 bg-green-500/10 border border-green-500/30 rounded-2xl px-3.5 py-2.5">
                   Course planifiée — ta demande partira aux chauffeurs proches ~15 min avant l’heure
                   prévue.{' '}
-                  <Link href="/mes-courses" className="underline hover:text-green-200">
-                    Voir dans Mes courses →
+                  <Link href="/activite" className="underline hover:text-green-200">
+                    Voir dans Activité →
                   </Link>
                 </p>
               )}
@@ -1850,7 +2357,7 @@ export function HomeScreen({
                   />
                   <span className="text-sm text-slate-200 leading-snug">
                     <span className="font-black text-white flex items-center gap-1.5">
-                      <Clock size={15} className="text-corail shrink-0" /> Planifier pour plus tard
+                      <DriveClock size={15} className="text-corail shrink-0" /> Planifier pour plus tard
                     </span>
                     <span className="block text-xs text-slate-400 mt-0.5">
                       Au moins 30 min dans le futur, au plus 7 jours — envoi automatique aux
@@ -1865,6 +2372,7 @@ export function HomeScreen({
                     </label>
                     <input
                       id="scheduled-at"
+                      ref={scheduledAtRef}
                       type="datetime-local"
                       required
                       value={scheduledAt}
@@ -1877,15 +2385,43 @@ export function HomeScreen({
                 )}
               </div>
 
+              {/* État vide (v2.47, E) : aucun chauffeur autour au moment
+                  de commander — ce n'est pas une impasse : la demande
+                  part quand même et s'élargit toute seule, ou on
+                  planifie pour plus tard. */}
+              {validTrip && driversNearPickup === 0 && !scheduleEnabled && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 space-y-2">
+                  <p className="text-sm font-bold text-amber-300 flex items-center gap-2">
+                    <DriveAlert size={15} className="shrink-0" />
+                    Aucun chauffeur autour pour l’instant
+                  </p>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Ta demande partira quand même — si personne ne répond dans les 30 premières
+                    secondes, la recherche s’élargit toute seule. Tu peux aussi planifier ta
+                    course pour plus tard.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScheduleEnabled(true);
+                      window.setTimeout(() => scheduledAtRef.current?.focus(), 100);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-white/10 border border-white/15 px-3 py-2 rounded-full hover:bg-white/20 active:scale-95 transition-all"
+                  >
+                    <DriveClock size={14} /> Planifier pour plus tard
+                  </button>
+                </div>
+              )}
+
               <button
                 type="button"
                 disabled={!validTrip || !estimate || busy || isChauffeurMode}
                 onClick={commander}
-                className="w-full inline-flex items-center justify-center gap-2 bg-rose-500 text-night-900 font-black text-lg py-4 rounded-full shadow-lg shadow-rose-500/40 hover:bg-rose-300 active:scale-[0.98] transition-all disabled:opacity-40"
+                className="w-full inline-flex items-center justify-center gap-2 bg-brand-500 text-white font-black text-lg py-4 rounded-full shadow-lg shadow-brand-500/40 hover:bg-brand-400 active:scale-[0.98] transition-all disabled:opacity-40"
               >
                 {busy ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" /> Envoi…
+                    <LogoLoader size={20} /> Envoi…
                   </>
                 ) : !user ? (
                   'Se connecter pour commander'
@@ -1895,6 +2431,69 @@ export function HomeScreen({
                   'Commander'
                 )}
               </button>
+
+              {/* Compléter ton profil (v2.49) : indicateur RÉEL — photo
+                  + téléphone (X/2). Visible seulement tant que le
+                  profil est incomplet ; disparaît quand tout est en
+                  place. Sans la migration v2.49a, hasPhoto reste
+                  inconnu et la ligne est masquée (jamais de chiffre
+                  inventé). */}
+              {hasPhoto !== null && profile?.role === 'passager' && (hasPhoto ? 1 : 0) + (profile.phone ? 1 : 0) < 2 && (
+                <Link
+                  href="/compte"
+                  className="block bg-white/5 border border-white/10 rounded-2xl p-3.5 active:scale-[0.98] transition-transform"
+                >
+                  <span className="flex items-center justify-between text-xs">
+                    <span className="font-black text-white">
+                      Compléter ton profil — {(hasPhoto ? 1 : 0) + (profile.phone ? 1 : 0)}/2
+                    </span>
+                    <DriveChevronRight size={15} className="text-slate-400" />
+                  </span>
+                  <span className="mt-2 block h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <span
+                      className="block h-full bg-rose-500 rounded-full transition-all duration-500"
+                      style={{ width: `${(((hasPhoto ? 1 : 0) + (profile.phone ? 1 : 0)) / 2) * 100}%` }}
+                    />
+                  </span>
+                  <span className="mt-1.5 block text-[11px] text-slate-400">
+                    {profile.phone
+                      ? 'Ajoute ta photo — ton chauffeur te reconnaîtra plus vite.'
+                      : 'Ajoute ton téléphone et ta photo — ton chauffeur te reconnaîtra plus vite.'}
+                  </span>
+                </Link>
+              )}
+
+              {/* Ta sécurité (v2.47, F) : les outils existants, visibles
+                  dès l'accueil — SOS, contacts de confiance, aide.
+                  Que des liens réels, rien d'inventé : à chaque course,
+                  ton lien de suivi part automatiquement à tes contacts
+                  de confiance, et ton code PIN à 4 chiffres s'affiche
+                  dès que ton chauffeur est trouvé. */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                  <DriveShield size={13} className="text-sarcelle" /> Ta sécurité
+                </p>
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  <a
+                    href="tel:112"
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-red-500/20 border border-red-500/40 px-3 py-2 rounded-full hover:bg-red-500/30 active:scale-95 transition-all"
+                  >
+                    SOS · 112
+                  </a>
+                  <Link
+                    href="/compte"
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-white/10 border border-white/15 px-3 py-2 rounded-full hover:bg-white/20 active:scale-95 transition-all"
+                  >
+                    Mes contacts de confiance
+                  </Link>
+                  <Link
+                    href="/aide"
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-white/10 border border-white/15 px-3 py-2 rounded-full hover:bg-white/20 active:scale-95 transition-all"
+                  >
+                    Aide & questions
+                  </Link>
+                </div>
+              </div>
 
               <p className="text-[11px] text-slate-500 text-center">
                 <button
@@ -1915,28 +2514,102 @@ export function HomeScreen({
                 {' · '}
                 <Link href="/cookies" className="underline hover:text-sarcelle">Cookies</Link>
                 {' · '}
-                <span>© OpenStreetMap · © CARTO · Esri</span>
+                <span>© OpenStreetMap · © CARTO</span>
               </p>
 
               {/* Côté chauffeur : uniquement pour ceux que ça intéresse. */}
               {!isChauffeurMode && (
                 <Link href="/devenir-chauffeur" className="block bg-white/[0.03] border border-white/10 rounded-2xl p-4 hover:border-sarcelle/40 transition-colors">
                   <p className="font-black text-white text-sm flex items-center gap-2">
-                    <Car size={16} className="text-sarcelle" /> Vous avez une voiture ?
+                    <DriveCarMini variant="sedan" size={18} tone="light" /> Vous avez une voiture ?
                   </p>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     Conduisez quand vous voulez. Opter pour la liberté financière, à votre rythme.
                   </p>
                   <span className="inline-flex items-center gap-1.5 mt-2 text-sm font-black text-sarcelle">
-                    Devenir chauffeur →
+                    Devenir chauffeur <DriveChevronRight size={15} />
                   </span>
                 </Link>
               )}
             </div>
           )}
 
+          {/* Ajustement à l'épingle (v2.47) : la feuille se replie et
+              laisse la carte parler — l'épingle fixe au centre est le
+              point exact. Glisse la carte dessous, ou glisse
+              l'épingle elle-même. L'adresse se résout en direct
+              (squelette pendant la résolution) ; hors zone, on le dit
+              et la confirmation remet le dernier point valide. */}
+          {phase === 'idle' && !isMini && (!isChauffeurMode || !profile) && adjusting && (
+            <div className="sheet-phase-in p-4 sm:p-5 pt-1 space-y-4">
+              <h2 className="text-lg font-black text-white leading-tight flex items-center gap-2">
+                <DriveMove size={18} className="text-corail shrink-0" />
+                {adjusting === 'pickup' ? 'Précise ton point de départ' : 'Précise ta destination'}
+              </h2>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Glisse la carte sous l’épingle, ou glisse l’épingle elle-même — le point exact
+                est sous sa pointe.
+              </p>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-1.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {adjusting === 'pickup' ? 'Point de départ' : 'Destination'}
+                </p>
+                <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <DrivePin size={15} className="text-corail shrink-0" />
+                  {(adjusting === 'pickup' ? pickupResolved.resolving : destResolved.resolving) ||
+                  mapMoving ? (
+                    <LogoLoader size={18} />
+                  ) : (
+                    <span className="min-w-0">
+                      {adjusting === 'pickup' ? pickupAddressLabel : destAddressLabel}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Quartier : {adjusting === 'pickup' ? pickup : destination}
+                </p>
+                {adjustingPointOutOfZone && (
+                  <p className="text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 flex items-center gap-2">
+                    <DriveAlert size={14} className="shrink-0" />
+                    Hors zone — Stacks Drive est à Libreville pour l’instant. Ramène l’épingle
+                    dans la zone, ou confirme : on te remettra sur ton dernier point valide.
+                  </p>
+                )}
+              </div>
+              {/* Estimation en direct sur le point précis (même modèle
+                  — la distance change, pas les règles). */}
+              {estimate && validTrip && (
+                <p className="text-sm text-slate-300">
+                  Estimation indicative :{' '}
+                  <span className="font-black text-white">{formatFcfa(estimate.price)}</span>
+                  {' · ~'}
+                  {roadRoute?.durationMin ?? estimate.durationMin} min ·{' '}
+                  {roadRoute
+                    ? `${roadRoute.distanceKm.toFixed(1).replace('.', ',')} km`
+                    : `${estimate.distanceKm.toFixed(1).replace('.', ',')} km`}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={confirmAdjust}
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-rose-500 text-night-900 font-black text-base py-3.5 rounded-full shadow-lg shadow-rose-500/40 hover:bg-rose-300 active:scale-[0.98] transition-all"
+                >
+                  <DriveCheck size={18} /> Confirmer ce point
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelAdjust}
+                  className="inline-flex items-center justify-center gap-2 bg-white/10 text-white font-black text-base px-5 py-3.5 rounded-full hover:bg-white/15 active:scale-[0.98] transition-all"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+
           {(phase === 'searching' || phase === 'proposals') && (
-            <div className="p-4 sm:p-5 pt-1 space-y-4">
+            <div className="sheet-phase-in p-4 sm:p-5 pt-1 space-y-4">
               <div className="text-center space-y-1">
                 <h2 className="text-lg font-black text-white flex items-center justify-center gap-2">
                   Recherche de chauffeurs
@@ -1954,10 +2627,32 @@ export function HomeScreen({
                 <p className="text-xs text-slate-500">
                   Les chauffeurs proposent leur prix — tu choisis, le prix accepté est figé.
                 </p>
+                {/* État vide (v2.47, E) : aucun chauffeur après 30 s —
+                    ce n'est pas une impasse. La recherche s'est
+                    élargie à {DISPATCH_WIDENED_RADIUS_KM} km et
+                    continue — un chauffeur peut encore répondre. Si
+                    personne ne répond, on planifie pour plus tard
+                    (la demande partira toute seule ~15 min avant
+                    l'heure choisie) ou on annule. */}
                 {widened && (
-                  <p className="text-sm font-bold text-corail bg-corail/10 border border-corail/30 rounded-xl p-2.5 mt-2">
-                    Aucun chauffeur pour l’instant — on élargit la recherche autour de toi…
-                  </p>
+                  <div className="bg-corail/10 border border-corail/30 rounded-2xl p-3.5 space-y-2 text-left">
+                    <p className="text-sm font-bold text-corail">
+                      Aucun chauffeur autour pour l’instant
+                    </p>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      La recherche continue autour de toi — un chauffeur peut encore répondre. Si
+                      personne ne répond, planifie ta course pour plus tard : ta demande partira
+                      automatiquement ~15 min avant l’heure choisie.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={planLaterFromSearch}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-white/10 border border-white/15 px-3 py-2 rounded-full hover:bg-white/20 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      <DriveClock size={14} /> Planifier pour plus tard
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1994,15 +2689,11 @@ export function HomeScreen({
                 </div>
               ) : (
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center text-sm text-slate-400">
-                  {/* Barre de chargement (v2.11) : pendant l'attente des
-                      propositions des chauffeurs, un shimmer rose/sarcelle
-                      remplace le prix — les prix apparaissent avec les
-                      propositions. */}
-                  <span
-                    className="price-skeleton block h-2.5 w-48 mx-auto rounded-full"
-                    role="status"
-                    aria-label="Recherche de chauffeurs…"
-                  />
+                  {/* Animation néon (v2.52) : pendant l'attente des
+                      propositions des chauffeurs, la voiture néon
+                      (arc qui balaie + barre qui se remplit) — les
+                      prix apparaissent avec les propositions. */}
+                  <NeonSearchLoader width={300} className="mx-auto" />
                   <p className="mt-3">
                     Les chauffeurs en ligne autour de {pickup} reçoivent ta demande…
                   </p>
@@ -2018,14 +2709,14 @@ export function HomeScreen({
                 onClick={annulerCourse}
                 className="w-full inline-flex items-center justify-center gap-2 text-sm font-bold text-red-400 hover:underline disabled:opacity-50"
               >
-                {busy && <Loader2 size={14} className="animate-spin" />}
+                {busy && <LogoLoader size={18} />}
                 {busy ? 'Annulation…' : 'Annuler la demande'}
               </button>
             </div>
           )}
 
           {phase === 'confirmed' && acceptedRide && acceptedDriver && (
-            <div className="p-4 sm:p-5 pt-1 space-y-4">
+            <div className="sheet-phase-in p-4 sm:p-5 pt-1 space-y-4">
               <div className="text-center space-y-1">
                 <h2 className="text-lg font-black text-white">
                   {acceptedRide.status === 'en_cours' ? 'Course en cours — bon trajet !' : 'Ton chauffeur arrive !'}
@@ -2111,7 +2802,7 @@ export function HomeScreen({
           style={{ bottom: `calc(${sheetH}dvh + 14px)` }}
           aria-label="Remonter la feuille de demande"
         >
-          <ChevronUp size={22} />
+          <DriveChevronUp size={22} />
         </button>
       )}
 
@@ -2121,7 +2812,10 @@ export function HomeScreen({
       <CancelRideDialog
         open={cancelOpen}
         role="passager"
-        onClose={() => setCancelOpen(false)}
+        onClose={() => {
+          setCancelOpen(false);
+          planAfterCancelRef.current = false;
+        }}
         onConfirm={confirmerAnnulation}
       />
 

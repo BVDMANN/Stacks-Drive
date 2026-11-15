@@ -276,6 +276,31 @@ export async function getPassengerRideHistory(
   }));
 }
 
+/** Progression fidélité du passager (v2.49) : la 10e course est
+ *  offerte — même règle serveur que dans app/api/proposals/[id]
+ *  (`loyaltyFree = (completedCount % 10) === 9`). `towardFree` =
+ *  courses terminées comptées vers la prochaine course offerte
+ *  (0–9) ; `nextIsFree` = la prochaine course est la 10e, offerte.
+ *  null si la lecture échoue (l'encadré fidélité est alors masqué). */
+export async function getPassengerLoyaltyProgress(
+  passengerId: string
+): Promise<{ completedCount: number; towardFree: number; nextIsFree: boolean } | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from('rides')
+    .select('id', { count: 'exact', head: true })
+    .eq('passenger_id', passengerId)
+    .eq('status', 'terminee');
+  if (error) {
+    console.error('[rides] fidélité:', error.message);
+    return null;
+  }
+  const completedCount = count ?? 0;
+  const towardFree = completedCount % 10;
+  return { completedCount, towardFree, nextIsFree: towardFree === 9 };
+}
+
 /** Historique du chauffeur (v2.10) : courses terminées ou annulées, avec
  *  le nom du passager et les gains de la course (driver_earnings quand
  *  disponible, sinon les montants figés dans la course : commission et
@@ -363,6 +388,64 @@ export async function getMyRideRequests(userId: string): Promise<Ride[]> {
     return [];
   }
   return ((data ?? []) as RideRow[]).map(mapRideRow);
+}
+
+/** Adresse récente du passager (v2.51, façon Bolt — historique RÉEL,
+ *  jamais inventé) : une destination distincte de ses demandes, la
+ *  plus récente d'abord, avec son compteur d'utilisation. L'adresse
+ *  exacte vient du point de destination enregistré (épingle / lieu /
+ *  rue, v2.47) quand il existe — sinon le nom du quartier. Les
+ *  coordonnées sont celles du point exact, sinon le centre du
+ *  quartier (même repli que l'estimation). */
+export interface RecentDestination {
+  neighborhood: Neighborhood;
+  /** Adresse exacte (« Rue du Bord de mer, Centre-ville ») ou nom
+   *  du quartier quand la course n'avait pas de point exact. */
+  label: string;
+  address: string | null;
+  lat: number;
+  lng: number;
+  /** Nombre de demandes vers cette destination. */
+  count: number;
+  /** Date ISO de la demande la plus récente vers cette destination. */
+  lastAt: string;
+}
+
+/** Adresses récentes à partir de demandes déjà chargées (évite une
+ *  seconde requête quand l'appelant a déjà `getMyRideRequests`). */
+export function recentDestinationsFromRides(rides: Ride[], limit = 5): RecentDestination[] {
+  const byKey = new Map<string, RecentDestination>();
+  for (const r of rides) {
+    if (!(r.destination in NEIGHBORHOOD_COORDS)) continue;
+    const neighborhood = r.destination as Neighborhood;
+    const point = r.destinationPoint;
+    const center = NEIGHBORHOOD_COORDS[neighborhood];
+    const lat = point?.lat ?? center.lat;
+    const lng = point?.lng ?? center.lng;
+    const address = point?.address ?? null;
+    const label = address ?? neighborhood;
+    const key = address ?? `quartier:${neighborhood}`;
+    const cur = byKey.get(key);
+    if (cur) {
+      cur.count += 1;
+      if (r.createdAt > cur.lastAt) cur.lastAt = r.createdAt;
+    } else {
+      byKey.set(key, { neighborhood, label, address, lat, lng, count: 1, lastAt: r.createdAt });
+    }
+  }
+  return [...byKey.values()]
+    .sort((a, b) => b.lastAt.localeCompare(a.lastAt))
+    .slice(0, limit);
+}
+
+/** Adresses récentes du passager (v2.51) : destinations distinctes
+ *  de ses demandes, plus récentes d'abord, avec compteur. */
+export async function getRecentDestinations(
+  userId: string,
+  limit = 5
+): Promise<RecentDestination[]> {
+  const rides = await getMyRideRequests(userId);
+  return recentDestinationsFromRides(rides, limit);
 }
 
 /** Courses du chauffeur connecté (assignées, historique). */

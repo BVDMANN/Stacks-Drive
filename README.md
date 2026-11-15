@@ -24,7 +24,7 @@ Une appli type Uber, pensée pour Libreville : le passager demande une course, l
 <!-- /DOC-SYNC -->
 - **Sécurité :** vérification chauffeur automatisée dès l'inscription (selfie + pièce d'identité, décision automatique ou ticket admin), SOS (112), partage de course en direct, code PIN à 4 chiffres donné au chauffeur pour démarrer la course.
 <!-- DOC-SYNC: readme-map -->
-- **Carte :** 70 quartiers de Libreville avec leurs noms affichés sur la carte (12 visibles au zoom 12, 27 au zoom 13, 69 au zoom 14 en Satellite ; en Plan, 6 / 11 / 17 — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), 59 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants), icônes chauffeurs roses avec note, feuille de demande à 3 positions (façon Uber) avec bouton pour la replier et voir la carte.
+- **Carte :** 75 quartiers de Libreville avec leurs noms affichés sur la carte (6 visibles au zoom 12, 11 au zoom 13, 17 au zoom 14 — les autres noms sont déjà affichés par le fond CARTO dark_all (sombre), jamais en double), 90 lieux (supermarchés, marchés, stations, pharmacies, hôtels, santé, lieux publics, bars, restaurants, épiceries OSM), icônes chauffeurs roses avec note, feuille de demande à 3 positions (façon Uber) avec bouton pour la replier et voir la carte.
 <!-- /DOC-SYNC -->
 <!-- DOC-SYNC: readme-difficult -->
 - **Quartiers à accès difficile :** 15 quartiers ne sont pas desservis sur route bitumée — la course s'arrête par défaut à un point de dépôt sur route bitumée ; le passager peut demander la continuité sur route non bitumée pour un supplément forfaitaire de **800 FCFA**, que le chauffeur est libre d'accepter ou non.
@@ -36,7 +36,7 @@ Une appli type Uber, pensée pour Libreville : le passager demande une course, l
 - **Front / back :** Next.js (App Router, React 19) — TypeScript
 - **Base de données + Auth :** Supabase (Postgres + RLS) — projet « stacks-drive », région Francfort
 - **Hébergement :** Vercel (projet « stacks-drive »)
-- **Carte :** Leaflet vanilla + tuiles CARTO dark_all (fond Plan, sombre natif, clé API gratuite `NEXT_PUBLIC_CARTO_API_KEY`) et tuiles Esri World Imagery (fond Satellite) — jamais react-leaflet (conflit peer dep React 19)
+- **Carte :** Leaflet vanilla + tuiles CARTO dark_all (une seule carte, fond sombre natif, clé API gratuite `NEXT_PUBLIC_CARTO_API_KEY`) — jamais react-leaflet (conflit peer dep React 19)
 - **E-mails admin :** Resend (`RESEND_API_KEY` configurée dans Vercel, Production)
 
 ## Documentation technique
@@ -44,10 +44,10 @@ Une appli type Uber, pensée pour Libreville : le passager demande une course, l
 Pour un informaticien qui lit le dépôt — stack justifiée choix par
 choix, modèle de données, modèle de sécurité, modèle de menaces avec
 pointeurs vers le code : **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**.
-Décisions une par une : [`docs/adr/`](docs/adr/) (Leaflet + CARTO / Esri,
+Décisions une par une : [`docs/adr/`](docs/adr/) (Leaflet + CARTO,
 OSRM, commission par course, RLS + trigger, estimation indicative,
 paiement hors appli, Realtime + sondage, vérification automatisée,
-périmètre 5 km, prix sur distance haversine). Signaler une faille :
+périmètre 5 km, prix sur distance routière). Signaler une faille :
 [`SECURITY.md`](SECURITY.md). Contribuer : [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Historique des versions : [`CHANGELOG.md`](CHANGELOG.md). Mise en ligne
 et maintenance : [`SETUP.md`](SETUP.md).
@@ -56,7 +56,7 @@ et maintenance : [`SETUP.md`](SETUP.md).
 
 ```mermaid
 flowchart TB
-    UI["Navigateur — Next.js App Router<br/>pages + carte Leaflet (tuiles CARTO / Esri)"]
+    UI["Navigateur — Next.js App Router<br/>pages + carte Leaflet (tuiles CARTO dark_all)"]
     API["Vercel — routes API /api/*<br/>validation Zod, bornes fare-guard"]
     PG[("Supabase Postgres<br/>29 tables, RLS, triggers")]
     RT["Supabase Realtime<br/>+ sondage en repli"]
@@ -126,6 +126,9 @@ Toutes les migrations ci-dessous sont **exécutées une seule fois** dans Supaba
 | `supabase/migration-v2.34-au-dela.sql` | Lot « Au-delà » (v2.34) : RideCheck (`ridecheck_events`), audio de trajet (`trip_audio`, chiffré, envoyé uniquement en cas de litige, supprimé après 7 jours sans litige), chauffeur favori (`favorite_drivers`, `rides.preferred_driver_id` / `preferred_until`), retour (`profiles.return_destination`, `return_filter_enabled`), classe Confort (`profiles.has_air_conditioning`, `rides.comfort`), file aéroport (`airport_queue`), parrainage doublé (`credit_referral_bonus` remplacée : 2 000 pts parrain / 1 000 pts filleul) — **à exécuter une seule fois, pas encore appliquée**. ⚠️ L'arrondi du prix accepté à 50 FCFA près est implémenté côté serveur mais **à valider par le propriétaire avant le push**. |
 | `supabase/migration-v2.40-realtime-admin.sql` | Vue admin « En direct » (v2.40) : `profiles`, `disputes`, `ride_cancellations`, `verification_tickets`, `fraud_cases`, `audit_log` dans la publication `supabase_realtime` (temps réel admin, sondage en repli sinon) — **à exécuter une seule fois, pas encore appliquée** |
 | `supabase/migration-v2.45-admin-only.sql` | Compte admin = admin uniquement (v2.45) : triggers niveau ligne — un compte `is_admin` ne peut pas être chauffeur (`role` reste « passager », `is_online` reste faux), ne peut pas commander de course (INSERT `rides` rejeté) ni proposer de prix (INSERT `ride_proposals` rejeté) — **à exécuter une seule fois, pas encore appliquée** |
+| `supabase/migration-v2.47-pickup-points.sql` | Points de départ/destination précis (v2.47) : 6 colonnes sur `rides` (`pickup_lat`, `pickup_lng`, `pickup_address`, `destination_lat`, `destination_lng`, `destination_address`) — l’adresse précise vue par le chauffeur — **à exécuter une seule fois, pas encore appliquée** |
+| `supabase/migration-v2.49-passenger-photo.sql` | Photo de profil passager (v2.49) : colonne `profiles.photo_url` + bucket privé `passenger-photos` + politiques (propriétaire, admin, chauffeur assigné pendant la course uniquement) — **à exécuter une seule fois, pas encore appliquée** |
+| `supabase/migration-v2.49-map-reports.sql` | Signalements « erreurs de carte » (v2.49) : table `map_reports` (type, titre, détails, statut, RLS propriétaire + admin) — **à exécuter une seule fois, pas encore appliquée** |
 
 ## Où sont les docs ?
 
@@ -137,7 +140,7 @@ Toutes les migrations ci-dessous sont **exécutées une seule fois** dans Supaba
 - **État des lieux :** [`docs/etat-des-lieux-lancement.md`](docs/etat-des-lieux-lancement.md) (produit, comparaison concurrents, forces et faiblesses — état au 14/11/2026).
 - **Vérification automatisée :** [`docs/automatisation-verification.md`](docs/automatisation-verification.md).
 - **Pages légales (dans l'appli) :** `app/cgu/page.tsx`, `app/confidentialite/page.tsx`, `app/cookies/page.tsx`, `app/mentions-legales/page.tsx`.
-<!-- DOC-SYNC: readme-rules -->- **Règles métier :** `lib/commission.ts` (commission 5 % / 8 % / plafond 10 %), `lib/pricing.ts` (estimation indicative au km : prise en charge + prix au km, AUCUN tarif fixe — le prix final est convenu entre le passager et le chauffeur, supplément route non bitumée 800 FCFA), `lib/neighborhoods.ts` (70 quartiers, accès difficile, points de dépôt), `lib/pois.ts` (59 lieux sur la carte), `lib/fare-guard.ts` (sécurité des prix : bornes absolues 400–50 000 FCFA validées côté serveur, audit).<!-- /DOC-SYNC -->
+<!-- DOC-SYNC: readme-rules -->- **Règles métier :** `lib/commission.ts` (commission 5 % / 8 % / plafond 10 %), `lib/pricing.ts` (estimation indicative au km : prise en charge + prix au km, AUCUN tarif fixe — le prix final est convenu entre le passager et le chauffeur, supplément route non bitumée 800 FCFA), `lib/neighborhoods.ts` (75 quartiers, accès difficile, points de dépôt), `lib/pois.ts` (90 lieux sur la carte), `lib/fare-guard.ts` (sécurité des prix : bornes absolues 400–50 000 FCFA validées côté serveur, audit).<!-- /DOC-SYNC -->
 
 ## État du produit (v2.6, en ligne)
 

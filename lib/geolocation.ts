@@ -11,6 +11,10 @@ export type GeoErrorKind = 'unsupported' | 'denied' | 'unavailable' | 'timeout';
 export interface UserPosition {
   lat: number;
   lng: number;
+  /** Précision annoncée par le GPS, en mètres (null si inconnue).
+   *  v2.47 : au-delà de `GPS_ACCURACY_WARN_M` (50 m), la position est
+   *  « approximative » — le passager précise son point avec l'épingle. */
+  accuracyM: number | null;
 }
 
 const DEFAULT_TIMEOUT_MS = 10000;
@@ -35,7 +39,14 @@ export function getUserPosition(timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise
         if (settled) return;
         settled = true;
         window.clearTimeout(timer);
-        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        resolve({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracyM:
+            typeof pos.coords.accuracy === 'number' && Number.isFinite(pos.coords.accuracy)
+              ? Math.round(pos.coords.accuracy)
+              : null,
+        });
       },
       (err) => {
         if (settled) return;

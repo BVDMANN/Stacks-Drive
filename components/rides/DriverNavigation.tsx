@@ -1,6 +1,6 @@
 'use client';
 
-import { Map as MapIcon, Navigation } from 'lucide-react';
+import { DriveNavigation, DrivePin } from '@/components/icons/DriveUi';
 import { formatStepDistance, type RoadRoute, type RoutePoint } from '@/lib/routing';
 import { googleMapsDirectionsUrl } from '@/lib/use-road-route';
 
@@ -21,6 +21,7 @@ export function DriverNavigation({
   from,
   to,
   toLabel,
+  loading,
 }: {
   /** Itinéraire chauffeur → cible (OSRM ou repli ligne droite). */
   route: RoadRoute | null;
@@ -29,6 +30,11 @@ export function DriverNavigation({
   from: RoutePoint | null;
   to: RoutePoint;
   toLabel: string;
+  /** Calcul OSRM en cours (v2.48) : distingue le vrai chargement
+   *  de l'échec — sans ça, « Calcul de l'itinéraire… » restait
+   *  affiché indéfiniment quand la position du chauffeur était
+   *  inconnue ou qu'OSRM ne répondait pas. */
+  loading?: boolean;
 }) {
   const steps = route?.steps ?? [];
   const current = steps[0] ?? null;
@@ -40,7 +46,7 @@ export function DriverNavigation({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-            <Navigation size={18} className="text-stacks-green" />
+            <DriveNavigation size={18} className="text-stacks-green" />
             {phase === 'pickup' ? 'Direction le point de départ' : 'Direction la destination'}
           </h2>
           <p className="text-sm text-slate-500 mt-1">
@@ -51,8 +57,19 @@ export function DriverNavigation({
                 {' → '}
                 {toLabel}
               </>
-            ) : (
+            ) : from === null ? (
+              <>
+                Ta position est inconnue — active la géolocalisation pour le guidage pas à pas.
+                En attendant, le bouton « Ouvrir dans l’app Cartes » trace l’itinéraire vers{' '}
+                {toLabel} depuis ta position.
+              </>
+            ) : loading ? (
               <>Calcul de l’itinéraire vers {toLabel}…</>
+            ) : (
+              <>
+                Itinéraire routier indisponible pour le moment — suis le trait sur la carte, ou
+                ouvre l’itinéraire dans l’app Cartes vers {toLabel}.
+              </>
             )}
           </p>
         </div>
@@ -62,7 +79,7 @@ export function DriverNavigation({
           rel="noreferrer"
           className="inline-flex shrink-0 items-center gap-1.5 bg-stacks-navy text-white text-sm font-black px-4 py-2.5 rounded-full hover:opacity-90"
         >
-          <MapIcon size={16} /> Ouvrir dans l’app Cartes
+          <DrivePin size={16} /> Ouvrir dans l’app Cartes
         </a>
       </div>
 

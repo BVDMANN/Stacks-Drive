@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { DriveShield, DriveTrash, DriveUserPlus } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { MAX_TRUSTED_CONTACTS, type TrustedContact } from '@/lib/trusted-contacts';
 
 /** Contacts de confiance (v2.23) : le passager les définit dans son
@@ -72,7 +73,7 @@ export function TrustedContactsForm() {
   if (loading) {
     return (
       <p className="text-sm text-slate-500 inline-flex items-center gap-2">
-        <Loader2 size={15} className="animate-spin" /> Chargement de tes contacts de confiance…
+        <LogoLoader size={18} /> Chargement de tes contacts de confiance…
       </p>
     );
   }
@@ -112,7 +113,7 @@ export function TrustedContactsForm() {
             <li key={c.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm">
                 <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <ShieldCheck size={15} className="text-stacks-green" /> {c.name}
+                  <DriveShield size={15} className="text-stacks-green" /> {c.name}
                 </p>
                 <p className="text-slate-500">
                   {c.phone}
@@ -125,7 +126,7 @@ export function TrustedContactsForm() {
                 className="inline-flex items-center gap-1 text-sm font-bold text-red-600 hover:underline"
                 aria-label={`Retirer ${c.name} de tes contacts de confiance`}
               >
-                <Trash2 size={15} /> Retirer
+                <DriveTrash size={15} /> Retirer
               </button>
             </li>
           ))}
@@ -173,8 +174,8 @@ export function TrustedContactsForm() {
             disabled={busy}
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-black bg-stacks-green text-white hover:bg-stacks-greenLight transition-colors disabled:opacity-50 sm:col-span-2"
           >
-            {busy && <Loader2 size={16} className="animate-spin" />}
-            <UserPlus size={16} /> {busy ? 'Ajout…' : 'Ajouter ce contact'}
+            {busy && <LogoLoader size={18} />}
+            <DriveUserPlus size={16} /> {busy ? 'Ajout…' : 'Ajouter ce contact'}
           </button>
         </form>
       ) : (

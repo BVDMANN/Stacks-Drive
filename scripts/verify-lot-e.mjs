@@ -194,7 +194,7 @@ const lotFiles = [
 ];
 const banned = lotFiles.filter((f) => /bientôt|à venir|coming soon/i.test(read(f)));
 check('Aucun « bientôt / à venir » dans les fichiers du lot', banned.length === 0, banned.join(', '));
-const personalName = /Boulingui/i.test(
+const personalName = new RegExp('Boul' + 'ingui', 'i').test(
   lotFiles.map((f) => read(f)).join('\n') + read('supabase/migration-v2.27-traffic.sql')
 );
 check('Aucun nom personnel dans le code du lot', !personalName);

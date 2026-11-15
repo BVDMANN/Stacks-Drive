@@ -3,16 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Car,
-  Flame,
-  Gift,
-  Loader2,
-  MapPin,
-  TrendingUp,
-  Users,
-  Wallet,
-} from 'lucide-react';
+import { DriveAlert, DriveFlame, DriveGift, DrivePin, DriveTrendingUp, DriveUsers, DriveWallet } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import type { SessionProfile } from '@/lib/supabase/server';
 import type { DriverEarningsSummary } from '@/lib/earnings';
 import type { PassengerRating, Ride, RideProposal } from '@/types';
@@ -435,7 +428,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
           </button>
         </div>
         <label className="flex items-center gap-3">
-          <MapPin size={16} className="text-sarcelle shrink-0" />
+          <DrivePin size={16} className="text-sarcelle shrink-0" />
           <span className="text-xs font-black uppercase tracking-widest text-slate-400 shrink-0">
             Quartier
           </span>
@@ -453,7 +446,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         </label>
         {saving && (
           <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
-            <Loader2 size={13} className="animate-spin" /> Mise à jour…
+            <LogoLoader size={16} /> Mise à jour…
           </p>
         )}
         {/* Places libres + statut (v2.19) : le statut décide quelles
@@ -501,18 +494,18 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
       <div className="grid grid-cols-2 gap-2.5">
         <div className="bg-night-900 border border-white/10 rounded-2xl p-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-            <TrendingUp size={12} className="text-sarcelle" /> Aujourd’hui
+            <DriveTrendingUp size={12} className="text-sarcelle" /> Aujourd’hui
           </p>
           <p className="text-xl font-black text-sarcelle mt-1.5">
             {summary ? formatFcfa(summary.today.kept) : '…'}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {summary ? `${summary.today.rides} course${summary.today.rides > 1 ? 's' : ''} terminée${summary.today.rides > 1 ? 's' : ''}` : 'Chargement…'}
+            {summary ? `${summary.today.rides} course${summary.today.rides > 1 ? 's' : ''} terminée${summary.today.rides > 1 ? 's' : ''}` : <LogoLoader size={16} />}
           </p>
         </div>
         <div className="bg-night-900 border border-white/10 rounded-2xl p-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-            <Wallet size={12} className="text-corail" /> À régler
+            <DriveWallet size={12} className="text-corail" /> À régler
           </p>
           <p className="text-xl font-black text-white mt-1.5">
             {summary ? formatFcfa(summary.owed) : '…'}
@@ -521,7 +514,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
         </div>
         <div className="bg-night-900 border border-white/10 rounded-2xl p-4 col-span-2">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-            <Gift size={12} className="text-corail" /> Tes points
+            <DriveGift size={12} className="text-corail" /> Tes points
           </p>
           <div className="flex items-end justify-between gap-3 mt-1.5">
             <p className="text-xl font-black text-corail">
@@ -550,8 +543,8 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
           role="status"
           className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 text-sm space-y-1"
         >
-          <p className="font-black text-amber-300">
-            ⚠ {unanswered.length} demande{unanswered.length > 1 ? 's' : ''} sans chauffeur près de toi
+          <p className="font-black text-amber-300 flex items-center gap-1.5">
+            <DriveAlert size={14} /> {unanswered.length} demande{unanswered.length > 1 ? 's' : ''} sans chauffeur près de toi
           </p>
           {unanswered.slice(0, 3).map((z) => (
             <p key={z.rideId} className="text-slate-300">
@@ -568,7 +561,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
       {/* Demandes entrantes */}
       <div className="space-y-2.5">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-          <Users size={13} className="text-sarcelle" /> Demandes entrantes
+          <DriveUsers size={13} className="text-sarcelle" /> Demandes entrantes
         </p>
         {!isOnline || !verified ? (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-slate-400 text-center">
@@ -588,7 +581,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
                   className="w-full text-left bg-white/5 border border-white/10 hover:border-sarcelle/50 rounded-2xl p-3.5 transition-colors"
                 >
                   <p className="font-black text-white text-sm flex items-center gap-1.5">
-                    <Car size={15} className="text-sarcelle shrink-0" />
+                    <DriveCarMini variant="sedan" size={15} tone="light" className="shrink-0" />
                     {i.ride.pickup} → {i.ride.destination}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
@@ -664,7 +657,7 @@ export function DriverHome({ profile }: { profile: SessionProfile }) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="font-black text-lg flex items-center gap-2">
-              <Flame size={20} className="text-rose-300" />
+              <DriveFlame size={20} className="text-rose-300" />
               Plus que {offlineConfirm.remaining} course{offlineConfirm.remaining > 1 ? 's' : ''} pour ton bonus !
             </p>
             <p className="text-sm text-slate-300">

@@ -1,6 +1,6 @@
 'use client';
 
-import { GraduationCap } from 'lucide-react';
+import { DrivePlay } from '@/components/icons/DriveUi';
 import {
   TUTO_DRIVER_OPEN_EVENT,
   TUTO_PASSENGER_OPEN_EVENT,
@@ -32,7 +32,7 @@ export function TutoReplayButton({
         'inline-flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-stacks-navy font-bold rounded-full hover:border-stacks-green/40 transition-colors'
       }
     >
-      <GraduationCap size={18} className="text-stacks-green" />
+      <DrivePlay size={18} className="text-stacks-green" />
       {label ?? 'Revoir le tutoriel'}
     </button>
   );

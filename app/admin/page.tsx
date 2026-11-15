@@ -16,6 +16,8 @@ import { getSessionUser, createClient } from '@/lib/supabase/server';
 import { getAdminStats, getPendingVerifications } from '@/lib/rides';
 import { getDriverReliabilityMap } from '@/lib/cancellations';
 import { getVerificationTickets } from '@/lib/tickets-server';
+import { getMapReports } from '@/lib/map-reports-server';
+import { MapReportsReview } from '@/components/admin/MapReportsReview';
 import { isEmailConfigured } from '@/lib/email';
 import { getAdminDriverMoney } from '@/lib/earnings';
 import { getUnansweredZones } from '@/lib/no-driver-zones';
@@ -50,13 +52,15 @@ export default async function AdminPage() {
     );
   }
 
-  const [stats, pending, tickets] = await Promise.all([
+  const [stats, pending, tickets, mapReports] = await Promise.all([
     getAdminStats(),
     getPendingVerifications(),
     getVerificationTickets(),
+    getMapReports(),
   ]);
   const emailConfigured = isEmailConfigured();
   const openTickets = tickets.filter((t) => t.status === 'ouvert').length;
+  const openMapReports = mapReports.filter((r) => r.status === 'ouvert').length;
 
   const supabase = await createClient();
   const [driverMoney, auditEvents, disputes, weeklyStatements, declarations, latestReport, fraudCases, fraudBlocked, latestCleanup] = await Promise.all([
@@ -186,6 +190,7 @@ export default async function AdminPage() {
           { value: stats.driversCount, label: 'Chauffeurs inscrits' },
           { value: stats.pendingVerifications, label: 'Vérifications en attente' },
           { value: openTickets, label: 'Tickets de vérification ouverts' },
+          { value: openMapReports, label: 'Signalements de carte ouverts' },
           { value: formatFcfa(stats.totalVolume), label: 'Volume des courses (confirmées)' },
           { value: formatFcfa(stats.totalCommission), label: `Commission Stacks Drive (${Math.round(COMMISSION_RATE * 100)} %)` },
           { value: formatFcfa(totalOwed), label: 'Commissions dues (à encaisser)' },
@@ -351,6 +356,20 @@ export default async function AdminPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Signalements « erreurs de carte » (v2.49) — lieux manquants,
+          quartiers mal placés, erreurs d'adresse signalés par les
+          utilisateurs depuis leur profil. */}
+      <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+        <h2 className="font-black text-lg text-slate-900">
+          Signalements de carte ({openMapReports} ouverts)
+        </h2>
+        <p className="text-sm text-slate-500">
+          Les utilisateurs signalent les lieux manquants, les quartiers mal placés et les erreurs
+          d’adresse depuis leur profil. Prends en charge, corrige la carte, puis marque résolu.
+        </p>
+        <MapReportsReview reports={mapReports} />
       </section>
 
       {/* Tickets de vérification (v2.4) — dossiers ambigus uniquement */}

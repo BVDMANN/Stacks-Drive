@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MessageCircle, Send } from 'lucide-react';
+import { DriveMessage, DriveSend } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { timeAgo } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { pollingIntervalMs, useRealtimeSubscription } from '@/lib/realtime';
@@ -125,12 +126,12 @@ export function RideChat({
   return (
     <div id="messages" className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 scroll-mt-24">
       <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-        <MessageCircle size={20} className="text-stacks-green" />
+        <DriveMessage size={20} className="text-stacks-green" />
         Messages — {otherName}
       </h2>
 
       {state === 'loading' && (
-        <p className="text-sm text-slate-500">Chargement des messages…</p>
+        <LogoLoader size={32} label="Chargement des messages…" />
       )}
       {state === 'closed' && (
         <p className="text-sm text-slate-500">
@@ -228,7 +229,7 @@ export function RideChat({
               aria-label="Envoyer le message"
               className="shrink-0 w-12 h-12 rounded-full bg-stacks-green text-white flex items-center justify-center shadow-md hover:bg-stacks-greenLight active:scale-95 transition-all disabled:opacity-50"
             >
-              <Send size={18} />
+              <DriveSend size={18} />
             </button>
           </form>
           <p className="text-xs text-slate-400">

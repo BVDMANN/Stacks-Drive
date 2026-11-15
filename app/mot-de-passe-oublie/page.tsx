@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Mail } from 'lucide-react';
+import { DriveCheckBadge, DriveMail } from '@/components/icons/DriveUi';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { AuthCard } from '@/components/auth/AuthCard';
@@ -50,14 +50,14 @@ export default function MotDePasseOubliePage() {
       <AuthCard title="E-mail envoyé" subtitle={`Si un compte existe pour ${email}, tu vas recevoir un lien de réinitialisation.`}>
         <div className="text-center space-y-4 py-2">
           <div className="w-16 h-16 mx-auto rounded-full bg-sarcelle/15 flex items-center justify-center text-sarcelle">
-            <Mail size={32} />
+            <DriveMail size={32} />
           </div>
           <p className="text-sm text-slate-300 leading-relaxed">
             Clique sur le lien dans l’e-mail pour choisir un nouveau mot de passe.
             Vérifie aussi tes spams.
           </p>
           <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
-            <CheckCircle2 size={14} /> Le lien expire après un certain délai.
+            <DriveCheckBadge size={14} /> Le lien expire après un certain délai.
           </p>
           <Link href="/connexion" className="inline-block text-sarcelle font-bold text-sm hover:underline">
             Retour à la connexion

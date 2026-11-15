@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { BadgeCheck, Camera, FileCheck, Loader2, ShieldAlert, Upload } from 'lucide-react';
+import { DriveCamera, DriveCheckBadge, DriveFileCheck, DriveShieldAlert, DriveUpload } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { VerificationStatusBadge } from '@/components/shared/StatusBadge';
 import { PremiumButton } from '@/components/shared/PremiumButton';
 import type { IdDocumentType, VerificationStatus } from '@/types';
@@ -111,7 +112,7 @@ export function VerificationForm({
   if (verificationStatus === 'verifie') {
     return (
       <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-start gap-3">
-        <BadgeCheck size={22} className="text-stacks-green shrink-0 mt-0.5" />
+        <DriveCheckBadge size={22} className="text-stacks-green shrink-0 mt-0.5" />
         <div>
           <p className="font-black text-green-800">Compte vérifié</p>
           <p className="text-sm text-green-700 mt-0.5">
@@ -126,7 +127,7 @@ export function VerificationForm({
   if (verificationStatus === 'en_attente' && !done) {
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-        <ShieldAlert size={22} className="text-amber-700 shrink-0 mt-0.5" />
+        <DriveShieldAlert size={22} className="text-amber-700 shrink-0 mt-0.5" />
         <div>
           <p className="font-black text-amber-800">Vérification en cours</p>
           <p className="text-sm text-amber-700 mt-0.5">
@@ -142,7 +143,7 @@ export function VerificationForm({
     if (decision === 'verifie') {
       return (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-start gap-3">
-          <BadgeCheck size={22} className="text-stacks-green shrink-0 mt-0.5" />
+          <DriveCheckBadge size={22} className="text-stacks-green shrink-0 mt-0.5" />
           <div>
             <p className="font-black text-green-800">Compte vérifié !</p>
             <p className="text-sm text-green-700 mt-0.5">
@@ -156,7 +157,7 @@ export function VerificationForm({
     if (decision === 'refuse') {
       return (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-          <ShieldAlert size={22} className="text-red-700 shrink-0 mt-0.5" />
+          <DriveShieldAlert size={22} className="text-red-700 shrink-0 mt-0.5" />
           <div>
             <p className="font-black text-red-800">Vérification refusée</p>
             <p className="text-sm text-red-700 mt-0.5">
@@ -169,7 +170,7 @@ export function VerificationForm({
     }
     return (
       <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-start gap-3">
-        <FileCheck size={22} className="text-stacks-green shrink-0 mt-0.5" />
+        <DriveFileCheck size={22} className="text-stacks-green shrink-0 mt-0.5" />
         <div>
           <p className="font-black text-green-800">Documents envoyés !</p>
           <p className="text-sm text-green-700 mt-0.5">
@@ -241,7 +242,7 @@ export function VerificationForm({
           1 · Ton selfie
         </label>
         <label className="flex items-center gap-3 border-2 border-dashed border-slate-300 rounded-2xl p-4 cursor-pointer hover:border-stacks-green transition-colors">
-          <Camera size={22} className="text-stacks-green shrink-0" />
+          <DriveCamera size={22} className="text-stacks-green shrink-0" />
           <span className="text-sm text-slate-600">
             {selfie ? (
               <strong className="text-slate-900">{selfie.name}</strong>
@@ -268,7 +269,7 @@ export function VerificationForm({
           2 · Ta pièce ({documentType === 'cni' ? 'CNI' : documentType === 'passeport' ? 'passeport' : 'permis'})
         </label>
         <label className="flex items-center gap-3 border-2 border-dashed border-slate-300 rounded-2xl p-4 cursor-pointer hover:border-stacks-green transition-colors">
-          <Upload size={22} className="text-stacks-green shrink-0" />
+          <DriveUpload size={22} className="text-stacks-green shrink-0" />
           <span className="text-sm text-slate-600">
             {document ? (
               <strong className="text-slate-900">{document.name}</strong>
@@ -293,7 +294,7 @@ export function VerificationForm({
           role="status"
           className="flex items-center gap-3 bg-night-900 text-slate-100 rounded-2xl p-4"
         >
-          <Loader2 size={20} className="animate-spin text-rose-300 shrink-0" />
+          <LogoLoader size={24} />
           <div className="min-w-0">
             <p className="text-sm font-bold">{CHECK_STEP_LABELS[progress.step]}</p>
             <p className="text-xs text-slate-300 mt-0.5">

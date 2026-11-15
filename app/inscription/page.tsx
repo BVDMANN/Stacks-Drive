@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, Mail } from 'lucide-react';
+import { DriveCheckBadge, DriveMail } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { AuthCard } from '@/components/auth/AuthCard';
@@ -26,7 +27,9 @@ export default function InscriptionPage() {
     <Suspense
       fallback={
         <AuthCard title="Créer un compte" subtitle="Rejoins Stacks Drive, gratuitement.">
-          <p className="text-sm text-slate-400 text-center">Chargement…</p>
+          <div className="flex justify-center py-6">
+            <LogoLoader size={56} label="Chargement…" />
+          </div>
         </AuthCard>
       }
     >
@@ -128,7 +131,7 @@ function InscriptionForm() {
       <AuthCard title="Vérifie ta boîte mail" subtitle={`Un e-mail de vérification vient d’être envoyé à ${email}.`}>
         <div className="text-center space-y-4 py-2">
           <div className="w-16 h-16 mx-auto rounded-full bg-sarcelle/15 flex items-center justify-center text-sarcelle">
-            <Mail size={32} />
+            <DriveMail size={32} />
           </div>
           <p className="text-sm text-slate-300 leading-relaxed">
             Clique sur le lien dans l’e-mail pour activer ton compte{' '}
@@ -143,7 +146,7 @@ function InscriptionForm() {
             </p>
           )}
           <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
-            <CheckCircle2 size={14} /> Ton compte sera actif dès la vérification.
+            <DriveCheckBadge size={14} /> Ton compte sera actif dès la vérification.
           </p>
           <Link href="/connexion" className="inline-block text-sarcelle font-bold text-sm hover:underline">
             Aller à la connexion

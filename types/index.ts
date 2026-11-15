@@ -77,6 +77,12 @@ export interface Ride {
   driverId: string | null;
   pickup: string;
   destination: string;
+  /** Points exacts (v2.47) : coordonnées + adresse résolue du départ
+   *  et de la destination (épingle, lieu, GPS). Null = centre de
+   *  quartier. Optionnels : les objets construits à la main
+   *  (tutoriels) ne les renseignent pas. */
+  pickupPoint?: { lat: number; lng: number; address: string | null } | null;
+  destinationPoint?: { lat: number; lng: number; address: string | null } | null;
   rideType: RideType;
   /** Préférence de véhicule : voiture, moto (Solo uniquement) ou indifférent. */
   vehiclePreference: 'voiture' | 'moto' | 'tous';

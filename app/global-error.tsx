@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Car, RefreshCw } from 'lucide-react';
+import { DriveRefresh } from '@/components/icons/DriveUi';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 
 /** Erreur globale (v2.2) : même message de marque que app/error.tsx,
  *  pour les pannes qui touchent toute l'appli (ex : Supabase injoignable).
@@ -42,7 +43,7 @@ export default function GlobalError({
             color: '#17112E',
           }}
         >
-          <Car size={32} />
+          <DriveCarMini variant="sedan" size={32} tone="dark" />
         </div>
         <h1 style={{ fontSize: 28, fontWeight: 900, margin: '24px 0 0' }}>
           Service momentanément indisponible
@@ -71,7 +72,7 @@ export default function GlobalError({
               cursor: 'pointer',
             }}
           >
-            <RefreshCw size={16} /> Réessayer
+            <DriveRefresh size={16} /> Réessayer
           </button>
           <Link
             href="/"

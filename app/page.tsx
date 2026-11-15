@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { Header } from '@/components/shared/Header';
 import { HomeScreen } from '@/components/home/HomeScreen';
 import { getSessionUser, hasDriverAccount } from '@/lib/supabase/server';
-import { getOnlineDrivers } from '@/lib/rides';
+import { getMyRideRequests, getOnlineDrivers, recentDestinationsFromRides } from '@/lib/rides';
 import { toAnonymousMapDriver } from '@/lib/db-types';
 import { DEMO_DRIVERS } from '@/lib/demo-drivers';
 
@@ -32,12 +32,29 @@ export default async function Page() {
       }
     : null;
 
+  // v2.51 — accueil réorganisé (façon Bolt) : nombre RÉEL de courses
+  // planifiées (statuts `planifiee` / `expiree`, v2.30) et adresses
+  // récentes (historique réel, `lib/rides.ts`). Déconnecté : pas de
+  // chiffre inventé — le compteur reste null et la section est
+  // masquée (le composant ne montre rien sans données).
+  let scheduledCount: number | null = null;
+  let recentDestinations: Awaited<ReturnType<typeof recentDestinationsFromRides>> = [];
+  if (sessionUser) {
+    const myRides = await getMyRideRequests(sessionUser.id);
+    scheduledCount = myRides.filter(
+      (r) => r.status === 'planifiee' || r.status === 'expiree'
+    ).length;
+    recentDestinations = recentDestinationsFromRides(myRides, 5);
+  }
+
   return (
     <div className="h-dvh flex flex-col bg-night-950 text-slate-100 overflow-hidden">
       <Header user={user} />
       <HomeScreen
         user={user}
         profile={sessionUser?.profile ?? null}
+        scheduledCount={scheduledCount}
+        recentDestinations={recentDestinations}
         // v2.20 : la carte passager ne reçoit que des marqueurs
         // anonymes (position + type de véhicule) — l'identité des
         // chauffeurs n'est jamais sérialisée avant une proposition.

@@ -28,59 +28,178 @@ input::-ms-clear {
   appearance: none;
 }
 
-/* 🪟 Verre nuit — en-tête et barres fixes sur fond nuit (identité v2.1) */
+/* 🪟 Verre nuit — en-tête et barres fixes sur fond nuit (identité v2.1).
+ *  v2.52 — liseré « Faisceau Drive » en bas : une ligne rose →
+ *  sarcelle, signature visible sur chaque écran. */
 .glass-dark {
   @apply backdrop-blur-2xl bg-night-950/85 text-slate-100 border-b border-white/10 shadow-lg shadow-black/40;
+  position: relative;
+}
+.glass-dark::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 77, 141, 0.65) 30%, rgba(255, 255, 255, 0.55) 50%, rgba(47, 214, 200, 0.65) 70%, transparent);
+  pointer-events: none;
 }
 
-/* 🪟 Feuille glassmorphism nuit — la feuille de demande (v2.1) */
+/* 🪟 Feuille glassmorphism nuit — la feuille de demande (v2.1).
+ *  v2.52 — faisceau lumineux en haut de la feuille : la signature
+ *  Drive, visible dès que la feuille est ouverte. */
 .sheet-glass {
   background: linear-gradient(180deg, rgba(42, 29, 85, 0.92) 0%, rgba(25, 20, 50, 0.94) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color-scheme: dark;
+  position: relative;
+}
+.sheet-glass::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 18%;
+  right: 18%;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, #FF4D8D 25%, #FFFFFF 50%, #2FD6C8 75%, transparent);
+  box-shadow: 0 0 12px rgba(255, 77, 141, 0.55);
+  pointer-events: none;
+  z-index: 1;
 }
 .sheet-glass select {
   color-scheme: dark;
 }
 
-/* 💳 CARTES COURSE (version éditoriale) */
+/* 💳 CARTES — verre nuit à liseré (v2.52, signature n°3).
+ *  L'ancienne carte blanche éditoriale (v1, hover vert) est supprimée :
+ *  toutes les cartes du produit sont en verre violet nuit, avec un
+ *  liseré lumineux en haut (rose → blanc → sarcelle). Une capture
+ *  de l'appli se reconnaît à ce liseré. */
 .ride-card {
-  @apply bg-white rounded-[2rem] border border-gray-100 p-0 overflow-hidden transition-all duration-500;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04);
+  @apply rounded-[2rem] border border-white/10 p-0 overflow-hidden transition-all duration-500;
+  background: linear-gradient(180deg, rgba(42, 29, 85, 0.92) 0%, rgba(25, 20, 50, 0.94) 100%);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  position: relative;
+}
+.ride-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, #FF4D8D 30%, #FFFFFF 50%, #2FD6C8 70%, transparent);
+  pointer-events: none;
 }
 
 .ride-card:hover {
-  @apply shadow-2xl border-stacks-green/40 -translate-y-1;
-  box-shadow: 0 30px 60px -15px rgba(11, 110, 79, 0.12);
+  @apply shadow-2xl border-rose-500/50 -translate-y-1;
+  box-shadow: 0 30px 60px -15px rgba(255, 77, 141, 0.25);
 }
 
-/* 💊 BOUTONS D'ACTION — rose vif (identité v2.44, palette « Nuit violette ») */
+/* ✨ Cartes de classes (v2.52) : même liseré, renforcé quand la
+ *  carte est sélectionnée (bordure violet de marque / sarcelle). */
+.drive-card {
+  position: relative;
+  overflow: visible;
+  background: linear-gradient(180deg, rgba(42, 29, 85, 0.9) 0%, rgba(25, 20, 50, 0.94) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+}
+.drive-card::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 14%;
+  right: 14%;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 77, 141, 0.7) 30%, rgba(255, 255, 255, 0.75) 50%, rgba(47, 214, 200, 0.7) 70%, transparent);
+  pointer-events: none;
+}
+.drive-card.border-brand-500::before {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #A134F5 20%, #FFFFFF 50%, #A134F5 80%, transparent);
+  box-shadow: 0 0 14px rgba(163, 52, 245, 0.8);
+}
+.drive-card.border-rose-500::before {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #FF4D8D 20%, #FFFFFF 50%, #FF4D8D 80%, transparent);
+  box-shadow: 0 0 14px rgba(255, 77, 141, 0.8);
+}
+.drive-card.border-sarcelle::before {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #2FD6C8 20%, #FFFFFF 50%, #2FD6C8 80%, transparent);
+  box-shadow: 0 0 14px rgba(47, 214, 200, 0.7);
+}
+
+/* 🧭 NAVIGATION BASSE (v2.51) : pilule flottante en verre nuit à
+ *  liseré (même signature que les cartes v2.52 — faisceau rose →
+ *  blanc → sarcelle en haut) ; l'onglet actif est une pastille
+ *  violette de marque (#A134F5, classe Tailwind `bg-brand-500`
+ *  dans le composant). Visible uniquement sur mobile
+ *  (`sm:hidden` dans le composant). */
+.bottom-nav-glass {
+  position: relative;
+  background: linear-gradient(180deg, rgba(42, 29, 85, 0.94) 0%, rgba(25, 20, 50, 0.96) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+}
+.bottom-nav-glass::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 18%;
+  right: 18%;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, #FF4D8D 25%, #FFFFFF 50%, #2FD6C8 75%, transparent);
+  box-shadow: 0 0 12px rgba(255, 77, 141, 0.55);
+  pointer-events: none;
+}
+
+/* 💊 BOUTONS D'ACTION — violet de marque verni (v2.52, logo officiel
+ *  #A134F5 : couleur de marque principale ; le rose reste l'accent
+ *  secondaire — prix, itinéraire). Dégradé + liseré clair en haut,
+ *  comme un bouton verni. */
 .btn-action {
-  @apply bg-rose-500 text-night-950 rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/40 hover:bg-rose-300 hover:shadow-rose-500/60 active:scale-95;
+  @apply text-white rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-brand-500/40 hover:shadow-brand-500/60 active:scale-95;
+  background: linear-gradient(180deg, #C78CFA 0%, #A134F5 55%, #7E22CE 100%);
+  box-shadow: 0 10px 24px -6px rgba(163, 52, 245, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .btn-outline {
   @apply bg-white/5 text-slate-100 border-2 border-white/15 rounded-full py-4 px-8 font-black transition-all duration-300 flex items-center justify-center gap-2 hover:border-sarcelle/50 active:scale-95;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-/* 💰 BOUTON PRIX */
+/* 💰 BOUTON PRIX — violet de marque verni (v2.52 : le CTA prix est
+ *  la couleur de marque principale ; le chiffre du prix, lui, reste
+ *  rose — l'accent secondaire). */
 .btn-price {
-  @apply bg-corail text-night-950 rounded-full py-3 px-6 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-corail/30 hover:bg-rose-300 active:scale-95;
+  @apply text-white rounded-full py-3 px-6 font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-brand-500/30 hover:bg-brand-400 active:scale-95;
+  background: linear-gradient(180deg, #C78CFA 0%, #A134F5 55%, #7E22CE 100%);
+  box-shadow: 0 10px 24px -6px rgba(163, 52, 245, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-/* 🏷️ BADGES — type de course */
+/* 🏷️ BADGES — type de course (v2.52 : palette Nuit violette, fini
+ *  l'émeraude et l'ambre plats de la v1). */
 .badge-ride {
   @apply px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-300;
 }
 
 .badge-ride.solo {
-  @apply bg-emerald-100 text-emerald-800;
+  @apply bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-500/40;
 }
 
 .badge-ride.partagee {
-  @apply bg-amber-100 text-amber-800;
+  @apply bg-sarcelle/15 text-sarcelle ring-1 ring-inset ring-sarcelle/40;
 }
 
 /* 🖋️ TYPOGRAPHIE */
@@ -171,17 +290,18 @@ html {
   border: none;
 }
 
-/* 🚦 Marqueur trafic communautaire (v2.27) : pastille blanche, pictogramme
-   du type de signalement. Confirmé par plusieurs chauffeurs : anneau rose
-   + halo — c'est lui qu'on voit en premier sur la carte. Expire tout
-   seul (30–60 min) : le marqueur disparaît au prochain rafraîchissement. */
+/* 🚦 Marqueur trafic communautaire (v2.27, icônes dessinées v2.52) :
+ *  pastille blanche vernie, pictogramme dessiné du type de
+ *  signalement. Confirmé par plusieurs chauffeurs : anneau rose
+ *  + halo — c'est lui qu'on voit en premier sur la carte. Expire tout
+ *  seul (30–60 min) : le marqueur disparaît au prochain rafraîchissement. */
 .map-traffic-marker {
   width: 30px;
   height: 30px;
   border-radius: 9999px;
-  background: #ffffff;
+  background: radial-gradient(circle at 32% 28%, #ffffff 0%, #e8e6f0 70%, #cfcbe0 100%);
   border: 2px solid #0b1020;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -204,7 +324,10 @@ html {
    anneau cyan discret qui pulse = en ligne. La moto a son propre glyph.
    Le badge ★ (note) reste fixe pendant que le glyph tourne avec le cap.
    Sélectionné : bordure blanche + anneau cyan fort. Assigné : rebond
-   + pastille ✓ sombre en bas à droite. */
+   + pastille ✓ sombre en bas à droite.
+ *  v2.52 — disque verni : reflet radial en haut à gauche (couche
+ *  ::before, l'animation `driver-halo` ne touche plus que
+ *  l'ombre) et glyph voiture/moto DESSINÉ (voir DriveCar.tsx). */
 .map-driver-marker {
   width: 44px;
   height: 44px;
@@ -221,12 +344,25 @@ html {
   transition: transform 0.2s ease;
   animation: driver-halo 2.6s ease-in-out infinite;
 }
+.map-driver-marker::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 38%, transparent 62%);
+  pointer-events: none;
+}
 .map-driver-glyph {
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.3s linear;
   will-change: transform;
+  position: relative;
+  z-index: 1;
+}
+.map-driver-glyph svg {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
 }
 .map-driver-badge {
   position: absolute;
@@ -243,6 +379,10 @@ html {
   line-height: 1.5;
   white-space: nowrap;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 2;
 }
 @keyframes driver-halo {
   0%, 100% { box-shadow: 0 0 0 3px rgba(47, 214, 200, 0.38), 0 6px 16px rgba(0, 0, 0, 0.55); }
@@ -368,17 +508,22 @@ html {
   border-color: #FF4D8D;
   box-shadow: 0 0 0 3px rgba(255, 77, 141, 0.35), 0 0 16px rgba(255, 77, 141, 0.85);
 }
+/* v2.52 — pastille 30 px, verre verni : le pictogramme dessiné
+ *  (18 px, voir DrivePoi.tsx) se voit enfin. Reflet radial en haut. */
 .map-poi-glyph {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   border-radius: 9999px;
-  background: rgba(23, 17, 46, 0.88);
+  background: radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.16) 0%, rgba(23, 17, 46, 0.92) 55%, rgba(23, 17, 46, 0.95) 100%);
   border: 1.5px solid rgba(255, 77, 141, 0.75);
   color: #FF4D8D;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.map-poi-glyph svg {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
 }
 .map-poi-label {
   display: none;
@@ -402,8 +547,9 @@ html {
 }
 /* v2.43 — règle anti-double (v2.42 appliquée aux lieux) : quand
    CARTO imprime déjà le nom du lieu sur la tuile, le libellé Drive est masqué (classe `label-carto` posée par `updateLabels`) —
-   le nom reste visible une fois, via la tuile. En Satellite, la
-   classe n'est jamais posée (tuiles Esri sans aucun libellé). */
+   le nom reste visible une fois, via la tuile. Depuis la v2.50 il n'y
+   a plus de mode Satellite : une seule carte CARTO, la classe
+   s'applique dès que CARTO labellise le lieu. */
 .map-poi-marker.label-carto .map-poi-label {
   display: none !important;
 }
@@ -425,35 +571,47 @@ html {
 .map-poi-marker.cat-gare .map-poi-glyph { color: #a5b4fc; border-color: rgba(165, 180, 252, 0.75); }
 .map-poi-marker.cat-bar .map-poi-glyph { color: #FF7EB0; border-color: rgba(255, 126, 176, 0.75); }
 .map-poi-marker.cat-restaurant .map-poi-glyph { color: #FF5F6D; border-color: rgba(255, 95, 109, 0.75); }
+.map-poi-marker.cat-epicerie .map-poi-glyph { color: #A3E635; border-color: rgba(163, 230, 53, 0.75); }
+/* v2.51 — déclinaison des libellés POI (Centre-ville z16) : quand
+   deux libellés se chevaucheraient à l'écran, le second est masqué
+   (classe posée par `updateLabels` dans LibrevilleMap — le
+   pictogramme reste, seul le texte disparaît ; la fiche complète
+   reste accessible au tap). */
+.map-poi-marker.label-hidden .map-poi-label {
+  display: none !important;
+}
+/* v2.51 — étiquettes permanentes des épingles de trajet (« Départ »
+ * / « Destination ») : pastille sombre lisible, texte tronqué —
+ * les deux épingles sont distinctes ET étiquetées sans survol.
+ * Sélecteur double classe : `.map-tooltip` (Leaflet) pose aussi un
+ * fond en `!important` plus bas dans ce fichier — sans la double
+ * classe, le fond de la pastille serait écrasé. */
+.leaflet-tooltip.map-pin-label {
+  background: rgba(23, 17, 46, 0.94) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 9999px !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  padding: 3px 9px !important;
+  max-width: 170px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important;
+}
+.leaflet-tooltip.map-pin-label::before {
+  display: none !important;
+}
 
-/* 🛰️ Vue Satellite (v2.13) : l'image est variée (sable, végétation,
-   toits) — les libellés de quartiers et de POI prennent un fond
-   sombre semi-transparent et une ombre plus forte pour rester
-   lisibles, et les pastilles POI sont un peu plus opaques. */
-.map-satellite .map-neighborhood-label {
-  background: rgba(23, 17, 46, 0.6);
-  padding: 1px 6px;
-  border-radius: 6px;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 1);
-}
-.map-satellite .map-poi-label {
-  background: rgba(23, 17, 46, 0.6);
-  padding: 1px 5px;
-  border-radius: 5px;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 1);
-}
-.map-satellite .map-poi-glyph {
-  background: rgba(23, 17, 46, 0.95);
-}
-
-/* 📍 Point de départ : pastille roseange braise pulsante */
+/* 📍 Point de départ : pastille rose vernie pulsante (v2.52 : reflet) */
 .map-pickup-marker {
   width: 20px;
   height: 20px;
   border-radius: 9999px;
-  background: #FF4D8D;
+  background: radial-gradient(circle at 32% 28%, #FF9EC2 0%, #FF4D8D 55%, #D6336C 100%);
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 6px rgba(255, 77, 141, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 6px rgba(255, 77, 141, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   animation: pickup-pulse 2s ease-out infinite;
 }
 @keyframes pickup-pulse {
@@ -462,14 +620,14 @@ html {
   100% { box-shadow: 0 0 0 4px rgba(255, 77, 141, 0), 0 4px 10px rgba(0, 0, 0, 0.5); }
 }
 
-/* 🧍 « Vous êtes ici » : pastille sarcelle pulsante, halo large */
+/* 🧍 « Vous êtes ici » : pastille sarcelle vernie pulsante, halo large */
 .map-user-marker {
   width: 22px;
   height: 22px;
   border-radius: 9999px;
-  background: #2FD6C8;
+  background: radial-gradient(circle at 32% 28%, #8CEFE4 0%, #2FD6C8 55%, #0E9F94 100%);
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 6px rgba(47, 214, 200, 0.3), 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 6px rgba(47, 214, 200, 0.3), 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   animation: user-pulse 1.8s ease-out infinite;
 }
 @keyframes user-pulse {
@@ -488,12 +646,86 @@ html {
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55));
 }
 
+/* 📍 Épingle centrale fixe (v2.47 — point précis) : la pointe est le
+ *  point exact — la surcouche est calée à 50 % / 50 % du conteneur,
+ *  la pointe de l'épingle touche le centre. Chute + rebond à
+ *  l'apparition (on « pose » l'épingle), anneau qui respire
+ *  dessous tant qu'on ajuste, grossissement net quand on la
+ *  saisit du doigt (le glisser est géré en natif, voir le
+ *  composant). Seul le pictogramme capte le pointeur : le reste
+ *  de la surcouche laisse passer les gestes de la carte. */
+.map-center-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -100%);
+  z-index: 1000;
+  pointer-events: none;
+  touch-action: none;
+  animation: map-pin-drop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.map-center-pin-graphic {
+  display: block;
+  width: 44px;
+  height: 44px;
+  pointer-events: auto;
+  cursor: grab;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.55));
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+}
+.map-center-pin-graphic svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.map-center-pin-shadow {
+  display: block;
+  width: 26px;
+  height: 7px;
+  margin: -2px auto 0;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.45);
+  animation: map-pin-shadow 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.map-center-pin-dragging .map-center-pin-graphic {
+  cursor: grabbing;
+  transform: scale(1.18);
+}
+.map-center-pin-dragging .map-center-pin-shadow {
+  transform: scale(1.25);
+  opacity: 0.6;
+}
+@keyframes map-pin-drop {
+  0% { transform: translate(-50%, -100%) translateY(-34px); opacity: 0; }
+  60% { transform: translate(-50%, -100%) translateY(3px); opacity: 1; }
+  100% { transform: translate(-50%, -100%) translateY(0); opacity: 1; }
+}
+@keyframes map-pin-shadow {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* 🛣️ Itinéraire animé : pointillés qui défilent vers la destination */
 .route-animated {
   animation: dash-march 1.1s linear infinite;
 }
 @keyframes dash-march {
   to { stroke-dashoffset: -22; }
+}
+/* 🛣️ Tracé qui se dessine (v2.47) : quand un itinéraire apparaît
+ *  (ou change de géométrie), les pointillés glissent en place
+ *  depuis un décalage — la route se « dessine » vers la
+ *  destination au lieu d'apparaître d'un coup. L'animation ne
+ *  tourne qu'une fois par apparition (la classe est retirée puis
+ *  remise par le composant via la clé de la couche). */
+.route-draw {
+  animation: route-draw-in 0.7s ease-out both, dash-march 1.1s linear 0.7s infinite;
+}
+@keyframes route-draw-in {
+  from { stroke-dashoffset: 120; opacity: 0; }
+  to { stroke-dashoffset: 0; opacity: 0.95; }
 }
 
 /* 📡 RADAR : anneaux pulsants sarcelle autour du point de recherche */
@@ -585,6 +817,19 @@ html {
   animation: rise-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+/* 🔄 Transition de phase de la feuille (v2.47) : quand la feuille
+ *  change de contenu (commande → recherche → course, ouverture de
+ *  l'ajustement à l'épingle), le nouveau contenu glisse en fondu
+ *  au lieu d'apparaître d'un coup. Montée douce, pas d'apparition
+ *  sèche — le contenu est déjà là quand l'œil arrive. */
+.sheet-phase-in {
+  animation: sheet-phase-in 0.28s ease-out both;
+}
+@keyframes sheet-phase-in {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 /* 🆘 SOS : pastille rouge pulsante */
 .sos-pulse {
   animation: sos-pulse 1.4s ease-out infinite;
@@ -645,4 +890,93 @@ html {
     background: #fff;
     color: #000;
   }
+}
+
+/* ================================================================
+ *  v2.52 — LOGO & CHARGEMENTS
+ *  Le S du logo qui se remplit (LogoLoader) + l'animation voiture
+ *  néon (NeonSearchLoader, recherche de chauffeur). Les keyframes
+ *  vivent ici (pas de styled-jsx dans le projet).
+ *  ================================================================ */
+
+/* S du logo qui se remplit — chargeur général de l'appli. */
+.logo-loader {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.logo-loader svg {
+  filter: drop-shadow(0 0 8px rgba(163, 52, 245, 0.45));
+}
+.logo-loader-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c9c4e8;
+  letter-spacing: 0.02em;
+}
+.logo-loader-fill {
+  animation: logo-fill 1.6s ease-in-out infinite;
+}
+@keyframes logo-fill {
+  0% { clip-path: inset(100% 0 0 0); opacity: 1; }
+  55% { clip-path: inset(0% 0 0 0); opacity: 1; }
+  75% { clip-path: inset(0% 0 0 0); opacity: 1; }
+  92% { clip-path: inset(0% 0 0 0); opacity: 0; }
+  100% { clip-path: inset(100% 0 0 0); opacity: 0; }
+}
+
+/* Voiture néon — recherche de chauffeur. Boucle 2,4 s, tout est
+ * synchronisé sur la même durée : l'arc balaie, la voiture
+ * s'illumine au passage du balayage, la barre se remplit. */
+.neon-search {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.neon-search-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c9c4e8;
+  letter-spacing: 0.02em;
+}
+.neon-sweep {
+  stroke-dasharray: 20 80;
+  animation: neon-sweep 2.4s linear infinite;
+}
+@keyframes neon-sweep {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  8% { opacity: 1; }
+  62% { stroke-dashoffset: 20; opacity: 1; }
+  75% { stroke-dashoffset: 20; opacity: 0; }
+  100% { stroke-dashoffset: 100; opacity: 0; }
+}
+.neon-dash { opacity: 0; animation: neon-dash 2.4s ease-in-out infinite; }
+.neon-dash-yellow { animation-delay: 0.55s; }
+.neon-dash-green { animation-delay: 0.75s; }
+.neon-dash-blue { animation-delay: 0.95s; }
+@keyframes neon-dash {
+  0%, 100% { opacity: 0; }
+  25% { opacity: 1; }
+  55% { opacity: 1; }
+  75% { opacity: 0; }
+}
+.neon-car-lit { opacity: 0; animation: neon-car-lit 2.4s ease-in-out infinite; }
+@keyframes neon-car-lit {
+  0%, 38% { opacity: 0; }
+  50%, 62% { opacity: 1; }
+  74%, 100% { opacity: 0; }
+}
+.neon-bar-fill {
+  transform-origin: left center;
+  transform-box: fill-box;
+  animation: neon-bar-fill 2.4s ease-in-out infinite;
+}
+@keyframes neon-bar-fill {
+  0% { transform: scaleX(0); opacity: 1; }
+  55% { transform: scaleX(1); opacity: 1; }
+  72% { transform: scaleX(1); opacity: 1; }
+  88% { transform: scaleX(1); opacity: 0; }
+  100% { transform: scaleX(0); opacity: 0; }
 }

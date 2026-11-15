@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { PremiumButton } from '@/components/shared/PremiumButton';
@@ -21,7 +22,9 @@ export default function ConnexionPage() {
     <Suspense
       fallback={
         <AuthCard title="Connexion" subtitle="Content de te revoir sur Stacks Drive.">
-          <p className="text-sm text-slate-400 text-center">Chargement…</p>
+          <div className="flex justify-center py-6">
+            <LogoLoader size={56} label="Chargement…" />
+          </div>
         </AuthCard>
       }
     >

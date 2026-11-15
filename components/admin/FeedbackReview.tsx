@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { MessageSquareWarning, RefreshCw, Star, ThumbsUp } from 'lucide-react';
+import { DriveMessageWarning, DriveRefresh, DriveStar, DriveThumbsUp } from '@/components/icons/DriveUi';
 import { cn } from '@/lib/utils';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { timeAgo } from '@/lib/dates';
 
 interface FeedbackItem {
@@ -88,7 +89,7 @@ export function FeedbackReview() {
           onClick={fetchItems}
           className="ml-auto inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-stacks-green"
         >
-          <RefreshCw size={14} /> Actualiser
+          <DriveRefresh size={14} /> Actualiser
         </button>
       </div>
 
@@ -97,7 +98,7 @@ export function FeedbackReview() {
           {error}
         </p>
       )}
-      {loading && <p className="text-sm text-slate-500">Chargement…</p>}
+      {loading && <LogoLoader size={32} label="Chargement…" />}
 
       {!loading && items.length === 0 && (
         <p className="text-sm text-slate-500">
@@ -122,7 +123,7 @@ export function FeedbackReview() {
               )}
               {item.rating !== null && (
                 <span className="inline-flex items-center gap-0.5 text-xs font-black text-amber-700">
-                  <Star size={12} className="fill-stacks-amber text-stacks-amber" />
+                  <DriveStar size={12} className="fill-stacks-amber text-stacks-amber" />
                   {item.rating}/5
                 </span>
               )}
@@ -145,12 +146,12 @@ export function FeedbackReview() {
       <p className="text-xs text-slate-400 flex items-center gap-1.5">
         {kind === 'plainte' || kind === '' ? (
           <>
-            <MessageSquareWarning size={13} /> Une plainte signale la course
+            <DriveMessageWarning size={13} /> Une plainte signale la course
             pour révision — contacte les deux parties avant de décider.
           </>
         ) : (
           <>
-            <ThumbsUp size={13} /> Les recommandations alimentent la liste
+            <DriveThumbsUp size={13} /> Les recommandations alimentent la liste
             des améliorations de Stacks Drive.
           </>
         )}

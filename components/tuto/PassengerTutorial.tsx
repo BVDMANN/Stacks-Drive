@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { GraduationCap, X } from 'lucide-react';
+import { DrivePlay, DriveX } from '@/components/icons/DriveUi';
 import { TutorialModal } from './TutorialModal';
 import {
   PASSENGER_STEPS,
@@ -81,7 +81,7 @@ export function PassengerTutorial({
             aria-label="Fermer"
             className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-night-950/80 text-white hover:border-corail/60 active:scale-90 transition-all"
           >
-            <X size={16} />
+            <DriveX size={16} />
           </button>
           <p className="text-[10px] font-black uppercase tracking-widest text-corail">
             Bienvenue sur Stacks Drive
@@ -102,7 +102,7 @@ export function PassengerTutorial({
               }}
               className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-rose-500 px-4 py-3 text-sm font-black text-night-900 shadow-lg shadow-rose-500/30 hover:bg-rose-300 active:scale-[0.98] transition-all"
             >
-              <GraduationCap size={16} /> Voir le tutoriel
+              <DrivePlay size={16} /> Voir le tutoriel
             </button>
             <button
               type="button"

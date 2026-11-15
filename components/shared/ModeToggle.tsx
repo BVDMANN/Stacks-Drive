@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Car, Loader2, User } from 'lucide-react';
+import { DriveUser } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import type { ProfileRole } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +21,11 @@ import { cn } from '@/lib/utils';
  *  Le sens inverse (chauffeur → passager) reste toujours libre. Le
  *  serveur (PATCH /api/profile) applique le même verrou : si sa réponse
  *  porte le code `driver_account_required`, on redirige aussi. */
+/** Icône chauffeur : mini-voiture Drive (fond nuit → tone light). */
+const DriveCarMiniIcon = ({ size }: { size?: number }) => (
+  <DriveCarMini variant="sedan" size={size ?? 14} tone="light" />
+);
+
 export function ModeToggle({
   currentRole,
   canSwitchToDriver,
@@ -80,8 +87,8 @@ export function ModeToggle({
       >
         {(
           [
-            { value: 'passager', label: 'Passager', icon: User },
-            { value: 'chauffeur', label: 'Chauffeur', icon: Car },
+            { value: 'passager', label: 'Passager', icon: DriveUser },
+            { value: 'chauffeur', label: 'Chauffeur', icon: DriveCarMiniIcon },
           ] as const
         ).map((m) => {
           const isPending = loading && pendingRole === m.value;
@@ -104,7 +111,7 @@ export function ModeToggle({
                   : 'text-slate-400 hover:text-white'
               )}
             >
-              {isPending ? <Loader2 size={14} className="animate-spin" /> : <m.icon size={14} />}
+              {isPending ? <LogoLoader size={18} /> : <m.icon size={14} />}
               <span className="hidden xs:inline sm:inline">{m.label}</span>
             </button>
           );
@@ -112,7 +119,7 @@ export function ModeToggle({
       </span>
       {loading && pendingRole && (
         <span className="text-[11px] text-slate-300 font-bold px-1 inline-flex items-center gap-1">
-          <Loader2 size={11} className="animate-spin" />
+          <LogoLoader size={16} />
           Bascule vers {pendingRole === 'chauffeur' ? 'Chauffeur' : 'Passager'}…
         </span>
       )}

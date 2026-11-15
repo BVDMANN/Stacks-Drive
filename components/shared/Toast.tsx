@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, CheckCircle2, Handshake, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
+import { DriveBell, DriveCheckBadge, DriveGift, DriveX } from '@/components/icons/DriveUi';
 import { cn } from '@/lib/utils';
 
 /** Notifications pop-up (toasts) in-app — v2.12. Pas de notification
@@ -26,10 +26,10 @@ export interface ToastItem {
   actions?: ToastAction[];
 }
 
-const VARIANT_STYLES: Record<ToastVariant, { border: string; icon: string; Icon: typeof Bell }> = {
-  offer: { border: 'border-corail/60', icon: 'text-corail', Icon: Handshake },
-  info: { border: 'border-sarcelle/60', icon: 'text-sarcelle', Icon: Bell },
-  success: { border: 'border-corail/60', icon: 'text-corail', Icon: CheckCircle2 },
+const VARIANT_STYLES: Record<ToastVariant, { border: string; icon: string; Icon: ComponentType<{ size?: number; className?: string }> }> = {
+  offer: { border: 'border-corail/60', icon: 'text-corail', Icon: DriveGift },
+  info: { border: 'border-sarcelle/60', icon: 'text-sarcelle', Icon: DriveBell },
+  success: { border: 'border-corail/60', icon: 'text-corail', Icon: DriveCheckBadge },
 };
 
 /** Pile de toasts : un seul composant partagé par le passager
@@ -96,7 +96,7 @@ export function ToastStack({
                 aria-label="Fermer la notification"
                 className="shrink-0 text-slate-400 hover:text-white transition-colors"
               >
-                <X size={16} />
+                <DriveX size={16} />
               </button>
             </div>
           </div>

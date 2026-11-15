@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Flame, TrendingUp } from 'lucide-react';
+import { DriveFlame, DriveTrendingUp } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import type { DemandZone } from '@/lib/heatmap';
 import { cn } from '@/lib/utils';
 
@@ -54,14 +55,14 @@ export function DemandHeatmap() {
   return (
     <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3">
       <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-        <Flame size={18} className="text-red-500" /> Zones demandées — 7 derniers jours
+        <DriveFlame size={18} className="text-red-500" /> Zones demandées — 7 derniers jours
       </h2>
       <p className="text-xs text-slate-500 leading-relaxed">
         Info seulement, à partir des vraies demandes : sans surge, sans prix dynamique, aucune
         promesse de gain — une zone chaude ne garantit pas de course.
       </p>
       {!loaded ? (
-        <p className="text-sm text-slate-500">Chargement des zones…</p>
+        <LogoLoader size={32} label="Chargement des zones…" />
       ) : zones.length === 0 ? (
         <p className="text-sm text-slate-500">
           Pas encore assez de demandes cette semaine pour classer les zones
@@ -73,7 +74,7 @@ export function DemandHeatmap() {
             <li key={z.neighborhood} className="space-y-1">
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <TrendingUp size={14} className="text-stacks-green shrink-0" />
+                  <DriveTrendingUp size={14} className="text-stacks-green shrink-0" />
                   {z.neighborhood}
                 </span>
                 <span className="text-slate-500">

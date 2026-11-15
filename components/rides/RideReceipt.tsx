@@ -1,6 +1,6 @@
 'use client';
 
-import { Printer, ReceiptText } from 'lucide-react';
+import { DrivePrinter, DriveReceipt } from '@/components/icons/DriveUi';
 import type { RideReceipt } from '@/lib/receipt';
 
 /** Reçu détaillé après chaque course (v2.23, plancher P0a) : prix,
@@ -33,14 +33,14 @@ export function RideReceiptCard({ receipt }: { receipt: RideReceipt }) {
     <div className="space-y-3 print-receipt">
       <div className="flex items-start justify-between gap-3 print:hidden">
         <h2 className="font-black text-slate-900 flex items-center gap-1.5">
-          <ReceiptText size={18} className="text-stacks-green" /> Reçu de la course
+          <DriveReceipt size={18} className="text-stacks-green" /> Reçu de la course
         </h2>
         <button
           type="button"
           onClick={() => window.print()}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black bg-stacks-navy text-white hover:bg-slate-800 active:scale-95 transition-all shrink-0"
         >
-          <Printer size={14} /> Imprimer / Exporter le reçu
+          <DrivePrinter size={14} /> Imprimer / Exporter le reçu
         </button>
       </div>
       <h2 className="hidden print:block font-black text-slate-900 text-lg">

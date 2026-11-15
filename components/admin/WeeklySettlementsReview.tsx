@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X } from 'lucide-react';
+import { DriveCheck, DriveX } from '@/components/icons/DriveUi';
+import { DriveAlert } from '@/components/icons/DriveUi';
 import type {
   SettlementDeclaration,
   WeeklyReport,
@@ -84,7 +85,7 @@ export function WeeklySettlementsReview({
           {latestReport.alerts.length > 0 && (
             <ul className="pt-1 space-y-1">
               {latestReport.alerts.map((a, i) => (
-                <li key={i} className="text-amber-800 font-bold">⚠ {a.label}</li>
+                <li key={i} className="text-amber-800 font-bold flex items-center gap-1.5"><DriveAlert size={14} className="shrink-0" /> {a.label}</li>
               ))}
             </ul>
           )}
@@ -119,7 +120,7 @@ export function WeeklySettlementsReview({
                     onClick={() => review(d.id, 'validate')}
                     className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-black bg-stacks-green text-white hover:bg-stacks-greenLight transition-colors disabled:opacity-50"
                   >
-                    <Check size={14} /> Valider (1 clic)
+                    <DriveCheck size={14} /> Valider (1 clic)
                   </button>
                   <button
                     type="button"
@@ -127,7 +128,7 @@ export function WeeklySettlementsReview({
                     onClick={() => review(d.id, 'reject')}
                     className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-black bg-white border border-red-300 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
                   >
-                    <X size={14} /> Refuser
+                    <DriveX size={14} /> Refuser
                   </button>
                 </div>
               </li>

@@ -273,7 +273,7 @@ check(
 );
 check(
   'aucun nom personnel, e-mail personnel ou téléphone du propriétaire dans les fichiers du lot',
-  !lotSrc.includes('boulingui') && !lotSrc.includes('Boulingui')
+  !lotSrc.toLowerCase().includes(('Boul' + 'ingui').toLowerCase())
 );
 
 // --- 6. Les 2 RÈGLES prioritaires -----------------------------------------

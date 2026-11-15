@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MessageSquareWarning } from 'lucide-react';
+import { DriveAlert } from '@/components/icons/DriveUi';
 import { cn } from '@/lib/utils';
 import {
   DISPUTE_REASON_LABELS,
@@ -279,7 +279,7 @@ export function DisputeForm({ rideId, myRole, rideStatus }: DisputeFormProps) {
               disabled={busy}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-stacks-navy text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
             >
-              <MessageSquareWarning size={15} />
+              <DriveAlert size={15} />
               {busy ? 'Envoi…' : 'Transmettre le litige'}
             </button>
             <button
@@ -377,7 +377,7 @@ export function DisputeForm({ rideId, myRole, rideStatus }: DisputeFormProps) {
             disabled={busy || !topic}
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-stacks-navy text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
           >
-            <MessageSquareWarning size={15} />
+            <DriveAlert size={15} />
             {busy ? 'Envoi…' : 'Envoyer'}
           </button>
           <p className="text-xs text-slate-400">

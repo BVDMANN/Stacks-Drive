@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Car } from 'lucide-react';
+import { DriveSMark } from '@/components/icons/DriveLogo';
+import { DriveLogout } from '@/components/icons/DriveUi';
 import type { ProfileRole } from '@/lib/supabase/server';
 import { ModeToggle } from './ModeToggle';
 
@@ -21,8 +22,10 @@ export function Header({ user }: { user: HeaderUser | null }) {
     <header className="glass-dark sticky top-0 z-40">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3">
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <span className="w-9 h-9 rounded-xl bg-rose-500 flex items-center justify-center text-night-900 shadow-md shadow-rose-500/40">
-            <Car size={20} />
+          {/* v2.52 — le S du logo officiel, dans un carré de verre à
+              liseré violet (écho de la bordure du logo). */}
+          <span className="w-9 h-9 shrink-0 rounded-xl bg-white/5 border border-brand-500/50 flex items-center justify-center shadow-[0_2px_12px_rgba(163,52,245,0.45)]">
+            <DriveSMark size={24} />
           </span>
           <span className="leading-none">
             <span className="block text-base font-black text-white tracking-tight">
@@ -62,13 +65,13 @@ export function Header({ user }: { user: HeaderUser | null }) {
                 className="text-sm font-bold text-slate-400 hover:text-red-400 px-2 py-2"
                 aria-label="Déconnexion"
               >
-                ✕
+                <DriveLogout size={18} />
               </a>
             </>
           ) : (
             <Link
               href="/connexion"
-              className="text-sm font-black text-night-900 bg-rose-500 px-4 py-2 rounded-full shadow-md shadow-rose-500/40 hover:bg-rose-300 active:scale-95 transition-all"
+              className="text-sm font-black text-white bg-brand-500 px-4 py-2 rounded-full shadow-md shadow-brand-500/40 hover:bg-brand-400 active:scale-95 transition-all"
             >
               Connexion
             </Link>

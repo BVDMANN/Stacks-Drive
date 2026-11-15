@@ -1,4 +1,4 @@
-import { Wallet } from 'lucide-react';
+import { DriveWallet } from '@/components/icons/DriveUi';
 
 /** Écran « À payer » à l'arrivée (v2.23, plancher P0a) : le montant
  *  exact, figé à l'acceptation — zéro négociation au moment de payer.
@@ -19,7 +19,7 @@ export function AmountToPay({
       role="status"
     >
       <p className="font-black text-lg flex items-center gap-2">
-        <Wallet size={20} className="text-corail" />
+        <DriveWallet size={20} className="text-corail" />
         {forDriver ? 'À encaisser' : 'À payer'}
       </p>
       <p className="font-black text-4xl sm:text-5xl text-corail tracking-tight">{amountLabel}</p>

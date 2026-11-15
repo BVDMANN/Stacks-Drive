@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CircleAlert, Mic, ShieldCheck } from 'lucide-react';
+import { DriveAlert, DriveMic, DriveShield } from '@/components/icons/DriveUi';
 import { tripAudioRecorder } from '@/lib/trip-audio';
 
 /** RideCheck + audio de trajet pendant une course en cours (v2.34).
@@ -119,7 +119,7 @@ export function RideCheckPanel({
           className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-4 sm:p-5 space-y-3"
         >
           <p className="flex items-center gap-2 font-black text-amber-900">
-            <CircleAlert size={18} /> Tout va bien ?
+            <DriveAlert size={18} /> Tout va bien ?
           </p>
           <p className="text-sm text-amber-800">
             {checkin.label}
@@ -154,7 +154,7 @@ export function RideCheckPanel({
       {/* Audio du trajet : indicateur visible pendant la course. */}
       <div className="bg-white border border-slate-200 rounded-3xl p-4 space-y-2">
         <p className="flex items-center gap-2 text-sm font-black text-slate-900">
-          <Mic size={16} className={audioState === 'recording' ? 'text-red-500' : 'text-slate-400'} />
+          <DriveMic size={16} className={audioState === 'recording' ? 'text-red-500' : 'text-slate-400'} />
           Audio du trajet
           {audioState === 'recording' && (
             <span className="text-xs font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700">
@@ -186,7 +186,7 @@ export function RideCheckPanel({
         )}
         {audioError && <p className="text-xs font-bold text-red-600">{audioError}</p>}
         <p className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-          <ShieldCheck size={13} /> Sécurité du trajet active — vérifications automatiques pendant la course.
+          <DriveShield size={13} /> Sécurité du trajet active — vérifications automatiques pendant la course.
         </p>
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, BadgeCheck, RotateCcw, XCircle } from 'lucide-react';
+import { DriveAlert, DriveCheckBadge, DriveRefresh, DriveXCircle } from '@/components/icons/DriveUi';
 import { timeAgo } from '@/lib/dates';
 import { URGENCY_LABELS, type TicketUrgency } from '@/lib/verification';
 import { ticketCheckLines, type VerificationTicket } from '@/lib/tickets';
@@ -205,7 +205,7 @@ export function VerificationTickets({
                   <ul className="space-y-1">
                     {ticketCheckLines(t).map((line, i) => (
                       <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
-                        <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                        <DriveAlert size={15} className="text-amber-600 shrink-0 mt-0.5" />
                         {line}
                       </li>
                     ))}
@@ -297,7 +297,7 @@ export function VerificationTickets({
                           onClick={() => decide(t.id, 'verifie')}
                           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-stacks-green text-white shadow-md hover:bg-stacks-greenLight transition-colors disabled:opacity-50"
                         >
-                          <BadgeCheck size={16} /> Approuver — chauffeur vérifié
+                          <DriveCheckBadge size={16} /> Approuver — chauffeur vérifié
                         </button>
                         <button
                           type="button"
@@ -309,7 +309,7 @@ export function VerificationTickets({
                           }}
                           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-50"
                         >
-                          <RotateCcw size={16} /> Demander de refaire
+                          <DriveRefresh size={16} /> Demander de refaire
                         </button>
                         <button
                           type="button"
@@ -321,7 +321,7 @@ export function VerificationTickets({
                           }}
                           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-black bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                         >
-                          <XCircle size={16} /> Refuser
+                          <DriveXCircle size={16} /> Refuser
                         </button>
                       </div>
                     )}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { MapDriver, MapPoint, RouteGeometryPoint, TrafficMapMarker } from '@/components/map/LibrevilleMap';
+import { LogoLoader } from '@/components/icons/DriveLogo';
 import { fetchRoadRouteViaApi, type RoadRoute } from '@/lib/routing';
 import type { TrafficReport } from '@/lib/traffic';
 
@@ -11,8 +12,8 @@ const LibrevilleMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-full w-full bg-slate-200 animate-pulse flex items-center justify-center">
-        <p className="text-sm font-bold text-slate-500">Chargement de la carte…</p>
+      <div className="h-full w-full bg-night-950 flex items-center justify-center">
+        <LogoLoader size={64} label="Chargement de la carte…" />
       </div>
     ),
   }

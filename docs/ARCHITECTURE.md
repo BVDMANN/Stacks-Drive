@@ -30,7 +30,7 @@
 flowchart TB
     subgraph Client["Navigateur — Next.js (App Router, React 19)"]
         UI["Pages + composants<br/>accueil, tableau de bord chauffeur,<br/>suivi de course, /admin, /compte"]
-        MAP["Carte Leaflet vanilla<br/>tuiles CARTO dark_all (Plan) / Esri (Satellite), clé CARTO gratuite"]
+        MAP["Carte Leaflet vanilla<br/>tuiles CARTO dark_all, clé CARTO gratuite"]
         RT["Supabase Realtime<br/>(canaux postgres_changes)"]
         POLL["Sondage HTTP (repli)<br/>5–15 s rapide, 30–60 s lent"]
     end
@@ -104,8 +104,8 @@ plupart des décisions ci-dessous.
 |---|---|---|---|
 | Framework | Next.js 16.2.6, App Router, React 19.2.6, TypeScript 5 | Un seul dépôt pour le front et le back (routes API) : pas de serveur séparé à opérer, déploiement Vercel en un push, SSR pour les pages publiques. TypeScript strict sur tout le métier. | Serveur Express séparé — une pièce de plus à héberger et à sécuriser, sans gain pour ce volume. |
 | Base + Auth | Supabase : Postgres, Auth, Realtime (`@supabase/supabase-js` 2.119.0, `@supabase/ssr` 0.12.7), projet « stacks-drive », région Francfort | Postgres géré + Auth e-mail/mot de passe + RLS au niveau ligne + Realtime sur les mêmes tables : une seule infrastructure pour les données, l'identité et le temps réel. Région Francfort = latence la plus faible pour le Gabon parmi les régions Supabase disponibles, et cadre UE. | Firebase — RLS Postgres et les triggers SQL sont le cœur du modèle de sécurité (voir §5) ; les règles Firestore n'offrent pas l'équivalent des triggers anti-escalade. |
-| Carte | Leaflet 1.9.4 **vanilla** + tuiles CARTO dark_all (fond Plan, sombre natif, clé API gratuite `NEXT_PUBLIC_CARTO_API_KEY`) + tuiles Esri World Imagery (fond Satellite) | Leaflet est la bibliothèque de cartes la plus légère et la plus éprouvée ; **vanilla, pas react-leaflet** — react-leaflet est incompatible avec React 19 (conflit de peer dependency). Tuiles CARTO dark_all : fond sombre natif (pas de filtre CSS), avec rues, eau, parcs et noms de rues à Libreville (voir ADR 0021 — lisibilité des libellés à confirmer en live après push, et réserve sur les vérifications curl depuis la VM). Satellite Esri : réel jusqu'au zoom 18 seulement, tuile grise « pas de données » au-delà (v2.18) — plafond par mode. | MapLibre — voir ADR 0001. Google Maps — clé payante + facturation au volume, disproportionnée pour Libreville. |
-| Routage | OSRM (Open Source Routing Machine), serveur démo public `router.project-osrm.org`, sans clé, surchargeable par `OSRM_BASE_URL` | Itinéraires routiers réels (rues, virages) sans compte ni clé ; le prix n'en dépend pas (voir §4.1), donc une panne OSRM ne bloque jamais une course. | Google Maps Directions — voir ADR 0002. |
+| Carte | Leaflet 1.9.4 **vanilla** + tuiles CARTO dark_all (une seule carte, fond sombre natif, clé API gratuite `NEXT_PUBLIC_CARTO_API_KEY`) | Leaflet est la bibliothèque de cartes la plus légère et la plus éprouvée ; **vanilla, pas react-leaflet** — react-leaflet est incompatible avec React 19 (conflit de peer dependency). Tuiles CARTO dark_all : fond sombre natif (pas de filtre CSS), avec rues, eau, parcs et noms de rues à Libreville (voir ADR 0021 — lisibilité des libellés à confirmer en live après push, et réserve sur les vérifications curl depuis la VM). Une seule carte depuis la v2.50 (ADR 0026 : la bascule Plan/Satellite est retirée). | MapLibre — voir ADR 0001. Google Maps — clé payante + facturation au volume, disproportionnée pour Libreville. |
+| Routage | OSRM (Open Source Routing Machine), serveur démo public `router.project-osrm.org`, sans clé, surchargeable par `OSRM_BASE_URL` | Itinéraires routiers réels (rues, virages) sans compte ni clé ; le prix en dépend depuis la v2.50 (distance routière, ADR 0025), avec un repli explicite (vol d'oiseau + mention « estimation approximative ») quand OSRM est indisponible — une panne OSRM ne bloque donc jamais une course. | Google Maps Directions — voir ADR 0002. |
 | E-mails | Resend 6.38.1 | API simple, plan gratuit suffisant pour les volumes actuels (tickets admin, bienvenue, rapports hebdo) ; envoi via un seul point d'appel (`lib/email.ts`), jamais d'exception levée. | SendGrid / SMTP maison — plus lourd à opérer pour le même besoin. |
 | Hébergement | Vercel (projet « stacks-drive ») | Déploiement par push, crons natifs (2 crons hebdo), HTTPS et prévisualisations sans configuration. | VPS — à réserver à l'auto-hébergement OSRM (voir ADR 0002), pas à l'application. |
 | CI | GitHub Actions (`.github/workflows/ci.yml`, Node 20) | À chaque push / PR sur `main` : `npm run build` + `npm run docs:check`. Aucun secret : le build passe sans Supabase configuré. | Aucune — la CI est le minimum pour un dépôt partagé. |
@@ -205,9 +205,12 @@ estimation = max(plancher, arrondi50(prise en charge + taux/km × distance))
 | Plancher | 550 FCFA | 400 FCFA |
 | Supplément aéroport (Léon-Mba) | +800 FCFA | +300 FCFA |
 
-- **Distance = vol d'oiseau (haversine) entre les centres des deux
-  quartiers**, pas la distance routière : le prix ne dépend donc jamais
-  d'OSRM (une panne OSRM ne change aucun prix). Voir ADR 0010.
+- **Distance = distance ROUTIÈRE (OSRM) entre les points exacts du
+  trajet** (v2.50, ADR 0025 — remplace l'ADR 0010) : le prix dépend
+  d'OSRM, avec un repli explicite (vol d'oiseau + mention
+  « estimation approximative ») quand OSRM est indisponible — jamais
+  de prix inventé. L'ancre Centre-ville ↔ Nzeng-Ayong (Solo 1 500 /
+  Groupe 950 FCFA) est une valeur fixe, pas un calcul.
 - **Moto = Solo × 0,6**, plancher 550 FCFA appliqué après la remise ;
   la moto n'existe qu'en Solo (1 place).
 - **Route non bitumée : +800 FCFA forfaitaire**, ajouté après tout le
@@ -605,7 +608,7 @@ sequenceDiagram
 - **Vérifications locales :** scripts `scripts/verify-*.mjs` (quartiers,
   lots, tutos, règles) — Playwright pour les contrôles visuels.
 - **Coûts :** plans gratuits (Vercel, Supabase, Resend, GitHub Actions,
-  OSRM démo, tuiles CARTO (forfait gratuit, clé `NEXT_PUBLIC_CARTO_API_KEY`) / Esri) — voir `SETUP.md` § « Coûts ».
+  OSRM démo, tuiles CARTO (forfait gratuit, clé `NEXT_PUBLIC_CARTO_API_KEY`)) — voir `SETUP.md` § « Coûts ».
 
 ---
 

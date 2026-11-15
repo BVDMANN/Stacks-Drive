@@ -1,3 +1,4 @@
+import { DriveChevronLeft } from '@/components/icons/DriveUi';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { PageShell } from '@/components/shared/PageShell';
@@ -68,7 +69,7 @@ export default async function TableauDeBordPage() {
             href="/"
             className="inline-flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-stacks-navy font-bold rounded-full hover:border-stacks-green/40 transition-colors"
           >
-            ← Voir la carte
+            <DriveChevronLeft size={16} /> Voir la carte
           </Link>
         </div>
       }

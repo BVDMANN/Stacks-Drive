@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Car, MapPin, Navigation, Users, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { DriveNavigation, DrivePin, DriveUsers, DriveX } from '@/components/icons/DriveUi';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import { POI_CATEGORY_COLORS, POI_CATEGORY_LABELS, type Poi } from '@/lib/pois';
-import { estimateFareForDistance } from '@/lib/pricing';
+import { NEIGHBORHOOD_COORDS, type Neighborhood } from '@/lib/neighborhoods';
 import { haversineKm } from '@/lib/geo';
+import { estimateDurationMin, fetchEstimateViaApi, type EstimateApiResponse } from '@/lib/routing';
 import { formatFcfa } from '@/lib/commission';
 
 export type PoiOriginKind = 'user' | 'pickup' | 'center';
@@ -22,7 +24,10 @@ export interface PoiOrigin {
  *  départ, ou le centre de Libreville), estimation indicative Solo +
  *  Groupe pour y aller, bouton « Y aller ». Estimation indicative
  *  uniquement : jamais un prix fixe, le prix final se négocie entre
- *  le passager et le chauffeur et est figé à l'acceptation. */
+ *  le passager et le chauffeur et est figé à l'acceptation.
+ *  v2.50 : l'estimation vient du SERVEUR (`POST /api/estimate`,
+ *  distance routière OSRM) — le client ne calcule plus de prix.
+ *  Repli OSRM indisponible : estimation marquée approximative. */
 export function PoiInfoCard({
   poi,
   origin,
@@ -34,19 +39,48 @@ export function PoiInfoCard({
   onClose: () => void;
   onGoTo: (poi: Poi) => void;
 }) {
-  const info = useMemo(() => {
-    const distanceKm = haversineKm(origin.lat, origin.lng, poi.lat, poi.lng);
-    // Supplément aéroport : comme pour une course, il s'applique quand
-    // le départ ou le lieu est l'aéroport.
-    const isAirport =
-      origin.label === 'Aéroport Léon-Mba' || poi.neighborhood === 'Aéroport Léon-Mba';
-    const solo = estimateFareForDistance(distanceKm, 'solo', 'tous', { isAirport });
-    const groupe = estimateFareForDistance(distanceKm, 'groupe', 'tous', { isAirport });
-    return { distanceKm, durationMin: solo.durationMin, solo: solo.price, groupe: groupe.price };
-  }, [poi, origin]);
+  // Quartier de départ : le libellé de l'origine, ou Centre-ville
+  // si ce n'est pas un quartier connu (il détermine le supplément
+  // aéroport et l'ancre, comme pour une course).
+  const originNeighborhood: Neighborhood =
+    origin.label in NEIGHBORHOOD_COORDS ? (origin.label as Neighborhood) : 'Centre-ville';
+  const [serverEstimate, setServerEstimate] = useState<EstimateApiResponse | null>(null);
+  const [estimating, setEstimating] = useState(false);
+  useEffect(() => {
+    setEstimating(true);
+    const controller = new AbortController();
+    const t = window.setTimeout(() => {
+      fetchEstimateViaApi(
+        {
+          fromLat: origin.lat,
+          fromLng: origin.lng,
+          toLat: poi.lat,
+          toLng: poi.lng,
+          fromNeighborhood: originNeighborhood,
+          toNeighborhood: poi.neighborhood,
+        },
+        controller.signal
+      ).then((res) => {
+        if (controller.signal.aborted) return;
+        setEstimating(false);
+        if (res) setServerEstimate(res);
+      });
+    }, 300);
+    return () => {
+      controller.abort();
+      window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poi, origin.lat, origin.lng, origin.label]);
 
+  // Distance affichée : routière quand le serveur a répondu, sinon
+  // vol d'oiseau en attendant (affichage seulement — le prix, lui,
+  // n'existe que quand le serveur a répondu).
+  const straightKm = haversineKm(origin.lat, origin.lng, poi.lat, poi.lng);
+  const distanceKm = serverEstimate?.route.distanceKm ?? straightKm;
+  const durationMin = serverEstimate?.route.durationMin ?? estimateDurationMin(straightKm);
   const color = POI_CATEGORY_COLORS[poi.category];
-  const kmFr = info.distanceKm.toFixed(1).replace('.', ',');
+  const kmFr = distanceKm.toFixed(1).replace('.', ',');
   const distanceLabel =
     origin.kind === 'user'
       ? `à ${kmFr} km de toi`
@@ -75,7 +109,11 @@ export function PoiInfoCard({
             </p>
             <h2 className="text-lg font-black text-white leading-tight mt-0.5">{poi.name}</h2>
             <p className="text-xs font-bold text-slate-400 flex items-center gap-1 mt-0.5">
-              <MapPin size={12} className="shrink-0" /> près de {poi.neighborhood}
+              <DrivePin size={12} className="shrink-0" /> près de {poi.neighborhood}
+              {/* v2.51 — rue connue (épiceries OSM) : deux lieux au
+                  même nom ne se confondent jamais — la rue distingue
+                  la fiche, comme dans les résultats de recherche. */}
+              {poi.detail ? ` · ${poi.detail}` : ''}
             </p>
           </div>
           <button
@@ -84,41 +122,65 @@ export function PoiInfoCard({
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-night-800/90 border border-white/15 text-slate-300 hover:border-sarcelle/60 active:scale-90 transition-all"
             aria-label="Fermer la carte du lieu"
           >
-            <X size={16} />
+            <DriveX size={16} />
           </button>
         </div>
 
         <p className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
-          <Navigation size={15} className="text-sarcelle shrink-0" />
-          {distanceLabel} · ~{info.durationMin} min de trajet
+          <DriveNavigation size={15} className="text-sarcelle shrink-0" />
+          {distanceLabel} · ~{durationMin} min de trajet
         </p>
 
         <div className="space-y-1.5">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
             Estimation indicative pour y aller
           </p>
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <p className="flex items-center gap-1.5 font-black text-white text-sm">
-                <Users size={15} className="text-sarcelle" /> Groupe
-              </p>
-              <p className="font-black text-lg text-white leading-tight mt-1">
-                {formatFcfa(info.groupe)}
-                <span className="text-xs font-bold text-slate-400"> / passager</span>
-              </p>
-              <p className="text-[11px] font-bold text-slate-400">1 place, prix par passager</p>
+          {estimating && !serverEstimate ? (
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="h-5 w-16 bg-white/10 rounded-full animate-pulse" />
+                <div className="h-6 w-20 bg-white/10 rounded-full animate-pulse mt-2" />
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="h-5 w-16 bg-white/10 rounded-full animate-pulse" />
+                <div className="h-6 w-20 bg-white/10 rounded-full animate-pulse mt-2" />
+              </div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <p className="flex items-center gap-1.5 font-black text-white text-sm">
-                <Car size={15} className="text-corail" /> Solo
-              </p>
-              <p className="font-black text-lg text-white leading-tight mt-1">
-                {formatFcfa(info.solo)}
-                <span className="text-xs font-bold text-slate-400"> la course</span>
-              </p>
-              <p className="text-[11px] font-bold text-slate-400">véhicule entier</p>
-            </div>
-          </div>
+          ) : serverEstimate ? (
+            <>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <p className="flex items-center gap-1.5 font-black text-white text-sm">
+                    <DriveUsers size={15} className="text-sarcelle" /> Groupe
+                  </p>
+                  <p className="font-black text-lg text-white leading-tight mt-1">
+                    {formatFcfa(serverEstimate.groupe.price)}
+                    <span className="text-xs font-bold text-slate-400"> / passager</span>
+                  </p>
+                  <p className="text-[11px] font-bold text-slate-400">1 place, prix par passager</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <p className="flex items-center gap-1.5 font-black text-white text-sm">
+                    <DriveCarMini variant="sedan" size={15} tone="light" /> Solo
+                  </p>
+                  <p className="font-black text-lg text-white leading-tight mt-1">
+                    {formatFcfa(serverEstimate.solo.price)}
+                    <span className="text-xs font-bold text-slate-400"> la course</span>
+                  </p>
+                  <p className="text-[11px] font-bold text-slate-400">véhicule entier</p>
+                </div>
+              </div>
+              {serverEstimate.approximate && (
+                <p className="text-[11px] font-bold text-sunset">
+                  Estimation approximative — itinéraire routier indisponible pour le moment.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm font-bold text-slate-300">
+              Estimation indisponible pour le moment.
+            </p>
+          )}
           <p className="text-[11px] text-slate-500 leading-snug">
             Ce n’est pas le prix de la course : les chauffeurs proposent leur prix, tu choisis
             — le prix accepté est figé, jamais de surge.

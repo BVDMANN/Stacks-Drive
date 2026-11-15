@@ -1,4 +1,4 @@
-/** Itinéraire routier (v2.27, lot E — phase 1).
+/** Itinéraire routier (v2.27, lot E — phase 1 ; prix routier v2.50).
  *
  *  La carte traçait jusqu'ici une ligne droite entre le départ et la
  *  destination. On passe par OSRM (Open Source Routing Machine) pour
@@ -16,10 +16,16 @@
  *  lancement (décision différée, pas dans ce lot).
  *
  *  Règles :
- *  - L'ESTIMATION DE PRIX NE CHANGE PAS : le modèle au km actuel
+ *  - L'ESTIMATION DE PRIX EST ROUTIÈRE DEPUIS LA v2.50 (ADR 0025,
+ *    décision du propriétaire du 15/11) : le modèle au km
  *    (Solo 500 + 210/km, Groupe 300 + 135/km — `lib/pricing.ts`)
- *    reste calculé sur la distance à vol d'oiseau. Seules la durée
- *    et la distance AFFICHÉES deviennent routières.
+ *    s'applique à la distance OSRM entre les points exacts. Le
+ *    repli quand OSRM est indisponible, c'est le vol d'oiseau +
+ *    mention « estimation approximative » — jamais de prix inventé.
+ *  - Espacement OSRM centralisé ici : `fetchRoadRoute` espace
+ *    TOUTES les requêtes (1,1 s) — les routes API n'ont plus à le
+ *    faire. Côté serveur, l'espacement est donc respecté même si
+ *    plusieurs routes API appellent en parallèle.
  *  - Repli ligne droite : si OSRM est indisponible (ou trop lent),
  *    on revient à l'ancien comportement (ligne droite + durée
  *    estimée à 25 km/h) — jamais d'erreur visible pour l'utilisateur.
@@ -187,7 +193,18 @@ function thinGeometry(points: RoutePoint[]): RoutePoint[] {
 /** Appel direct à OSRM (côté serveur uniquement — la route API
  *  `/api/route` est le point d'entrée public). En cas d'échec
  *  quelconque (réseau, HTTP ≠ 200, réponse inattendue), repli ligne
- *  droite — jamais d'exception propagée. */
+ *  droite — jamais d'exception propagée. L'espacement OSRM (1,1 s)
+ *  est centralisé ici : deux appels rapprochés attendent leur tour,
+ *  quelle que soit la route API qui les déclenche. */
+let lastOsrmCallAt = 0;
+
+async function waitOsrmSlot(): Promise<void> {
+  const now = Date.now();
+  const wait = OSRM_MIN_INTERVAL_MS - (now - lastOsrmCallAt);
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastOsrmCallAt = Date.now();
+}
+
 export async function fetchRoadRoute(
   from: RoutePoint,
   to: RoutePoint,
@@ -199,6 +216,7 @@ export async function fetchRoadRoute(
     ''
   );
   try {
+    await waitOsrmSlot();
     const url =
       `${baseUrl}/route/v1/driving/` +
       `${from.lng},${from.lat};${to.lng},${to.lat}` +
@@ -263,6 +281,69 @@ export async function fetchRoadRouteViaApi(
     const data = (await res.json()) as { ok?: boolean; route?: RoadRoute };
     if (!data?.ok || !data.route || !Array.isArray(data.route.geometry)) return null;
     return data.route;
+  } catch {
+    return null;
+  }
+}
+
+/** Paramètres de l'estimation côté client (v2.50). Les quartiers
+ *  déterminent le supplément aéroport et l'ancre Centre-ville ↔
+ *  Nzeng-Ayong ; les coordonnées exactes déterminent la distance
+ *  routière. `unpavedRoad` = le passager a coché « route non
+ *  bitumée » (v2.6). */
+export interface EstimateRequest {
+  fromLat: number;
+  fromLng: number;
+  toLat: number;
+  toLng: number;
+  fromNeighborhood: string;
+  toNeighborhood: string;
+  unpavedRoad?: boolean;
+  vehiclePreference?: 'voiture' | 'moto' | 'tous';
+}
+
+/** Réponse de `/api/estimate` (v2.50) : les deux estimations (Solo /
+ *  Groupe) calculées CÔTÉ SERVEUR sur la distance routière OSRM,
+ *  avec la géométrie de la route pour l'afficher sur la carte.
+ *  `approximate: true` = OSRM indisponible, repli vol d'oiseau —
+ *  l'interface l'affiche (« Estimation approximative »). */
+export interface EstimateApiResponse {
+  ok: boolean;
+  solo: import('./pricing').FareEstimate;
+  groupe: import('./pricing').FareEstimate;
+  route: RoadRoute;
+  approximate: boolean;
+}
+
+/** Appel côté client via la route API `/api/estimate` (v2.50) : le
+ *  client ne calcule PLUS jamais un prix seul — il envoie les deux
+ *  points et les deux quartiers, et affiche ce que le serveur
+ *  renvoie. Retourne `null` si la route API est injoignable :
+ *  l'appelant garde alors sa dernière estimation affichée (ou
+ *  aucune) — jamais de prix calculé localement. */
+export async function fetchEstimateViaApi(
+  req: EstimateRequest,
+  signal?: AbortSignal
+): Promise<EstimateApiResponse | null> {
+  try {
+    const res = await fetch('/api/estimate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+      signal,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as EstimateApiResponse;
+    if (
+      !data?.ok ||
+      typeof data.solo?.price !== 'number' ||
+      typeof data.groupe?.price !== 'number' ||
+      !data.route ||
+      !Array.isArray(data.route.geometry)
+    ) {
+      return null;
+    }
+    return data;
   } catch {
     return null;
   }

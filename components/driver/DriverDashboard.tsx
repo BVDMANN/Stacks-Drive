@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Car, Clock, Flame, Loader2, MapPin, Phone, ShieldAlert, Users, Wallet } from 'lucide-react';
+import { DriveCheck, DriveClock, DriveFlame, DriveShieldAlert, DriveWallet } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import type { SessionProfile } from '@/lib/supabase/server';
 import type { PassengerRating, Ride, RideProposal } from '@/types';
 import { RequestPopup } from './RequestPopup';
@@ -424,7 +426,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
       {/* Vérification */}
       {!verified && (
         <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-wrap items-start gap-4">
-          <ShieldAlert size={24} className="text-amber-700 shrink-0 mt-0.5" />
+          <DriveShieldAlert size={24} className="text-amber-700 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-[220px]">
             <p className="font-black text-amber-800 flex flex-wrap items-center gap-2">
               Vérification obligatoire <VerificationStatusBadge status={verificationStatus} />
@@ -481,7 +483,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             — plus de toggle juste grisé sans explication. */}
         {saving && (
           <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-            <Loader2 size={13} className="animate-spin" /> Mise à jour…
+            <LogoLoader size={16} /> Mise à jour…
           </p>
         )}
         {/* Places libres + statut (v2.19) : le statut décide quelles
@@ -527,7 +529,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
         </label>
         {profile.vehicle_brand || profile.plate ? (
           <p className="text-sm text-slate-500 flex items-center gap-1.5">
-            <Car size={15} className="text-slate-400" />
+            <DriveCarMini variant="sedan" size={15} tone="dark" />
             {[profile.vehicle_brand, profile.vehicle_model, profile.vehicle_color].filter(Boolean).join(' ')}
             {profile.plate ? ` · ${profile.plate}` : ''} ·{' '}
             <Link href="/compte" className="text-stacks-green font-bold hover:underline">
@@ -608,11 +610,11 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             return (
               <p className="text-sm text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="inline-flex items-center gap-1">
-                  <Clock size={14} /> ~{est.durationMin} min
+                  <DriveClock size={14} /> ~{est.durationMin} min
                 </span>
                 <span>· ~{Math.max(1, Math.round(est.distanceKm))} km</span>
                 <span className="inline-flex items-center gap-1">
-                  <Wallet size={14} /> {PAYMENT_LABELS[activeRide.paymentMethod]}
+                  <DriveWallet size={14} /> {PAYMENT_LABELS[activeRide.paymentMethod]}
                 </span>
               </p>
             );
@@ -736,7 +738,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
                           ? `En attente · ${secondsLeft} s`
                           : 'Expirée'
                         : p.status === 'accepted'
-                          ? 'Acceptée ✓'
+                          ? (<>Acceptée <DriveCheck size={12} className="inline-block" /></>)
                           : p.status === 'declined'
                             ? 'Refusée'
                             : 'Expirée'}
@@ -918,7 +920,7 @@ export function DriverDashboard({ profile }: { profile: SessionProfile }) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="font-black text-lg flex items-center gap-2">
-              <Flame size={20} className="text-rose-300" />
+              <DriveFlame size={20} className="text-rose-300" />
               Plus que {offlineConfirm.remaining} course{offlineConfirm.remaining > 1 ? 's' : ''} pour ton bonus !
             </p>
             <p className="text-sm text-slate-300">

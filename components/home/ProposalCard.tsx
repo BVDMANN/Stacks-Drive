@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { BadgeCheck, Car, Clock, Loader2, MapPin, Star, Users } from 'lucide-react';
+import { DriveCheckBadge, DriveClock, DrivePin, DriveStar, DriveUsers } from '@/components/icons/DriveUi';
+import { LogoLoader } from '@/components/icons/DriveLogo';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 import type { RideProposal } from '@/types';
 import { formatFcfa } from '@/lib/commission';
 import { roundAcceptedPrice } from '@/lib/price-rounding';
@@ -146,17 +148,17 @@ export function ProposalCard({
               <span className="truncate">{driverDisplayName}</span>
               {driver?.isVerified && (
                 <span className="inline-flex items-center gap-0.5 text-xs font-black text-sarcelle shrink-0">
-                  <BadgeCheck size={14} /> Vérifié
+                  <DriveCheckBadge size={14} /> Vérifié
                 </span>
               )}
             </p>
             <p className="text-xs text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="inline-flex items-center gap-1">
-                <Star size={12} className="text-corail fill-corail" />
+                <DriveStar size={12} className="text-corail fill-corail" />
                 {driver?.rating ? driver.rating.toFixed(1) : 'Nouveau'} · {driver?.trips ?? 0} courses
               </span>
               <span className="inline-flex items-center gap-1">
-                <Car size={12} /> {driver?.vehicleLabel ?? ''} {driver?.plate ? `· ${driver.plate}` : ''}
+                <DriveCarMini variant="sedan" size={12} tone="light" /> {driver?.vehicleLabel ?? ''} {driver?.plate ? `· ${driver.plate}` : ''}
               </span>
             </p>
           </div>
@@ -168,7 +170,7 @@ export function ProposalCard({
           )}
           aria-label={`Expire dans ${secondsLeft} secondes`}
         >
-          <Clock size={13} /> {secondsLeft} s
+          <DriveClock size={13} /> {secondsLeft} s
         </span>
       </div>
 
@@ -193,23 +195,23 @@ export function ProposalCard({
           <p className="inline-flex items-center gap-1">
             {rideType === 'solo' ? (
               <>
-                <Car size={13} /> Véhicule entier
+                <DriveCarMini variant="sedan" size={13} tone="light" /> Véhicule entier
               </>
             ) : (
               <>
-                <Users size={13} /> {proposal.seatsLeft} place{proposal.seatsLeft > 1 ? 's' : ''} restante{proposal.seatsLeft > 1 ? 's' : ''}
+                <DriveUsers size={13} /> {proposal.seatsLeft} place{proposal.seatsLeft > 1 ? 's' : ''} restante{proposal.seatsLeft > 1 ? 's' : ''}
               </>
             )}
           </p>
           <p className="inline-flex items-center gap-1">
-            <MapPin size={13} /> 1er arrêt : {proposal.firstStop}
+            <DrivePin size={13} /> 1er arrêt : {proposal.firstStop}
           </p>
           {/* Route non bitumée (v2.6) : le chauffeur dit clairement s'il
               prend la piste jusqu'à la destination ou s'il s'arrête au
               point de dépôt (supplément retiré). */}
           {dropOffPoint && (
             <p className="inline-flex items-center gap-1 text-corail">
-              <MapPin size={13} />
+              <DrivePin size={13} />
               {proposal.unpavedAccepted
                 ? `Route non bitumée acceptée jusqu’à ${destinationLabel ?? 'la destination'}`
                 : `S’arrête au point de dépôt : ${dropOffPoint}`}
@@ -304,7 +306,7 @@ export function ProposalCard({
         >
           {/* Règle 1 (v2.17) : l'acceptation d'un prix attend le serveur
               — le bouton le montre, il n'est pas juste grisé. */}
-          {busy && <Loader2 size={16} className="animate-spin" />}
+          {busy && <LogoLoader size={18} />}
           {busy ? 'Acceptation…' : 'Accepter'}
         </button>
         <button

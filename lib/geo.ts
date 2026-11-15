@@ -3,12 +3,15 @@ import { NEIGHBORHOOD_COORDS, type Neighborhood } from './neighborhoods';
 /** Distance orthodromique (haversine) entre deux points GPS, en kilomètres.
  *  Suffisant pour estimer les trajets à l'échelle de Libreville.
  *
- *  Pourquoi haversine et pas la distance routière : à l'échelle d'une
- *  ville, l'erreur reste petite devant le pas d'arrondi (50 FCFA) et
- *  la distance ne dépend d'aucun service externe — c'est elle qui
- *  porte le prix (ADR 0010). La distance routière (OSRM) sert à
- *  l'affichage et au guidage uniquement. Ne jamais remplacer cet appel
- *  par OSRM dans le calcul d'un prix. */
+ *  Rôle depuis la v2.50 (ADR 0025, qui REMPLACE l'ADR 0010) : la
+ *  distance à vol d'oiseau ne porte PLUS le prix — le prix est
+ *  calculé sur la distance routière OSRM (`lib/estimate-server.ts`).
+ *  Haversine sert encore à : (1) le REPLI quand OSRM est
+ *  indisponible (estimation alors marquée « approximative », jamais
+ *  silencieuse) ; (2) les distances d'affichage sans prix (quartier
+ *  le plus proche, périmètre « chauffeurs autour de toi », ETA
+ *  chauffeur) ; (3) le miroir de `scripts/sync-docs.mjs` quand
+ *  aucune mesure routière n'existe pour un trajet de référence. */
 export function haversineKm(
   lat1: number,
   lng1: number,
@@ -53,7 +56,7 @@ export const MAP_MIN_ZOOM = 12;
  *  - « Me localiser » et l'ancrage d'ouverture
  *    (`components/home/HomeScreen.tsx` : `isInServiceArea`) ;
  *  - le prochain lot (écran hors zone) la réutilisera telle quelle.
- *  Rectangle lat/lng : il couvre les 70 quartiers de
+ *  Rectangle lat/lng : il couvre les 75 quartiers de
  *  `NEIGHBORHOOD_COORDS` (lat 0,304–0,611, lng 9,322–9,674) avec
  *  ~9 km de marge de chaque côté — assez large pour une position GPS
  *  réelle aux abords d'un quartier, assez serré pour exclure le reste

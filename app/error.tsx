@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Car, RefreshCw } from 'lucide-react';
+import { DriveRefresh } from '@/components/icons/DriveUi';
+import { DriveCarMini } from '@/components/icons/DriveCar';
 
 /** Page d'erreur de marque (v2.2) : quand une section de l'appli plante,
  *  on affiche un message clair en français, look « Libreville la nuit »,
@@ -16,7 +17,7 @@ export default function Error({
   return (
     <div className="min-h-screen bg-night-950 text-slate-100 flex flex-col items-center justify-center px-4 py-12 text-center">
       <div className="w-16 h-16 rounded-2xl bg-rose-500 flex items-center justify-center text-night-900 shadow-lg shadow-rose-500/40">
-        <Car size={32} />
+        <DriveCarMini variant="sedan" size={32} tone="dark" />
       </div>
       <h1 className="font-black text-2xl sm:text-3xl mt-6 tracking-tight">
         Service momentanément indisponible
@@ -34,7 +35,7 @@ export default function Error({
           onClick={reset}
           className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-rose-500 text-night-900 font-black shadow-lg shadow-rose-500/30 hover:bg-rose-300 transition-colors"
         >
-          <RefreshCw size={16} /> Réessayer
+          <DriveRefresh size={16} /> Réessayer
         </button>
         <Link
           href="/"

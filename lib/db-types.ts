@@ -71,6 +71,17 @@ export interface RideRow {
   driver_id: string | null;
   pickup: string;
   destination: string;
+  /** v2.47 — points exacts (épingle / lieu / GPS) : coordonnées +
+   *  adresse résolue. Nulls = centre de quartier (ancien client ou
+   *  choix par liste). Colonnes ajoutées par la migration v2.47 —
+   *  optionnelles ici : le code reste résilient sans elles (le
+   *  serveur retire les champs si la base répond 42703). */
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  pickup_address?: string | null;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
+  destination_address?: string | null;
   ride_type: RideType;
   /** v2.34 — classe Confort (Solo + clim + 4,5★). */
   comfort: boolean | null;
@@ -216,6 +227,18 @@ export function mapRideRow(row: RideRow): Ride {
     driverId: row.driver_id,
     pickup: row.pickup,
     destination: row.destination,
+    pickupPoint:
+      row.pickup_lat != null && row.pickup_lng != null
+        ? { lat: row.pickup_lat, lng: row.pickup_lng, address: row.pickup_address ?? null }
+        : null,
+    destinationPoint:
+      row.destination_lat != null && row.destination_lng != null
+        ? {
+            lat: row.destination_lat,
+            lng: row.destination_lng,
+            address: row.destination_address ?? null,
+          }
+        : null,
     rideType: row.ride_type,
     comfort: row.comfort ?? false,
     preferredDriverId: row.preferred_driver_id ?? null,

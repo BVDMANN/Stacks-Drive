@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { splitFare } from '@/lib/commission';
 import { roundAcceptedPrice } from '@/lib/price-rounding';
-import { estimateTrip } from '@/lib/pricing';
+import { neighborhoodPoint } from '@/lib/estimate-server';
+import { fetchRoadRoute } from '@/lib/routing';
 import { validateAcceptedPrice, validateProposedPrice, validateSplit } from '@/lib/fare-guard';
 import { getDriverTier } from '@/lib/earnings';
 import { rollDoubleRide } from '@/lib/gamification';
@@ -246,7 +247,18 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   // Code PIN à 4 chiffres (v2.2) : le passager le donne au chauffeur
   // pour démarrer le trajet. Généré côté serveur, jamais par le client.
   const pinCode = String(Math.floor(1000 + Math.random() * 9000));
-  const trip = estimateTrip(ride.pickup, ride.destination);
+  // Distance et durée routières (v2.50, ADR 0025) : revalidées à
+  // l'acceptation sur les points exacts du trajet (épingle ou centre
+  // de quartier) — la distance stockée à la demande est remplacée par
+  // la route réelle. Repli OSRM indisponible : vol d'oiseau.
+  const trip = await fetchRoadRoute(
+    ride.pickup_lat != null && ride.pickup_lng != null
+      ? { lat: ride.pickup_lat, lng: ride.pickup_lng }
+      : neighborhoodPoint(ride.pickup),
+    ride.destination_lat != null && ride.destination_lng != null
+      ? { lat: ride.destination_lat, lng: ride.destination_lng }
+      : neighborhoodPoint(ride.destination)
+  );
 
   const { error: acceptError } = await supabase
     .from('ride_proposals')

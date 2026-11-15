@@ -24,13 +24,24 @@ const config: Config = {
         // Identité « Libreville la nuit » — palette « Nuit violette »
         // (v2.44, d'après la capture de référence du propriétaire) :
         // fond violet-nuit mesuré #191432, rose vif #FF4D8D (accent :
-        // boutons, ligne d'itinéraire, marqueurs), corail #FF5F6D
+        // prix, ligne d'itinéraire, marqueurs), corail #FF5F6D
         // (emphase, badges forts), sarcelle #2FD6C8 (secondaire, carte
         // et liens) et orange coucher de soleil #F5A623 (attention).
         // Texte blanc sur fond sombre (contraste 17,7:1) ; texte sombre
-        // #17112E sur rose #FF4D8D (5,8:1) pour les boutons.
-        // Les tuiles Plan restent l'OSM CLAIRE (v2.41) : la palette ne
-        // touche que l'interface et les surcouches de la carte.
+        // #17112E sur rose #FF4D8D (5,8:1) pour les prix.
+        // Violet de marque (v2.52, logo officiel) : #A134F5 mesuré
+        // #A139FA au centre de la barre du S — couleur de marque
+        // principale (boutons, CTA, états actifs) ; le rose reste
+        // l'accent secondaire. Les tuiles Plan restent l'OSM CLAIRE
+        // (v2.41) : la palette ne touche que l'interface et les
+        // surcouches de la carte.
+        brand: {
+          300: '#C78CFA',
+          400: '#B45CF7',
+          500: '#A134F5',
+          600: '#7E22CE',
+          700: '#6B21A8',
+        },
         night: {
           950: '#191432',
           900: '#201646',
